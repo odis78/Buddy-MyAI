@@ -76,6 +76,11 @@ final class Helpers {
             return "Your earlier sub-agents still work. Call subagents to wait for them, or subagents with stop to end them.";
         }
         final boolean screens = Background.setUp(svc);
+        int phoneTasks = 0;
+        for (String[] w : wanted) if (!w[2].isEmpty()) phoneTasks++;
+        if (!screens && phoneTasks > 1) {
+            return "Background mode is not paired, so only one phone executor can use the visible screen at a time. Delegate one phone task, wait for its report, then start the next task.";
+        }
         final String[] error = {null};
         final CountDownLatch started = new CountDownLatch(1);
         svc.runOnMain(() -> {
@@ -88,6 +93,7 @@ final class Helpers {
                 }
                 for (Sessions.Session old : of(hub, parent.id)) hub.delete(old); // their reports went back already
                 int slot = 0;
+                int foregroundPhoneUsed = 0;
                 for (String[] w : wanted) {
                     Sessions.Session h = hub.create(parent.backend, false, parent.dev);
                     h.parent = parent.id;
@@ -96,11 +102,14 @@ final class Helpers {
                     h.model = parent.model;
                     h.effort = parent.effort;
                     h.incognito = parent.incognito; // an incognito chat's sub-agents leave no trace either
-                    boolean phone = screens && !w[2].isEmpty();
-                    h.background = phone;
+                    boolean askedForPhone = !w[2].isEmpty();
+                    boolean phone = askedForPhone && (screens || foregroundPhoneUsed == 0);
+                    h.background = phone && screens;
+                    h.foregroundHelper = phone && !screens;
+                    if (h.foregroundHelper) foregroundPhoneUsed++;
                     hub.sessions.save(h);
-                    // all start at once: no limit on how many work at the same time
-                    String err = hub.sendHelper(h, w[1], prompt(w[1], phone, !w[2].isEmpty(), parent.dev, h.id));
+                    // Hidden-display workers can run together; without one, a single read-only worker uses the visible screen.
+                    String err = hub.sendHelper(h, w[1], prompt(w[1], phone, askedForPhone, parent.dev, h.id, h.foregroundHelper));
                     h.archived = true; // out of the chat list and the bubble: the parent's chat shows it
                     if (err != null) {
                         h.outcome = "failed";
@@ -127,8 +136,11 @@ final class Helpers {
                     + "still working)." + (screens ? "" : " (Background mode isn't set up on this phone, so they have no "
                     + "phone screen: only the background browser" + (parent.dev ? " and Linux tools" : "") + ".)");
         }
-        return await(svc, hub, parent, screens ? "" : "(Background mode isn't set up on this phone, so these sub-agents "
-                + "had no phone screen: only the background browser" + (parent.dev ? " and Linux tools" : "") + ".)\n\n");
+        String note = screens ? "" : phoneTasks > 0
+                ? "(Background mode isn't paired, so the phone executor used the visible screen. It can only run one phone task at a time.)\n\n"
+                : "(Background mode isn't paired, so these sub-agents had no phone screen: only the background browser"
+                + (parent.dev ? " and Linux tools" : "") + ".)\n\n";
+        return await(svc, hub, parent, note);
     }
 
     /** The helpers tool: waits for the ones still working and gives every report again, or stops them. */
@@ -200,9 +212,10 @@ final class Helpers {
     }
 
     /** screen: it has a screen of its own; asked: its task wanted one (if not, it was started without on purpose). */
-    private static String prompt(String task, boolean screen, boolean asked, boolean dev, String id) {
+    private static String prompt(String task, boolean screen, boolean asked, boolean dev, String id, boolean foreground) {
         return "You are a sub-agent: another chat's agent on this phone gave you one part of a bigger task and waits for "
                 + "your report. Other sub-agents work at the same time, each on a screen of its own.\n"
+                + (foreground ? "- You are using the user's visible phone screen because no hidden display is paired. Work only on this one task; the user may take over at any time. If a tool says PAUSED, wait and never work around it.\n" : "")
                 + "- Only look things up. Never send, post, buy, pay, book, delete, install or change settings, and "
                 + "don't sign in anywhere: Buddy refuses those for a sub-agent. If the task needs one, stop and say what "
                 + "should be done.\n"
