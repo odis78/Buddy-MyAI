@@ -213,11 +213,13 @@ final class Helpers {
         return "/root/.buddy/work/sub-agents/" + helper;
     }
 
-    /** screen: it has a screen of its own; asked: its task wanted one (if not, it was started without on purpose). */
+    /** screen: a hidden or visible phone screen; foreground: the user's visible screen rather than a paired display. */
     private static String prompt(String task, boolean screen, boolean asked, boolean dev, String id, boolean foreground) {
         return "You are a sub-agent: another chat's agent on this phone gave you one part of a bigger task and waits for "
-                + "your report. Other sub-agents work at the same time, each on a screen of its own.\n"
-                + (foreground ? "- You are using the user's visible phone screen because no hidden display is paired. Work only on this one task; the user may take over at any time. If a tool says PAUSED, wait and never work around it.\n" : "")
+                + "your report.\n"
+                + (foreground
+                ? "- You are using the user's visible phone screen because no hidden display is paired. Work only on this one task; the user may take over at any time. If a tool says PAUSED, wait and never work around it.\n"
+                : "Other sub-agents work at the same time, each on a screen of its own.\n")
                 + "- Only look things up. Never send, post, buy, pay, book, delete, install or change settings, and "
                 + "don't sign in anywhere: Buddy refuses those for a sub-agent. If the task needs one, stop and say what "
                 + "should be done.\n"
