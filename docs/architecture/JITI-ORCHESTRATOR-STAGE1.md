@@ -1,76 +1,69 @@
-# Jiti main chat + Codex phone executor (Stage 1)
+# Jiti main assistant with selectable worker agents
 
 Date: 2026-11-21  
-Target app version: 2.3.16 (versionCode 214)  
+Target app version: 2.3.17-JITI.1 (versionCode 215)  
 Branch: `feature/jiti-orchestrator-codex-worker`  
 Base: `test/mcp-sse-response-fix`
 
 ## Goal
 
-Keep one visible assistant identity, Jiti, in Buddy. The main chat handles normal conversation and decides when a phone task is needed. A delegated Codex helper performs the phone inspection and returns a report to the main chat.
+Keep one visible assistant identity, Jiti, in Buddy regardless of which installed agent/model currently powers the chat. Jiti handles ordinary conversation and phone tasks directly. When a task genuinely benefits from a separate worker, Jiti can delegate it to a selected installed agent and receive its report in the same chat.
 
-The existing Android accessibility service and Buddy MCP server remain the phone-control layer. No API key or separate OpenAI API billing is introduced.
+Buddy's existing Android accessibility service, MCP server, tool-level safety checks and approval cards remain the phone-control and safety layer.
 
-## Important authentication/model distinction
+## Free-plan and authentication facts
 
-The zero-API implementation uses Codex CLI authenticated with the user's ChatGPT account. It does **not** embed the ordinary ChatGPT Free web-chat model as a public in-app API. OpenAI documents ChatGPT sign-in for local Codex CLI/app-server use; API-key use is separately billed. The app labels the parent conversation `Jiti · Codex` to make the implementation honest.
-
-This is the supported no-API route available to this project today. A true standard-ChatGPT model inside a third-party Android app would require a supported API entitlement or another officially supported product interface; the ChatGPT Free web session is not a general-purpose API endpoint.
+- Codex CLI signs in through the user's ChatGPT account. It is not an embedded ChatGPT web-chat session or a general API endpoint.
+- ChatGPT Free includes limited Codex access. The allowance is account-controlled and cannot be expanded by spawning more Codex processes.
+- A Codex helper uses the same ChatGPT account and plan allowance as a Codex parent. Delegation is task isolation, not a quota bypass.
+- OpenCode can use its free models without a separate account. Those models may be busy, rate-limited or unavailable; no uptime or unlimited usage is promised.
+- A practical no-API-cost arrangement is to run Jiti's main chat on an available OpenCode free model and request a Codex worker for specialist tasks when Codex is signed in and its allowance is available. The worker selection is explicit in the delegate task.
+- If Codex's allowance is exhausted, Jiti must continue with its own active model/tools where possible or explain the limit. It must not disguise a plan refusal as a Buddy permission error or attempt to evade the provider's limits.
+- API-key sessions are a separate billing path and are not required by this design.
 
 ## Request flow
 
-1. User sends a normal message in Buddy.
-2. A Codex parent chat runs as Jiti's conversation/orchestration layer.
-3. For a phone task, Jiti calls Buddy's existing `delegate` tool with one phone task and waits.
-4. Buddy creates a child helper chat using the same ChatGPT-authenticated Codex CLI.
-5. The helper receives the full phone MCP tool set. The parent does not.
-6. The helper opens apps, reads the screen, navigates and/or takes a screenshot, then returns a report.
-7. Jiti explains the verified result in the same visible conversation.
+1. The user sends a message in Buddy.
+2. The primary chat is presented as Jiti, independent of the active backend.
+3. Jiti answers ordinary questions directly.
+4. For phone work, Jiti first uses Buddy's direct phone tools and verifies their results.
+5. When an independent worker is genuinely useful, Jiti calls `delegate`. Each task can optionally set `agent` to `claude`, `codex`, `opencode`, `agy` or `grok`; if omitted, the worker uses the parent's backend.
+6. A worker uses its own backend's authentication, model defaults and plan allowance. Its report returns to Jiti.
+7. Jiti gives the user the verified result in the same visible chat.
 
 ## Safety and concurrency
 
-- The main Codex parent chat's MCP catalog exposes only orchestration-safe tools (`delegate`, `subagents`, `ask`, `notify`, scheduling tools, and optional background-browser tools).
-- The server-side call guard also rejects direct phone-tool calls from a parent Codex chat. Hiding tools from the model is not the only enforcement layer.
-- Child helper chats retain the full MCP catalog.
-- Existing helper restrictions remain: helpers may inspect and navigate, but cannot send, post, buy, pay, delete, install, change settings or ask the user. This first stage is intentionally read-only.
-- If Background mode has a paired hidden display, helpers use it as before and may run multiple independent phone tasks.
-- If Background mode is not paired, one helper may use the visible phone screen. Only one phone task is allowed at a time in that mode. Buddy's pause/takeover behavior remains in force.
-- Existing non-Codex backends are not changed by the Jiti tool filter. Codex notification-rule runs also retain their existing phone-tool path because helper delegation is intentionally unavailable inside a rule run.
+- The primary chat can see the Buddy tool catalog, including direct phone tools and `delegate`.
+- The server continues to enforce tool-level policy, app permissions, Stop/takeover, password protection, confirmation cards and helper restrictions. Hiding a tool from the model is not treated as the security boundary.
+- Helpers remain read-only for phone actions: they may inspect and navigate but cannot send, post, buy, pay, delete, install, change settings or ask the user.
+- If Background mode has a paired hidden display, independent phone helpers can use separate displays.
+- If Background mode is not paired, only one helper may use the visible phone screen at a time. User takeover and PAUSED behavior remain in force.
+- A helper cannot start another helper. Notification-rule runs retain their existing restrictions.
 
-## Files changed
+## Files changed in this stage
 
-- `BuildInfo.java`: version 2.3.16 / code 214.
-- `ChatHub.java`: marks parent Codex runs as Jiti orchestration runs.
-- `buddy-run`: appends the Jiti role instructions to those Codex runs on both new and resumed threads; helper runs do not receive them.
-- `BuddyService.java` and `Tools.java`: role-specific MCP tool catalog plus server-side enforcement.
-- `Helpers.java` and `Sessions.java`: permit one read-only helper to use the visible screen when no hidden display is paired; preserve the existing helper safety rules.
-- Helper script version increased to 36 so the app syncs the updated script.
+- `Tools.java`: full Buddy tool catalog for the primary chat; optional worker-agent selection in each delegate task.
+- `Helpers.java`: validate the optional worker backend and use that backend's own default model/effort when it differs from the parent.
+- `ChatHub.java` and `Sessions.java`: keep the primary identity as Jiti across backends.
+- `buddy-run`: apply Jiti's role instructions across backends; make Free-plan limits explicit and explain that Codex helpers share the same allowance.
+- `BuildInfo.java`: next test build version 2.3.17-JITI.1 / code 215.
 
-## Acceptance test on the Infinix X678B
+## Acceptance tests on the Infinix X678B
 
-1. Install the test APK over the current Buddy-MyAI test build only after CI succeeds. Do not uninstall or clear app data.
-2. Confirm Codex remains signed in through the ChatGPT account.
-3. Send a normal conversational question. Jiti should answer without opening an app.
-4. Ask: "Open Settings, check the screen, and tell me the Android version."
-5. Verify the parent chat starts a helper, the helper opens Settings and reads the screen, and Jiti reports the helper's result.
-6. Verify the parent cannot directly call `read_screen` or `open_app`; the helper can.
-7. Verify a second simultaneous phone task is refused when Background mode is not paired.
-8. Verify a task that would change settings or send/delete anything is not performed by the helper.
+1. Start a primary chat on Codex. Confirm the visible identity is Jiti and ordinary conversation works.
+2. Ask Jiti to read the screen and open Settings. Confirm it uses direct Buddy tools and verifies the result.
+3. Start a primary chat on OpenCode with a free model. Confirm the visible identity remains Jiti.
+4. Ask Jiti on OpenCode to delegate a phone inspection with `agent=codex`. Confirm the child uses Codex if installed/signed in, and returns a report.
+5. Confirm a helper cannot send, post, buy, pay, delete, install or change settings.
+6. Confirm the same app-level approval cards still stop sensitive direct actions.
+7. Simulate or observe a Codex quota refusal. Confirm Jiti reports the actual plan limit and continues only with its own available backend; no retry loop or claim of extra quota.
+8. Confirm only one foreground phone helper runs when Background mode is not paired.
+9. Confirm existing chats, settings and sign-ins survive an in-place update. Do not uninstall or clear app data.
 
-## Signing and install-safety warning
+## Known limits
 
-The CI workflow skipped its configured signing-key decode step, so the installable test APKs were signed with runner-generated Android debug keys. The run 14 APK certificate fingerprint is `AA:D8:D2:45:9B:AF:0D:C0:5C:B4:36:E2:19:61:21:5D:62:61:BF:EF:0F:95:4F:9B:62:02:12:E6:A8:51:58:25`; run 15 produced `51:43:2F:28:6F:40:9C:8E:90:23:DE:69:78:1D:C3:6D:C7:8E:85:2D:0E:8F:ED:20:C9:5B:DC:12:B8:2A:00:C3`. They differ.
+- This stage does not bypass ChatGPT Free limits or guarantee that OpenCode's free providers are always available.
+- It does not yet implement a transparent automatic migration of an already-running Codex turn to another backend after a quota refusal. Agent selection and cross-agent delegation are supported; automatic mid-turn recovery requires a separate state-machine change and dedicated tests.
+- The helper remains read-only for phone actions. A parent-owned approval relay for delegated state-changing actions is not part of this stage.
+- APK update compatibility still depends on signing with the same private key as the installed package. Do not install a differently signed APK over the existing app.
 
-Therefore, if the phone currently has the run 14 test APK installed, the run 15 APK cannot update it in place. Android will reject the signature mismatch. Do not uninstall the working app, clear its data, or install a differently signed APK as an update. A stable signing key must be configured before a safe in-place update can be made. The current installed APK's exact origin has not yet been verified.
-
-## Explicitly not included in Stage 1
-
-- A standard ChatGPT web-chat model embedded inside Buddy.
-- API-key billing or API credential storage.
-- Delegated state-changing actions with approval cards relayed from helper to parent.
-- Multiple simultaneous foreground phone workers when no hidden display is paired.
-- Changes to the immutable checkpoint branch, PR #1, or `main`.
-
-## Next engineering stage
-
-After the acceptance test, design a parent-owned approval relay so a Codex worker can propose a state-changing action, the user approves it in the main Jiti chat, and only then the worker executes it. Do not weaken the existing helper restrictions as a shortcut.
