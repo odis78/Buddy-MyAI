@@ -57,6 +57,12 @@ This is the supported no-API route available to this project today. A true stand
 7. Verify a second simultaneous phone task is refused when Background mode is not paired.
 8. Verify a task that would change settings or send/delete anything is not performed by the helper.
 
+## Signing and install-safety warning
+
+The CI workflow skipped its configured signing-key decode step, so the installable test APKs were signed with runner-generated Android debug keys. The run 14 APK certificate fingerprint is `AA:D8:D2:45:9B:AF:0D:C0:5C:B4:36:E2:19:61:21:5D:62:61:BF:EF:0F:95:4F:9B:62:02:12:E6:A8:51:58:25`; run 15 produced `51:43:2F:28:6F:40:9C:8E:90:23:DE:69:78:1D:C3:6D:C7:8E:85:2D:0E:8F:ED:20:C9:5B:DC:12:B8:2A:00:C3`. They differ.
+
+Therefore, if the phone currently has the run 14 test APK installed, the run 15 APK cannot update it in place. Android will reject the signature mismatch. Do not uninstall the working app, clear its data, or install a differently signed APK as an update. A stable signing key must be configured before a safe in-place update can be made. The current installed APK's exact origin has not yet been verified.
+
 ## Explicitly not included in Stage 1
 
 - A standard ChatGPT web-chat model embedded inside Buddy.
