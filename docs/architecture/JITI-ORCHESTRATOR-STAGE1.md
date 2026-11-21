@@ -1,7 +1,7 @@
 # Jiti main chat + Codex phone executor (Stage 1)
 
 Date: 2026-11-21  
-Target app version: 2.3.15 (versionCode 213)  
+Target app version: 2.3.16 (versionCode 214)  
 Branch: `feature/jiti-orchestrator-codex-worker`  
 Base: `test/mcp-sse-response-fix`
 
@@ -39,12 +39,12 @@ This is the supported no-API route available to this project today. A true stand
 
 ## Files changed
 
-- `BuildInfo.java`: version 2.3.15 / code 213.
+- `BuildInfo.java`: version 2.3.16 / code 214.
 - `ChatHub.java`: marks parent Codex runs as Jiti orchestration runs.
-- `buddy-run`: appends the Jiti role instructions to those Codex runs; helper runs do not receive them.
+- `buddy-run`: appends the Jiti role instructions to those Codex runs on both new and resumed threads; helper runs do not receive them.
 - `BuddyService.java` and `Tools.java`: role-specific MCP tool catalog plus server-side enforcement.
 - `Helpers.java` and `Sessions.java`: permit one read-only helper to use the visible screen when no hidden display is paired; preserve the existing helper safety rules.
-- Helper script version increased to 35 so the app syncs the updated script.
+- Helper script version increased to 36 so the app syncs the updated script.
 
 ## Acceptance test on the Infinix X678B
 
