@@ -133,8 +133,10 @@ final class Helpers {
         if (!a.optBoolean("wait", true)) { // the agent does its own part meanwhile and collects the reports later
             return wanted.size() + (wanted.size() == 1 ? " sub-agent works" : " sub-agents work") + " now, at the same time as "
                     + "you. Do your own part of the task, then call subagents to get the reports (it waits for the ones "
-                    + "still working)." + (screens ? "" : " (Background mode isn't set up on this phone, so they have no "
-                    + "phone screen: only the background browser" + (parent.dev ? " and Linux tools" : "") + ".)");
+                    + "still working)." + (screens ? "" : phoneTasks > 0
+                    ? " (One phone worker uses the visible screen; only one phone task can run at a time.)"
+                    : " (Background mode isn't paired, so they have no phone screen: only the background browser"
+                    + (parent.dev ? " and Linux tools" : "") + ".)");
         }
         String note = screens ? "" : phoneTasks > 0
                 ? "(Background mode isn't paired, so the phone executor used the visible screen. It can only run one phone task at a time.)\n\n"
