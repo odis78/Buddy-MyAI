@@ -404,9 +404,8 @@ final class Tools {
             "reply_notification", "schedule_message", "clipboard_write", "phone_shell", "add_notification_rule"));
 
     JSONObject call(String name, JSONObject a) throws Exception {
-        if (jitiMain() && !jitiToolAllowed(name)) {
-            return text("This is Jiti's main chat. Phone actions are delegated to the Codex executor: call delegate with one phone task and wait for its report. Direct phone tools are intentionally unavailable here.");
-        }
+        // Jiti's primary chat may call the same Buddy tools as other agents.
+        // Tool-level policy and approval checks remain enforced in call0()/individual tools.
         // a session from outside Buddy counts as working for as long as its call goes (Sessions tab, Stop)
         final String outside = Background.outside(screenKey()) ? screenKey() : null;
         JSONObject r;
