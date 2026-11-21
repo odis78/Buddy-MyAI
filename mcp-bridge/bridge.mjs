@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
+import { parseRpcResponse } from "./sse-response.mjs";
 
 const VERSION = "1.3.0";
 // the address may be given with or without /mcp
@@ -105,8 +106,7 @@ async function post(method, params) {
   }
   if (!r.ok) throw new Error("Buddy answered HTTP " + r.status);
   const text = await r.text();
-  const json = text.trimStart().startsWith("{") ? text : (text.match(/^data: (.*)$/m) || [])[1]; // JSON or one SSE event
-  const m = JSON.parse(json);
+  const m = parseRpcResponse(text, 1);
   if (m.error) throw Object.assign(new Error(m.error.message), { rpc: m.error });
   return m.result;
 }

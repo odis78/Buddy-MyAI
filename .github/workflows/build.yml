@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "test/**"]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Test MCP SSE response parser
+        run: node --test mcp-bridge/sse-response.test.mjs
       - name: Test the helper on recorded agent output
         run: bash linux/test/run.sh
 
@@ -58,6 +60,10 @@ jobs:
           BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon assembleGithubRelease assembleFdroidRelease
 
+      - name: Build installable side-by-side test APK
+        if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
+        run: ./gradlew --no-daemon assembleGithubDebug
+
       - name: Collect APK
         run: |
           mkdir -p dist
@@ -69,7 +75,19 @@ jobs:
           # named so nobody picks it by mistake: it doesn't update itself (F-Droid's Binaries line must match this name)
           cp "$fd" "dist/fdroid-check-only-${GITHUB_REF_NAME//\//-}.apk"
           echo "FDROID_APK=$PWD/dist/fdroid-check-only-${GITHUB_REF_NAME//\//-}.apk" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/heads/test/* || "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            test_apk=$(find app/build/outputs/apk/github/debug -name '*.apk' | head -1)
+            cp "$test_apk" dist/buddy-myai-test.apk
+          fi
           ls -l dist
+
+      - name: Verify installable test APK
+        if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
+        run: |
+          test_apk=dist/buddy-myai-test.apk
+          export PATH="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1):$PATH"
+          apksigner verify --verbose "$test_apk"
+          aapt dump badging "$test_apk" | grep -F "package: name='app.buddy.myai'"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -91,7 +109,7 @@ jobs:
           notes=$(gh release view "$GITHUB_REF_NAME" --json body -q .body)
           case "$notes" in
             *"Which file?"*) ;;
-            *) printf '%s\n\n%s\n' "$notes" "**Which file?** Download \`buddy.apk\`: it updates itself. Buddy is also on [F-Droid](https://f-droid.org/packages/app.buddy.assistant/), where each version arrives a few days after it is released here. \`fdroid-check-only-$GITHUB_REF_NAME.apk\` is only there for F-Droid's reproducible-build check, and doesn't update itself." \
+            *) printf '%s\n\n%s\n' "$notes" "**Which file?** Download `buddy.apk`: it updates itself. Buddy is also on [F-Droid](https://f-droid.org/packages/app.buddy.assistant/), where each version arrives a few days after it is released here. `fdroid-check-only-$GITHUB_REF_NAME.apk` is only there for F-Droid's reproducible-build check, and doesn't update itself." \
                  | gh release edit "$GITHUB_REF_NAME" --notes-file - ;;
           esac
 
@@ -110,5 +128,15 @@ jobs:
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
           env -u BUDDY_KEYSTORE ./gradlew --no-daemon assembleFdroidRelease
           unsigned=$(find app/build/outputs/apk/fdroid/release -name '*.apk' | head -1)
-          apksigcopier compare --unsigned "$FDROID_APK" "$unsigned"
+          if [[ -n "${BUDDY_KEYSTORE:-}" ]]; then
+            # Signed release: compare the APK payload after removing only its signature.
+            apksigcopier compare --unsigned "$FDROID_APK" "$unsigned"
+          else
+            # No release key is configured: both builds are unsigned, so require an exact APK match.
+            cmp --silent "$FDROID_APK" "$unsigned" || {
+              echo "Unsigned F-Droid APKs differ; reproducible build check failed." >&2
+              sha256sum "$FDROID_APK" "$unsigned" >&2
+              exit 1
+            }
+          fi
           echo "The F-Droid APK is reproducible"
