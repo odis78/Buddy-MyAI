@@ -501,7 +501,8 @@ public class BuddyService extends AccessibilityService implements McpServer.Hand
     @Override
     public JSONArray listTools() throws JSONException {
         Sessions.Session lite = Lite.caller(this); // a small model's chat: a dozen tools, more on request
-        return lite != null ? Lite.filter(tools.list(), lite) : tools.list();
+        JSONArray available = tools.listForCaller();
+        return lite != null ? Lite.filter(available, lite) : available;
     }
 
     @Override
