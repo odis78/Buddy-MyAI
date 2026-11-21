@@ -35,7 +35,7 @@ This is the supported no-API route available to this project today. A true stand
 - Existing helper restrictions remain: helpers may inspect and navigate, but cannot send, post, buy, pay, delete, install, change settings or ask the user. This first stage is intentionally read-only.
 - If Background mode has a paired hidden display, helpers use it as before and may run multiple independent phone tasks.
 - If Background mode is not paired, one helper may use the visible phone screen. Only one phone task is allowed at a time in that mode. Buddy's pause/takeover behavior remains in force.
-- Existing non-Codex backends are not changed by the Jiti tool filter.
+- Existing non-Codex backends are not changed by the Jiti tool filter. Codex notification-rule runs also retain their existing phone-tool path because helper delegation is intentionally unavailable inside a rule run.
 
 ## Files changed
 
