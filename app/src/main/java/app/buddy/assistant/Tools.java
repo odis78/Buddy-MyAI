@@ -360,7 +360,7 @@ final class Tools {
     private boolean jitiMain() {
         String chat = McpServer.CALLER_CHAT.get();
         Sessions.Session session = chat == null ? null : ChatHub.get(svc).sessions.find(chat);
-        return session != null && "codex".equals(session.backend) && session.parent.isEmpty();
+        return session != null && "codex".equals(session.backend) && session.parent.isEmpty() && !Triggers.ruleRun(chat);
     }
 
     private static boolean jitiToolAllowed(String name) {
