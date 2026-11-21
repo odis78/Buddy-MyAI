@@ -60,6 +60,10 @@ jobs:
           BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon assembleGithubRelease assembleFdroidRelease
 
+      - name: Build installable side-by-side test APK
+        if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
+        run: ./gradlew --no-daemon assembleGithubDebug
+
       - name: Collect APK
         run: |
           mkdir -p dist
@@ -71,7 +75,19 @@ jobs:
           # named so nobody picks it by mistake: it doesn't update itself (F-Droid's Binaries line must match this name)
           cp "$fd" "dist/fdroid-check-only-${GITHUB_REF_NAME//\//-}.apk"
           echo "FDROID_APK=$PWD/dist/fdroid-check-only-${GITHUB_REF_NAME//\//-}.apk" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/heads/test/* || "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            test_apk=$(find app/build/outputs/apk/github/debug -name '*.apk' | head -1)
+            cp "$test_apk" dist/buddy-myai-test.apk
+          fi
           ls -l dist
+
+      - name: Verify installable test APK
+        if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
+        run: |
+          test_apk=dist/buddy-myai-test.apk
+          export PATH="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1):$PATH"
+          apksigner verify --verbose "$test_apk"
+          aapt dump badging "$test_apk" | grep -F "package: name='app.buddy.myai'"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
