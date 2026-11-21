@@ -68,8 +68,11 @@ final class Helpers {
             String name = o == null ? "" : o.optString("name", "").trim();
             if (task.isEmpty()) continue;
             if (name.isEmpty()) name = ChatHub.clip(task, 28);
+            String agent = o == null ? "" : o.optString("agent", "").trim().toLowerCase(java.util.Locale.ROOT);
+            if (!agent.isEmpty() && !java.util.Arrays.asList("claude", "codex", "opencode", "agy", "grok").contains(agent))
+                return "Unknown worker agent: " + agent + ". Choose claude, codex, opencode, agy or grok.";
             // phone false: a sub-agent that needs no app (the web, files, thinking) takes no screen
-            wanted.add(new String[]{ChatHub.clip(name, 40), task, o == null || o.optBoolean("phone", true) ? "1" : ""});
+            wanted.add(new String[]{ChatHub.clip(name, 40), task, o == null || o.optBoolean("phone", true) ? "1" : "", agent});
         }
         if (wanted.isEmpty()) return "Give tasks as [{\"name\": \"Amazon\", \"task\": \"…\"}].";
         if (anyRunning(of(hub, parent.id))) {
@@ -95,12 +98,14 @@ final class Helpers {
                 int slot = 0;
                 int foregroundPhoneUsed = 0;
                 for (String[] w : wanted) {
-                    Sessions.Session h = hub.create(parent.backend, false, parent.dev);
+                    String workerBackend = w.length > 3 && !w[3].isEmpty() ? w[3] : parent.backend;
+                    Sessions.Session h = hub.create(workerBackend, false, parent.dev);
                     h.parent = parent.id;
                     h.slot = slot++;
                     h.title = w[0];
-                    h.model = parent.model;
-                    h.effort = parent.effort;
+                    // A different agent gets its own default model and effort, not a model name from the parent provider.
+                    h.model = workerBackend.equals(parent.backend) ? parent.model : "";
+                    h.effort = workerBackend.equals(parent.backend) ? parent.effort : "";
                     h.incognito = parent.incognito; // an incognito chat's sub-agents leave no trace either
                     boolean askedForPhone = !w[2].isEmpty();
                     boolean phone = askedForPhone && (screens || foregroundPhoneUsed == 0);
