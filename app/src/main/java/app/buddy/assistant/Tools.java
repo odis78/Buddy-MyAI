@@ -340,6 +340,36 @@ final class Tools {
         return t;
     }
 
+    /**
+     * The primary Codex chat is Jiti's conversational/orchestration layer. It may delegate phone work,
+     * but must not operate the phone directly. Delegated helper chats retain the complete tool set.
+     */
+    JSONArray listForCaller() throws JSONException {
+        JSONArray all = list();
+        if (!jitiMain()) return all;
+        JSONArray filtered = new JSONArray();
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item == null) continue;
+            String name = item.optString("name");
+            if (jitiToolAllowed(name)) filtered.put(item);
+        }
+        return filtered;
+    }
+
+    private boolean jitiMain() {
+        String chat = McpServer.CALLER_CHAT.get();
+        Sessions.Session session = chat == null ? null : ChatHub.get(svc).sessions.find(chat);
+        return session != null && "codex".equals(session.backend) && session.parent.isEmpty();
+    }
+
+    private static boolean jitiToolAllowed(String name) {
+        return "delegate".equals(name) || "subagents".equals(name) || "ask".equals(name)
+                || "notify".equals(name) || "schedule_message".equals(name)
+                || "list_scheduled".equals(name) || "cancel_scheduled".equals(name)
+                || name.startsWith("browser_");
+    }
+
     static JSONObject tool(String name, String desc, JSONObject properties, String... required) throws JSONException {
         JSONObject schema = new JSONObject().put("type", "object").put("properties", properties);
         if (required.length > 0) {
@@ -395,6 +425,9 @@ final class Tools {
             "reply_notification", "schedule_message", "clipboard_write", "phone_shell", "add_notification_rule"));
 
     JSONObject call(String name, JSONObject a) throws Exception {
+        if (jitiMain() && !jitiToolAllowed(name)) {
+            return text("This is Jiti's main chat. Phone actions are delegated to the Codex executor: call delegate with one phone task and wait for its report. Direct phone tools are intentionally unavailable here.");
+        }
         // a session from outside Buddy counts as working for as long as its call goes (Sessions tab, Stop)
         final String outside = Background.outside(screenKey()) ? screenKey() : null;
         JSONObject r;
@@ -459,7 +492,9 @@ final class Tools {
             if (HELPER_NO.contains(name)) return text(Helpers.refuse("\"" + name + "\" is for the chat the user talks to"));
             if ("confirm".equals(name)) return text("DENIED: " + Helpers.refuse("sending, posting, buying, deleting or changing things"));
             if ("ask".equals(name)) return text("NO ANSWER: " + Helpers.refuse("asking the user"));
-            if (SCREEN.contains(name) && !Background.on(svc, McpServer.CALLER_CHAT.get()))
+            Sessions.Session helper = ChatHub.get(svc).sessions.find(McpServer.CALLER_CHAT.get());
+            if (SCREEN.contains(name) && !Background.on(svc, McpServer.CALLER_CHAT.get())
+                    && (helper == null || !helper.foregroundHelper))
                 return text(Helpers.refuse("you have no phone screen, only the browser_* tools"));
         }
         if (Lite.MORE.equals(name)) return text(Lite.more(svc, a)); // lite mode loads a group of tools
