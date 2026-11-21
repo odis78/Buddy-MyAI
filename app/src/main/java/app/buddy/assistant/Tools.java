@@ -252,7 +252,8 @@ final class Tools {
                         + "the sub-agents start, you work at the same time, and subagents collects their reports when you "
                         + "are done. Give as many tasks as the work has parts: they all start at once. Each sub-agent uses the user's plan as you do, so don't delegate what you can do "
                         + "quickly yourself, and never a step whose result you need before you can go on: a lone "
-                        + "sub-agent you only wait for is slower than doing it yourself.",
+                        + "sub-agent you only wait for is slower than doing it yourself. Each task may optionally name a different "
+                        + "installed worker agent; it uses that agent's own default model and plan limits.",
                 props().put("tasks", new JSONObject().put("type", "array").put("minItems", 1)
                         .put("description", "One per sub-agent")
                         .put("items", new JSONObject().put("type", "object")
