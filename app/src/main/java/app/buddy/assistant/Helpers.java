@@ -71,6 +71,9 @@ final class Helpers {
             String agent = o == null ? "" : o.optString("agent", "").trim().toLowerCase(java.util.Locale.ROOT);
             if (!agent.isEmpty() && !java.util.Arrays.asList("claude", "codex", "opencode", "agy", "grok").contains(agent))
                 return "Unknown worker agent: " + agent + ". Choose claude, codex, opencode, agy or grok.";
+            if (!agent.isEmpty() && !Account.of(agent).ready())
+                return "The requested worker agent " + Account.nameOf(agent)
+                        + " is not installed and signed in yet. Set it up in Buddy's Settings, or choose another agent.";
             // phone false: a sub-agent that needs no app (the web, files, thinking) takes no screen
             wanted.add(new String[]{ChatHub.clip(name, 40), task, o == null || o.optBoolean("phone", true) ? "1" : "", agent});
         }
