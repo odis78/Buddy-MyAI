@@ -169,7 +169,7 @@ final class Sessions {
         }
 
         String brainName() {
-            return Account.nameOf(backend);
+            return "codex".equals(backend) && parent.isEmpty() ? "Jiti · Codex" : Account.nameOf(backend);
         }
 
         String label() {
