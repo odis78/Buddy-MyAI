@@ -261,7 +261,9 @@ final class Tools {
                                         .put("task", strProp("Everything the sub-agent needs: what to find, where, and "
                                                 + "what to report back"))
                                         .put("phone", boolProp("Default true. False for a part that needs no app "
-                                                + "(the web, files, thinking): that sub-agent takes no phone screen")))
+                                                + "(the web, files, thinking): that sub-agent takes no phone screen"))
+                                        .put("agent", enumProp("claude", "codex", "opencode", "agy", "grok")
+                                                .put("description", "Optional worker agent. Defaults to your own agent. Use only an installed and signed-in agent. A worker uses that agent's own plan and limits; this does not increase quota.")))
                                 .put("required", new JSONArray().put("task"))))
                         .put("wait", boolProp("Default true: wait here for the reports. False: return at once, so you "
                                 + "can work on your own part at the same time; call subagents afterwards.")), "tasks"));
