@@ -35,3 +35,20 @@ test("rejects empty body", () => assert.throws(() => parseRpcResponse("  ",1),/e
 test("rejects stream without matching response", () => assert.throws(() => parseRpcResponse('data: {"jsonrpc":"2.0","method":"notifications/initialized"}\n\n',1),/without the matching/));
 test("rejects wrong id in JSON response", () => assert.throws(() => parseRpcResponse('{"jsonrpc":"2.0","id":9,"result":{}}',1),/unexpected id/));
 test("rejects malformed SSE JSON", () => assert.throws(() => parseRpcResponse("data: {broken}\n\n",1),/invalid JSON/));
+
+test("rejects JSON-RPC messages with the wrong protocol version", () => {
+  assert.throws(() => parseRpcResponse('{"jsonrpc":"1.0","id":1,"result":{}}',1),/without JSON-RPC 2.0/);
+});
+test("rejects responses without result or error", () => {
+  assert.throws(() => parseRpcResponse('{"jsonrpc":"2.0","id":1}',1),/exactly one of result or error/);
+});
+test("rejects responses containing both result and error", () => {
+  assert.throws(() => parseRpcResponse('{"jsonrpc":"2.0","id":1,"result":{},"error":{"code":-1,"message":"bad"}}',1),/exactly one of result or error/);
+});
+test("rejects malformed JSON-RPC error objects", () => {
+  assert.throws(() => parseRpcResponse('{"jsonrpc":"2.0","id":1,"error":{"code":"bad","message":"denied"}}',1),/invalid JSON-RPC error object/);
+});
+test("rejects SSE messages with the wrong protocol version", () => {
+  const s='data: {"jsonrpc":"1.0","id":1,"result":{}}\n\n';
+  assert.throws(() => parseRpcResponse(s,1),/without JSON-RPC 2.0/);
+});
