@@ -9,6 +9,7 @@
   },
   "files": [
     "bridge.mjs",
+    "sse-response.mjs",
     "tools.json"
   ],
   "engines": {
