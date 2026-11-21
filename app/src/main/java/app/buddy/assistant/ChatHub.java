@@ -325,7 +325,7 @@ final class ChatHub {
                     "ask", ses.id, ses.backend, rule ? "rule" : devArg(ses), forAgent,
                     model(ses), hasFiles ? android.text.TextUtils.join(",", files) : "", ses.effort, fresh ? "fresh" : "",
                     Lite.on(ses) ? "lite" : "",
-                    "codex".equals(ses.backend) && ses.parent.isEmpty() && !rule ? "jiti" : "");
+                    ses.parent.isEmpty() && !rule ? "jiti" : "");
         } catch (Exception e) {
             return e.getMessage();
         }
