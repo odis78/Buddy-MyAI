@@ -44,7 +44,7 @@ This is the supported no-API route available to this project today. A true stand
 - `buddy-run`: appends the Jiti role instructions to those Codex runs; helper runs do not receive them.
 - `BuddyService.java` and `Tools.java`: role-specific MCP tool catalog plus server-side enforcement.
 - `Helpers.java` and `Sessions.java`: permit one read-only helper to use the visible screen when no hidden display is paired; preserve the existing helper safety rules.
-- Helper script version increased to 34 so the app syncs the updated script.
+- Helper script version increased to 35 so the app syncs the updated script.
 
 ## Acceptance test on the Infinix X678B
 
