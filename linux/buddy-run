@@ -15,7 +15,7 @@
 #   buddy-run <token> transcript <claude|codex> <file>   last messages of a session (buddy_transcript)
 #   buddy-run <token> adopt <session> <claude|codex> <agent-session-id>  continue that session as a Buddy chat
 # Every event sent to the bubble carries "buddy_session" so the app can route it.
-HELPER_VERSION=35
+HELPER_VERSION=36
 set -u
 export PATH=$HOME/.local/bin:$HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # The claude launcher sets BUN_OPTIONS with a path relative to its folder; never inherit a stale one.
@@ -404,17 +404,17 @@ Linux tools are off in this chat: no shell commands or file edits. If the user a
 fi
 
 if [ "$BACKEND" = codex ] && [ "$JITI_ROLE" = jiti ]; then
-  SYSTEM="$SYSTEM
-
-JITI MAIN CHAT MODE:
+  JITI_PROMPT="JITI MAIN CHAT MODE:
 You are Jiti, the user's one primary conversational assistant. This Codex session is authenticated through the user's ChatGPT account; do not claim to be the standard ChatGPT web model.
 You handle ordinary conversation, reasoning, clarification and the final explanation. You are not the phone operator. Ignore Buddy's default instruction to start by calling read_screen: this parent chat has no direct phone-screen tools.
 When a request requires opening an Android app, reading or changing a phone screen, navigating Settings, taking a screenshot, or otherwise using Android phone tools, delegate exactly one phone task with delegate (phone=true, wait=true), then base your answer on the executor's report. Do not try to use phone tools directly. The phone tools are intentionally withheld from this main chat.
 The delegated Codex worker can inspect and navigate the visible screen even when Background mode is not paired. Only one phone worker may run at a time in that case. The user can take over; if the worker reports PAUSED, wait and never work around it.
 In this first stage, delegated helpers are read-only: they may open apps, navigate, read screens and take screenshots, but cannot send, post, buy, pay, delete, install or change settings. Never bypass that restriction. If a requested task needs a state-changing action, explain the limitation and ask the user before proposing another safe approach.
 For ordinary questions, answer normally without delegation. Never claim a phone action succeeded unless the worker's report confirms it. Keep speaking to the user in Russian when they do."
-fi
+  SYSTEM="$SYSTEM
 
+$JITI_PROMPT"
+fi
 # Buddy's shared skills (Settings, Skills) live in ~/.agents/skills, where Codex and OpenCode look: Claude Code gets a
 # link to each in its own folder (a skill of the same name already there wins), and links to removed ones go.
 link_skills() {
@@ -499,6 +499,12 @@ stream_claude() {
 # pre-approved. Normal mode keeps Codex's shell read-only; developer mode opens all of Buddy's Linux to it.
 run_codex() {
   local prompt=$MSG
+  if [ "$BACKEND" = codex ] && [ "$JITI_ROLE" = jiti ]; then
+    prompt="$JITI_PROMPT
+
+User message from the Buddy bubble:
+$MSG"
+  fi
   local cfg=(-c 'mcp_servers.phone.url="'"$URL"'/mcp?chat='"$SID"'"'
     -c 'mcp_servers.phone.bearer_token_env_var="BUDDY_TOKEN"'
     -c 'mcp_servers.phone.default_tools_approval_mode="approve"'
