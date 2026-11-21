@@ -324,7 +324,8 @@ final class ChatHub {
             Helper.runFor(app, ses.id, code -> main.postDelayed(() -> helperGone(ses, run[0], code), HELPER_GONE_MS),
                     "ask", ses.id, ses.backend, rule ? "rule" : devArg(ses), forAgent,
                     model(ses), hasFiles ? android.text.TextUtils.join(",", files) : "", ses.effort, fresh ? "fresh" : "",
-                    Lite.on(ses) ? "lite" : "");
+                    Lite.on(ses) ? "lite" : "",
+                    ses.parent.isEmpty() && !rule ? "jiti" : "");
         } catch (Exception e) {
             return e.getMessage();
         }

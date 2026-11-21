@@ -101,6 +101,8 @@ final class Sessions {
         boolean awake;
         /** Background mode: the agent works on a display of its own, the user keeps the screen (see Background). */
         boolean background;
+        /** Runtime-only: a delegated read-only helper may use the visible screen when no hidden display is paired. */
+        boolean foregroundHelper;
         /** Lite mode (see Lite): null = automatic (on for a model on this phone), else the user's pick. */
         Boolean lite;
         /** The tool groups its agent loaded with more_tools in lite mode (kept: a resumed run's history names them). */
@@ -167,7 +169,7 @@ final class Sessions {
         }
 
         String brainName() {
-            return Account.nameOf(backend);
+            return parent.isEmpty() ? "Jiti" : Account.nameOf(backend);
         }
 
         String label() {

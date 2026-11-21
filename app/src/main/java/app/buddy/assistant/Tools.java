@@ -252,7 +252,8 @@ final class Tools {
                         + "the sub-agents start, you work at the same time, and subagents collects their reports when you "
                         + "are done. Give as many tasks as the work has parts: they all start at once. Each sub-agent uses the user's plan as you do, so don't delegate what you can do "
                         + "quickly yourself, and never a step whose result you need before you can go on: a lone "
-                        + "sub-agent you only wait for is slower than doing it yourself.",
+                        + "sub-agent you only wait for is slower than doing it yourself. Each task may optionally name a different "
+                        + "installed worker agent; it uses that agent's own default model and plan limits.",
                 props().put("tasks", new JSONObject().put("type", "array").put("minItems", 1)
                         .put("description", "One per sub-agent")
                         .put("items", new JSONObject().put("type", "object")
@@ -261,7 +262,9 @@ final class Tools {
                                         .put("task", strProp("Everything the sub-agent needs: what to find, where, and "
                                                 + "what to report back"))
                                         .put("phone", boolProp("Default true. False for a part that needs no app "
-                                                + "(the web, files, thinking): that sub-agent takes no phone screen")))
+                                                + "(the web, files, thinking): that sub-agent takes no phone screen"))
+                                        .put("agent", enumProp("claude", "codex", "opencode", "agy", "grok")
+                                                .put("description", "Optional worker agent. Defaults to your own agent. Use only an installed and signed-in agent. A worker uses that agent's own plan and limits; this does not increase quota.")))
                                 .put("required", new JSONArray().put("task"))))
                         .put("wait", boolProp("Default true: wait here for the reports. False: return at once, so you "
                                 + "can work on your own part at the same time; call subagents afterwards.")), "tasks"));
@@ -340,6 +343,15 @@ final class Tools {
         return t;
     }
 
+    /**
+     * Every agent chat, including Jiti's primary Codex chat, receives the full Buddy tool catalog.
+     * The normal per-tool safety checks and user approvals still apply. Jiti can use safe phone tools
+     * directly and delegate to a Codex helper when direct execution is unavailable or unsuitable.
+     */
+    JSONArray listForCaller() throws JSONException {
+        return list();
+    }
+
     static JSONObject tool(String name, String desc, JSONObject properties, String... required) throws JSONException {
         JSONObject schema = new JSONObject().put("type", "object").put("properties", properties);
         if (required.length > 0) {
@@ -395,6 +407,8 @@ final class Tools {
             "reply_notification", "schedule_message", "clipboard_write", "phone_shell", "add_notification_rule"));
 
     JSONObject call(String name, JSONObject a) throws Exception {
+        // Jiti's primary chat may call the same Buddy tools as other agents.
+        // Tool-level policy and approval checks remain enforced in call0()/individual tools.
         // a session from outside Buddy counts as working for as long as its call goes (Sessions tab, Stop)
         final String outside = Background.outside(screenKey()) ? screenKey() : null;
         JSONObject r;
@@ -459,7 +473,9 @@ final class Tools {
             if (HELPER_NO.contains(name)) return text(Helpers.refuse("\"" + name + "\" is for the chat the user talks to"));
             if ("confirm".equals(name)) return text("DENIED: " + Helpers.refuse("sending, posting, buying, deleting or changing things"));
             if ("ask".equals(name)) return text("NO ANSWER: " + Helpers.refuse("asking the user"));
-            if (SCREEN.contains(name) && !Background.on(svc, McpServer.CALLER_CHAT.get()))
+            Sessions.Session helper = ChatHub.get(svc).sessions.find(McpServer.CALLER_CHAT.get());
+            if (SCREEN.contains(name) && !Background.on(svc, McpServer.CALLER_CHAT.get())
+                    && (helper == null || !helper.foregroundHelper))
                 return text(Helpers.refuse("you have no phone screen, only the browser_* tools"));
         }
         if (Lite.MORE.equals(name)) return text(Lite.more(svc, a)); // lite mode loads a group of tools
