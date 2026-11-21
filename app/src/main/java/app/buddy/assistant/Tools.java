@@ -341,33 +341,12 @@ final class Tools {
     }
 
     /**
-     * The primary Codex chat is Jiti's conversational/orchestration layer. It may delegate phone work,
-     * but must not operate the phone directly. Delegated helper chats retain the complete tool set.
+     * Every agent chat, including Jiti's primary Codex chat, receives the full Buddy tool catalog.
+     * The normal per-tool safety checks and user approvals still apply. Jiti can use safe phone tools
+     * directly and delegate to a Codex helper when direct execution is unavailable or unsuitable.
      */
     JSONArray listForCaller() throws JSONException {
-        JSONArray all = list();
-        if (!jitiMain()) return all;
-        JSONArray filtered = new JSONArray();
-        for (int i = 0; i < all.length(); i++) {
-            JSONObject item = all.optJSONObject(i);
-            if (item == null) continue;
-            String name = item.optString("name");
-            if (jitiToolAllowed(name)) filtered.put(item);
-        }
-        return filtered;
-    }
-
-    private boolean jitiMain() {
-        String chat = McpServer.CALLER_CHAT.get();
-        Sessions.Session session = chat == null ? null : ChatHub.get(svc).sessions.find(chat);
-        return session != null && "codex".equals(session.backend) && session.parent.isEmpty() && !Triggers.ruleRun(chat);
-    }
-
-    private static boolean jitiToolAllowed(String name) {
-        return "delegate".equals(name) || "subagents".equals(name) || "ask".equals(name)
-                || "notify".equals(name) || "schedule_message".equals(name)
-                || "list_scheduled".equals(name) || "cancel_scheduled".equals(name)
-                || name.startsWith("browser_");
+        return list();
     }
 
     static JSONObject tool(String name, String desc, JSONObject properties, String... required) throws JSONException {
