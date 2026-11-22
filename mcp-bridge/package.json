@@ -31,5 +31,8 @@
     "claude-code",
     "codex",
     "buddy"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
 }

@@ -1,0 +1,29 @@
+name: Buddy MCP bridge tests
+
+on:
+  push:
+    branches:
+      - fix/mcp-bridge-local-port-8766
+    paths:
+      - "mcp-bridge/**"
+      - ".github/workflows/mcp-bridge-tests.yml"
+  pull_request:
+    paths:
+      - "mcp-bridge/**"
+      - ".github/workflows/mcp-bridge-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run MCP bridge tests
+        run: npm test --prefix mcp-bridge

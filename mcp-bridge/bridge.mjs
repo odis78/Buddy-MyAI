@@ -2,8 +2,8 @@
 // Buddy's phone tools over stdio: a small MCP server that passes each request on to Buddy's own MCP server on the
 // phone, for MCP clients that start servers as commands instead of connecting to a URL. No dependencies.
 //
-//   node bridge.mjs                                   on the phone itself (Termux): Buddy at http://127.0.0.1:8765
-//   BUDDY_URL=http://<phone's Tailscale address>:8765 node bridge.mjs
+//   node bridge.mjs                                   on the phone itself (Termux): Buddy at http://127.0.0.1:8766
+//   BUDDY_URL=http://<phone's Tailscale address>:8766 node bridge.mjs
 //                                                     on a computer, with Phone tools on Tailscale switched on in Buddy
 //
 // From a computer, the first tool call asks the phone to pair this computer: the user approves it on a card there,
@@ -22,7 +22,7 @@ import { parseRpcResponse } from "./sse-response.mjs";
 
 const VERSION = "1.3.0";
 // the address may be given with or without /mcp
-const BASE = new URL(process.env.BUDDY_URL || "http://127.0.0.1:8765");
+const BASE = new URL(process.env.BUDDY_URL || "http://127.0.0.1:8766");
 const URL_ = new URL(BASE.pathname === "/" || BASE.pathname === "" ? "/mcp" : BASE.pathname, BASE).href;
 const LOCAL = ["127.0.0.1", "localhost", "[::1]"].includes(BASE.hostname);
 const ENV_TOKEN = (process.env.BUDDY_TOKEN || "").replace(/^Bearer\s+/i, "");

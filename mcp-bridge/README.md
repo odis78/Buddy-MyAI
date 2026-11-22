@@ -9,7 +9,7 @@ Buddy's phone tools (read the screen, tap, type, scroll, open apps, screenshots,
 With the phone and the computer on the same tailnet, switch on **Settings → Phone tools in your own sessions → Phone tools on Tailscale** in Buddy. It shows the phone's address. Then:
 
 ```bash
-claude mcp add -s user phone -e BUDDY_URL=http://<phone's Tailscale address>:8765 -- npx -y buddy-phone-bridge
+claude mcp add -s user phone -e BUDDY_URL=http://<phone's Tailscale address>:8766 -- npx -y buddy-phone-bridge
 ```
 
 On Windows (not WSL), Claude Code starts npx through cmd: `... -- cmd /c npx -y buddy-phone-bridge`.
@@ -22,7 +22,7 @@ Or in any MCP client's config:
     "phone": {
       "command": "npx",
       "args": ["-y", "buddy-phone-bridge"],
-      "env": { "BUDDY_URL": "http://<phone's Tailscale address>:8765" }
+      "env": { "BUDDY_URL": "http://<phone's Tailscale address>:8766" }
     }
   }
 }
@@ -36,11 +36,11 @@ The first time the agent uses a phone tool, the phone asks you to pair this comp
 BUDDY_TOKEN=<token from Buddy's Settings> npx -y buddy-phone-bridge
 ```
 
-Most agents on the phone connect to `http://127.0.0.1:8765/mcp` directly instead: Buddy's Settings give the command for Claude Code, Codex, OpenCode, Antigravity and Grok.
+Most agents on the phone connect to `http://127.0.0.1:8766/mcp` directly instead: Buddy's Settings give the command for Claude Code, Codex, OpenCode, Antigravity and Grok.
 
 ## Settings
 
-- `BUDDY_URL`: Buddy's address, `http://127.0.0.1:8765` if not set (with or without `/mcp`).
+- `BUDDY_URL`: Buddy's address, `http://127.0.0.1:8766` if not set (with or without `/mcp`).
 - `BUDDY_TOKEN`: a token to use instead of pairing (with or without `Bearer `).
 
 When Buddy can't be reached, the bridge still lists the tools (from `tools.json`, a copy of Buddy's list) and each call says why it couldn't run; that's also what happens in the Dockerfile's container, which has no phone.
