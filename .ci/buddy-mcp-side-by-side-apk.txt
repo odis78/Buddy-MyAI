@@ -1,0 +1,3 @@
+Isolated CI trigger for the Buddy MCP side-by-side test APK.
+Source base: 9e8940b26f4287b998a4f62efa737323a3ec9724
+No production runtime or tunnel configuration changes.
