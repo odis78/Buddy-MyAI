@@ -3,7 +3,7 @@
 // phone, for MCP clients that start servers as commands instead of connecting to a URL. No dependencies.
 //
 //   node bridge.mjs                                   on the phone itself (Termux): Buddy at http://127.0.0.1:8766
-//   BUDDY_URL=http://<phone's Tailscale address>:8765 node bridge.mjs
+//   BUDDY_URL=http://<phone's Tailscale address>:8766 node bridge.mjs
 //                                                     on a computer, with Phone tools on Tailscale switched on in Buddy
 //
 // From a computer, the first tool call asks the phone to pair this computer: the user approves it on a card there,
