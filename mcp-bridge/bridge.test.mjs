@@ -13,7 +13,7 @@ const bridgePath = join(here, "bridge.mjs");
 
 test("the default local Buddy endpoint matches McpServer.PORT", async () => {
   const source = await readFile(bridgePath, "utf8");
-  assert.match(source, /const BASE = new URL\\(process\\.env\\.BUDDY_URL \\|\\| "http:\\/\\/127\\.0\\.0\\.1:8766"\\)/);
+  assert.ok(source.includes('const BASE = new URL(process.env.BUDDY_URL || "http://127.0.0.1:8766");'));
 });
 
 test("stdio bridge forwards MCP requests with the configured Bearer token", async (t) => {
@@ -48,18 +48,25 @@ test("stdio bridge forwards MCP requests with the configured Bearer token", asyn
   const lines = createInterface({ input: child.stdout });
   const iterator = lines[Symbol.asyncIterator]();
   const nextMessage = async () => {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("bridge response timed out")), 3000));
-    const line = await Promise.race([iterator.next(), timeout]);
-    assert.equal(line.done, false, "bridge exited before responding");
-    return JSON.parse(line.value);
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("bridge response timed out")), 3000);
+    });
+    try {
+      const line = await Promise.race([iterator.next(), timeout]);
+      assert.equal(line.done, false, "bridge exited before responding");
+      return JSON.parse(line.value);
+    } finally {
+      clearTimeout(timer);
+    }
   };
 
-  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }) + "\\n");
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }) + "\n");
   const initialized = await nextMessage();
   assert.equal(initialized.id, 1);
   assert.equal(initialized.result.serverInfo.name, "buddy-phone-bridge");
 
-  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }) + "\\n");
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }) + "\n");
   const listed = await nextMessage();
   assert.equal(listed.id, 2);
   assert.equal(listed.result.tools[0].name, "read_screen");
