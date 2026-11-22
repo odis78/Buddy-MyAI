@@ -55,6 +55,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep the CI test build installable beside the user's release app.
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+        }
         release {
             isMinifyEnabled = false
             vcsInfo.include = false
