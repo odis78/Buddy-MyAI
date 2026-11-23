@@ -14,6 +14,7 @@ public class DependencyPlannerTest {
         List<String> start = DependencyPlanner.startupOrder(registry, selected);
         assertTrue(start.indexOf("android") < start.indexOf("buddy-app"));
         assertTrue(start.indexOf("buddy-app") < start.indexOf("buddy-accessibility"));
+        assertTrue(start.indexOf("buddy-accessibility") < start.indexOf("buddy-mcp"));
         assertTrue(start.indexOf("buddy-mcp") < start.indexOf("buddy-tunnel"));
         List<String> stop = DependencyPlanner.shutdownOrder(registry, selected);
         assertEquals(start.get(0), stop.get(stop.size() - 1));
