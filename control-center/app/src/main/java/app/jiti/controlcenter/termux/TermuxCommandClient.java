@@ -55,6 +55,8 @@ public final class TermuxCommandClient {
     private static final AtomicInteger NEXT_ID = new AtomicInteger(1000);
     private static final ConcurrentHashMap<Integer, Callback> CALLBACKS = new ConcurrentHashMap<>();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final ConcurrentHashMap<Integer, Runnable> TIMEOUTS = new ConcurrentHashMap<>();
+    private static final long COMMAND_TIMEOUT_MS = 30000;
 
     private TermuxCommandClient() {}
 
@@ -78,7 +80,7 @@ public final class TermuxCommandClient {
 
     public static void run(Context context, TermuxOperation operation, Callback callback) {
         InstallState state = inspect(context);
-        if (!state.installed || !state.permissionGranted) {
+        if (!state.canInvoke()) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
             return;
         }
@@ -90,7 +92,14 @@ public final class TermuxCommandClient {
             if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
 
             requestId = NEXT_ID.incrementAndGet();
-            if (callback != null) CALLBACKS.put(requestId, callback);
+            if (callback != null) {
+                CALLBACKS.put(requestId, callback);
+                final int timeoutId = requestId;
+                Runnable timeout = () -> deliver(new TermuxCommandResult(timeoutId, "", "", -1, 0,
+                        "Termux command timed out or Termux service did not return a result", false));
+                TIMEOUTS.put(requestId, timeout);
+                MAIN.postDelayed(timeout, COMMAND_TIMEOUT_MS);
+            }
 
             Intent resultIntent = new Intent(context, TermuxResultService.class);
             resultIntent.putExtra(TermuxResultService.EXTRA_EXECUTION_ID, requestId);
@@ -110,7 +119,7 @@ public final class TermuxCommandClient {
             intent.putExtra(EXTRA_PENDING_INTENT, resultPendingIntent);
             context.startService(intent);
         } catch (Exception e) {
-            if (requestId != 0) CALLBACKS.remove(requestId);
+            if (requestId != 0) { CALLBACKS.remove(requestId); cancelTimeout(requestId); }
             deliver(callback, new TermuxCommandResult(requestId, "", "", -1, 0,
                     "Termux command could not be started: " + e.getClass().getSimpleName(), false));
         }
@@ -118,7 +127,13 @@ public final class TermuxCommandClient {
 
     static void deliver(TermuxCommandResult result) {
         Callback callback = CALLBACKS.remove(result.executionId);
+        cancelTimeout(result.executionId);
         deliver(callback, result);
+    }
+
+    private static void cancelTimeout(int id) {
+        Runnable timeout = TIMEOUTS.remove(id);
+        if (timeout != null) MAIN.removeCallbacks(timeout);
     }
 
     private static void deliver(Callback callback, TermuxCommandResult result) {
