@@ -21,6 +21,7 @@ HEALTH_URL_FILE = HOME + "/.config/tunnel-client-buddy/health.url"
 LOG_FILE = HOME + "/.config/tunnel-client-buddy/tunnel-client.log"
 STATUS_FILE = HOME + "/.config/tunnel-client-buddy/jiti-launcher.status"
 BINARY_SUFFIX = "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
+EXPECTED_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20"
 
 def emit(value):
     print(json.dumps(value, separators=(",", ":")))
@@ -109,6 +110,17 @@ def validate():
         return None, {"result": "blocked", "reason": "binary_missing_or_not_executable"}
     if not os.path.isfile(CONFIG) or not os.access(CONFIG, os.R_OK):
         return None, {"result": "blocked", "reason": "buddy_config_missing_or_unreadable"}
+    try:
+        config_text = open(CONFIG, "r", encoding="utf-8").read()
+    except Exception as exc:
+        return None, {"result": "blocked", "reason": "buddy_config_read_" + type(exc).__name__}
+    if EXPECTED_TUNNEL_ID not in config_text:
+        return None, {"result": "blocked", "reason": "buddy_tunnel_id_mismatch"}
+    if "env:CONTROL_PLANE_API_KEY" not in config_text or "BUDDY_AUTH_HEADER" not in config_text:
+        return None, {"result": "blocked", "reason": "buddy_config_auth_reference_missing"}
+    for directory in (os.path.dirname(PID_FILE), os.path.dirname(HEALTH_URL_FILE), os.path.dirname(LOG_FILE)):
+        if not os.path.isdir(directory) or not os.access(directory, os.W_OK):
+            return None, {"result": "blocked", "reason": "buddy_runtime_directory_not_writable"}
     environment, env_state, missing = load_environment()
     if environment is None:
         return None, {"result": "blocked", "reason": env_state, "missing_keys": missing}
