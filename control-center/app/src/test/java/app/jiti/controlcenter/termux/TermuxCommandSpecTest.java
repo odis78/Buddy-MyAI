@@ -7,7 +7,8 @@ public class TermuxCommandSpecTest {
     @Test public void onlyFixedAbsoluteReadOnlyOperationsAreAvailable() {
         for (TermuxOperation op : TermuxOperation.values()) {
             if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE
-                    || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE) continue;
+                    || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE || op == TermuxOperation.BUDDY_LAUNCH
+                    || op == TermuxOperation.BUDDY_STOP) continue;
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(op,
                     "/data/data/com.termux/files/usr",
                     "/data/data/com.termux/files/home");
@@ -57,6 +58,31 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.arguments.contains("http://127.0.0.1:8766/mcp"));
         assertFalse(probe.arguments.stream().anyMatch(a -> a.contains("Authorization")));
         assertTrue(probe.isSafeFixedCommand());
+    }
+
+    @Test public void buddyLaunchAndStopScriptsAreFixedAndIdentityGuarded() {
+        TermuxCommandSpec preflight = TermuxCommandSpec.forBuddyLaunch(
+                "/data/data/com.termux/files/usr", "preflight");
+        TermuxCommandSpec start = TermuxCommandSpec.forBuddyLaunch(
+                "/data/data/com.termux/files/usr", "start");
+        TermuxCommandSpec stop = TermuxCommandSpec.forBuddyStop(
+                "/data/data/com.termux/files/usr");
+        assertTrue(preflight.isSafeFixedCommand());
+        assertTrue(start.isSafeFixedCommand());
+        assertTrue(stop.isSafeFixedCommand());
+        assertTrue(preflight.arguments.get(1).contains(".config/termux-bridge/runtime.env"));
+        assertTrue(preflight.arguments.get(1).contains("CONTROL_PLANE_API_KEY"));
+        assertTrue(preflight.arguments.get(1).contains("BUDDY_TOKEN"));
+        assertTrue(stop.arguments.get(1).contains("signal.SIGTERM"));
+        assertFalse(stop.arguments.get(1).contains("signal.SIGKILL"));
+        assertTrue(stop.arguments.get(1).contains("pid_identity_mismatch"));
+    }
+
+    @Test public void buddyLaunchRejectsUnsupportedMode() {
+        try {
+            TermuxCommandSpec.forBuddyLaunch("/data/data/com.termux/files/usr", "shell");
+            fail("unsupported launch mode must be rejected");
+        } catch (IllegalArgumentException expected) { }
     }
 
     @Test public void authenticatedMcpProbeIsFixedAndNeverReturnsSecretMaterial() {
