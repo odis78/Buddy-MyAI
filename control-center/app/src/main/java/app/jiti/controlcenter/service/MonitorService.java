@@ -66,6 +66,16 @@ public final class MonitorService extends Service {
             stopMonitoring();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_POLL_NOW.equals(intent.getAction())) {
+            if (monitoring) {
+                if (inFlight) pollRequested = true;
+                else {
+                    handler.removeCallbacks(poll);
+                    handler.post(poll);
+                }
+            }
+            return START_STICKY;
+        }
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         if ((Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
@@ -415,7 +425,12 @@ public final class MonitorService extends Service {
         if (monitoring) {
             renewWakeLock();
             handler.removeCallbacks(poll);
-            handler.postDelayed(poll, POLL_INTERVAL_MS);
+            if (pollRequested) {
+                pollRequested = false;
+                handler.post(poll);
+            } else {
+                handler.postDelayed(poll, POLL_INTERVAL_MS);
+            }
         }
     }
 
@@ -536,6 +551,12 @@ public final class MonitorService extends Service {
     public static void stop(Context context) {
         Intent intent = new Intent(context, MonitorService.class);
         intent.setAction(ACTION_STOP);
+        context.startService(intent);
+    }
+
+    public static void pollNow(Context context) {
+        Intent intent = new Intent(context, MonitorService.class);
+        intent.setAction(ACTION_POLL_NOW);
         context.startService(intent);
     }
 }
