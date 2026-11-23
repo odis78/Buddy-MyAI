@@ -228,6 +228,7 @@ public final class MonitorService extends Service {
         return builder.setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentTitle("JITI Control Center")
                 .setContentText(notificationText)
+                .setSubText("CPU wake lock active • stop to release")
                 .setContentIntent(content)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
