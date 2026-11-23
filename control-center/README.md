@@ -63,6 +63,7 @@ A critical feasibility spike must prove how the control app can safely invoke Te
 - [Startup and recovery design](docs/STARTUP-AND-RECOVERY.md)
 - [Termux RUN_COMMAND security gate](docs/TERMUX-INTEGRATION-GATE.md)
 - [Tunnel Client v0.0.19 source audit](docs/TUNNEL-CLIENT-0.0.19-ANALYSIS.md)
+- [Foreground monitor lifecycle and acceptance matrix](docs/FOREGROUND-MONITOR.md)
 
 ## Development stages
 
