@@ -76,7 +76,7 @@ Confirmed as part of the 22-Nov working ecosystem:
 - Shizuku was installed and running in prior Android checks, but whether it is a hard dependency for the Buddy MCP path is not established.
 - ADB / Android shell access is a capability path, not automatically a separate tunnel.
 
-Do not duplicate conceptual components in the dashboard: a tunnel profile, a local MCP endpoint, a bridge process, a tool catalog, and an Android service are separate rows linked by dependency edges.
+Do not duplicate conceptual components in the dashboard: a remote OpenAI tunnel object, local Tunnel Client profile, local MCP server/listener, tool catalog, ChatGPT connector association, and Android service are separate rows linked by dependency edges.
 
 ## 2. 23 November diagnostics
 
