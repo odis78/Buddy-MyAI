@@ -197,7 +197,7 @@ public final class MainActivity extends Activity {
             if (isFinishing() || isDestroyed()) return;
             appendCommandResult(output, operation, result);
             if (operation == TermuxOperation.IDENTITY && result.internalError != -1) {
-                output.append("\nRemaining probes skipped: Termux rejected RUN_COMMAND before execution.");
+                output.append("\nRemaining probes skipped: RUN_COMMAND did not return a successful result.");
                 button.setEnabled(true);
                 return;
             }
@@ -351,7 +351,7 @@ public final class MainActivity extends Activity {
                 saveProbeSnapshot("termux", commandAccepted ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
                         commandAccepted ? "Termux RUN_COMMAND responded" : "Termux identity command failed");
                 saveProbeSnapshot("termux-run-command", commandAccepted ? ComponentStatus.AVAILABLE : ComponentStatus.BLOCKED,
-                        commandAccepted ? "Termux accepted external command" : "Termux rejected RUN_COMMAND; check allow-external-apps policy");
+                        commandAccepted ? "Termux accepted external command" : "RUN_COMMAND did not complete; check Android permission, allow-external-apps, and Termux service availability");
                 break;
             case TUNNEL_CLIENT_VERSION:
                 saveProbeSnapshot("tunnel-client", result.succeeded() ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
