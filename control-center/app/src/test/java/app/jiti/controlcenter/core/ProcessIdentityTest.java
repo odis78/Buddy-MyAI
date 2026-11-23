@@ -11,4 +11,13 @@ public class ProcessIdentityTest {
         assertTrue(p.matches(44, "tunnel-client", "buddy.yaml"));
         assertFalse(p.matches(44, "tunnel-client", "rea.yaml"));
     }
+
+    @Test public void stableIdentityRequiresPidStartTimeExecutableAndConfig() {
+        ProcessIdentity p = new ProcessIdentity(44, "987654", "/usr/bin/tunnel-client",
+                "tunnel-client run --config buddy.yaml");
+        assertTrue(p.matchesStable(44, "987654", "/usr/bin/tunnel-client", "buddy.yaml"));
+        assertFalse(p.matchesStable(44, "987655", "/usr/bin/tunnel-client", "buddy.yaml"));
+        assertFalse(p.matchesStable(44, "987654", "/usr/bin/other", "buddy.yaml"));
+        assertFalse(p.matchesStable(44, "", "", "buddy.yaml"));
+    }
 }
