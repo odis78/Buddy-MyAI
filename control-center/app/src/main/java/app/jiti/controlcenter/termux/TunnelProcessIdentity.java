@@ -14,12 +14,18 @@ public final class TunnelProcessIdentity {
         if (nulSeparatedCommandLine == null || termuxHome == null || !termuxHome.startsWith("/")) return false;
         String[] args = nulSeparatedCommandLine.split(String.valueOf((char) 0), -1);
         if (args.length < 3 || !args[0].endsWith("tunnel-client-android-arm64")) return false;
-        String expected = termuxHome + "/.config/tunnel-client-buddy/buddy-myai.yaml";
+        String expected = normalizeTermuxPath(termuxHome + "/.config/tunnel-client-buddy/buddy-myai.yaml");
         for (int i = 1; i < args.length; i++) {
-            if ("--config".equals(args[i]) && i + 1 < args.length && expected.equals(args[i + 1])) return true;
-            if (args[i].startsWith("--config=") && expected.equals(args[i].substring("--config=".length()))) return true;
+            if ("--config".equals(args[i]) && i + 1 < args.length
+                    && expected.equals(normalizeTermuxPath(args[i + 1]))) return true;
+            if (args[i].startsWith("--config=")
+                    && expected.equals(normalizeTermuxPath(args[i].substring("--config=".length())))) return true;
         }
         return false;
+    }
+
+    private static String normalizeTermuxPath(String path) {
+        return path.replace("/data/user/0/com.termux", "/data/data/com.termux");
     }
 
     public static boolean matchesBuddy(String executablePath, String nulSeparatedCommandLine, String termuxHome) {
