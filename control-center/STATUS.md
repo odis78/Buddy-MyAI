@@ -31,12 +31,12 @@
 - State-changing runtime actions and recovery executor remain disabled; no on-device acceptance tests have passed yet.
 
 ## Next engineering gates
-1. Pass the new unit-test and APK build workflow.
-2. Add graph-cycle validation tests and runtime state/event model.
-3. Recover exact source evidence for each profile's launch contract and endpoints.
-4. Prove supported Termux app integration before adding any process-control implementation.
-5. Add read-only live probes, then device tests.
-6. Only after those pass, add guarded start/stop/restart controls.
+1. Pass the expanded JVM unit-test and APK build workflow.
+2. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
+3. Recover exact launch/stop and health-file contracts for Buddy, Bridge, DroidMCP, and REA Android profiles.
+4. Identify the correct Buddy token/header source using the names-only environment audit, then add authenticated MCP initialize and tools/list probes without exposing values.
+5. Add read-only health and MCP probes for the three REA profiles.
+6. Only after these pass, add guarded per-profile start/stop/restart and bounded recovery.
 
 ## Safety and acceptance boundary
 The target remains a fully working utility, not a visual shell. Completion requires real live status, verified dependency-aware controls, bounded safe recovery, foreground/lifecycle tests on Infinix X678B, and repeated test/fix cycles. CI success alone is not completion.
