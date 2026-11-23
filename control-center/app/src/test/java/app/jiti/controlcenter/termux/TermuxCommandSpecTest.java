@@ -46,6 +46,8 @@ public class TermuxCommandSpecTest {
         TermuxCommandSpec executable = TermuxCommandSpec.forProcessExecutable(1234);
         assertTrue(cmdline.isSafeFixedCommand());
         assertTrue(executable.isSafeFixedCommand());
+        assertEquals("/system/bin/cat", cmdline.executable);
+        assertEquals("/system/bin/readlink", executable.executable);
         assertTrue(cmdline.arguments.get(0).equals("/proc/1234/cmdline"));
         assertTrue(executable.arguments.get(0).equals("/proc/1234/exe"));
     }
