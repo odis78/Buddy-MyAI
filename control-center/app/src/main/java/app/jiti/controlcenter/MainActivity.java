@@ -140,12 +140,12 @@ public final class MainActivity extends Activity {
                 TermuxOperation.PROCESS_LIST
         };
         if (index >= operations.length) {
-            output.append("\\n\\nRead-only preflight завершён. MCP 401 подтверждает только доступность listener и требование авторизации, но не успешную аутентификацию.");
+            output.append("\n\nRead-only preflight завершён. MCP 401 подтверждает только доступность listener и требование авторизации, но не успешную аутентификацию.");
             button.setEnabled(true);
             return;
         }
         TermuxOperation operation = operations[index];
-        output.append("\\n\\n[" + operationLabel(operation) + "] running…");
+        output.append("\n\n[" + operationLabel(operation) + "] running…");
         TermuxCommandClient.run(this, operation, result -> {
             appendCommandResult(output, operation, result);
             runTermuxStep(button, output, index + 1);
@@ -165,8 +165,8 @@ public final class MainActivity extends Activity {
     }
 
     private void appendCommandResult(TextView output, TermuxOperation operation, TermuxCommandResult result) {
-        output.append("\\nexit=" + result.exitCode + " termuxErr=" + result.internalError);
-        if (!result.internalErrorMessage.isEmpty()) output.append("\\n" + result.internalErrorMessage);
+        output.append("\nexit=" + result.exitCode + " termuxErr=" + result.internalError);
+        if (!result.internalErrorMessage.isEmpty()) output.append("\n" + result.internalErrorMessage);
         String body = result.stdout;
         if (operation == TermuxOperation.PROCESS_LIST) body = relevantProcesses(body);
         if (operation == TermuxOperation.BUDDY_TUNNEL_HEALTH) body = summarizeHealth(body);
@@ -176,9 +176,9 @@ public final class MainActivity extends Activity {
             else if ("200".equals(code)) body = "HTTP 200 без Authorization: проверьте политику доступа MCP listener.";
             else body = "HTTP status: " + (code.isEmpty() ? "нет ответа" : code);
         }
-        if (!body.isEmpty()) output.append("\\n" + body.trim());
-        if (!result.stderr.isEmpty()) output.append("\\nSTDERR: " + result.stderr.trim());
-        if (result.truncated) output.append("\\n[OUTPUT TRUNCATED]");
+        if (!body.isEmpty()) output.append("\n" + body.trim());
+        if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
+        if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
     }
 
     private String summarizeHealth(String json) {
@@ -200,10 +200,10 @@ public final class MainActivity extends Activity {
 
     private String relevantProcesses(String source) {
         StringBuilder result = new StringBuilder();
-        for (String line : source.split("\\n")) {
+        for (String line : source.split("\n")) {
             String lower = line.toLowerCase(java.util.Locale.ROOT);
             if (lower.contains("tunnel-client") || lower.contains("termux") || lower.contains("buddy") || lower.contains("rea")) {
-                if (result.length() > 0) result.append('\\n');
+                if (result.length() > 0) result.append('\n');
                 result.append(line);
             }
         }
