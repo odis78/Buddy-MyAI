@@ -42,10 +42,8 @@ public class TermuxCommandSpecTest {
     }
 
     @Test public void dynamicProcReadsRequirePositiveNumericPid() {
-        TermuxCommandSpec cmdline = TermuxCommandSpec.forProcessCmdline(
-                "/data/data/com.termux/files/usr", 1234);
-        TermuxCommandSpec executable = TermuxCommandSpec.forProcessExecutable(
-                "/data/data/com.termux/files/usr", 1234);
+        TermuxCommandSpec cmdline = TermuxCommandSpec.forProcessCmdline(1234);
+        TermuxCommandSpec executable = TermuxCommandSpec.forProcessExecutable(1234);
         assertTrue(cmdline.isSafeFixedCommand());
         assertTrue(executable.isSafeFixedCommand());
         assertTrue(cmdline.arguments.get(0).equals("/proc/1234/cmdline"));
@@ -54,7 +52,7 @@ public class TermuxCommandSpecTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void nonPositivePidIsRejected() {
-        TermuxCommandSpec.forProcessCmdline("/data/data/com.termux/files/usr", 0);
+        TermuxCommandSpec.forProcessCmdline(0);
     }
 
     @Test(expected = IllegalArgumentException.class)
