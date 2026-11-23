@@ -11,5 +11,10 @@ public class SecretRedactorTest {
         assertFalse(value.contains("secret"));
         assertTrue(value.contains("[REDACTED]"));
     }
+    @Test public void redactsPrefixedEnvironmentNamesAndJson() {
+        String value = SecretRedactor.redact("{\"CONTROL_PLANE_API_KEY\":\"runtime-secret\",\"BUDDY_AUTH_HEADER\":\"Bearer header-secret\"}");
+        assertFalse(value.contains("runtime-secret"));
+        assertFalse(value.contains("header-secret"));
+    }
     @Test public void nullIsSafe() { assertEquals("", SecretRedactor.redact(null)); }
 }
