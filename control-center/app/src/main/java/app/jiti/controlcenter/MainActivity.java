@@ -284,9 +284,12 @@ public final class MainActivity extends Activity {
     private String buildEventLog() {
         if (eventStore == null) return "Журнал пока пуст.";
         java.util.List<DiagnosticEvent> events = eventStore.recent(20);
-        if (events.isEmpty()) return "Журнал пока пуст.";
+        if (events.isEmpty()) return "Журнал пока пуст. Ошибки: 0 • блокировки: 0 • автоматические перезапуски: отключены.";
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
-        StringBuilder value = new StringBuilder();
+        StringBuilder value = new StringBuilder("Ошибки: " + eventStore.countType("PROBE_FAILED")
+                + " • NOT_READY: " + eventStore.countType("NOT_READY")
+                + " • блокировки: " + eventStore.countType("BLOCKED")
+                + " • автоматические перезапуски: отключены\\n\\n");
         for (DiagnosticEvent event : events) {
             value.append(format.format(new Date(event.timestampEpochMillis)))
                     .append("  ").append(event.componentId).append(" / ")
