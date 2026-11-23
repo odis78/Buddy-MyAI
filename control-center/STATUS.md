@@ -1,41 +1,39 @@
 # JITI Control Center status
 
 **Branch:** `project/jiti-control-center`  
-**Base:** protected Buddy checkpoint commit `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`  
-**Current milestone:** M0, historical inventory and architecture baseline.
+**Protected base:** `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`  
+**Current milestone:** M1, core registry and safety-policy foundation.
 
 ## Completed
-- Created an isolated project branch from the checkpoint commit.
-- Recorded the 22-Nov Buddy tunnel runbook and known-good end-to-end evidence.
-- Recorded the 23-Nov staged diagnostics and observed stopped state.
-- Defined component evidence labels and a separate dashboard inventory model.
-- Defined dependency-aware startup/recovery rules and Android/Termux feasibility tests.
+- Isolated project branch; protected Buddy checkpoint and main branch remain untouched.
+- Historical inventory and dependency/recovery design documented from 22–23 November evidence.
+- Android project and first debug APK build pipeline established.
+- Added typed component registry with evidence labels and dependency metadata.
+- Added dependency-aware startup/shutdown planner.
+- Added bounded retry/backoff and circuit-breaker decision policy.
+- Added credential redaction utility.
+- Added PID/process identity guard against stale or mismatched PID files.
+- Reworked dashboard to render the registry and historical evidence separately from live status.
+- Added JVM unit tests for dependency planning, retry policy, secret redaction, and process identity.
+- CI now runs unit tests before APK assembly.
 
-## Not yet implemented
-- Android app module, UI, service, persistence, component registry, Termux adapter.
-- Verified start/stop command contracts for each profile.
-- Full per-tool catalog reconciliation.
-- Device-side foreground/background survival tests.
-- CI build and APK artifact.
+## Explicitly not complete
+- Live Android/Termux process inspection.
+- Termux external-command integration and permission/lifecycle proof.
+- HTTP MCP initialize/list-tools probes.
+- Exact profile launch/stop contracts for all four tunnel-client instances.
+- Foreground monitoring service and persistence.
+- Runtime actions, recovery executor, and on-device acceptance tests.
 
-## Immediate next work
-1. Retrieve and inspect the exact 22-Nov and 23-Nov GitHub diagnostic reports.
-2. Reconcile the Buddy 52-vs-44 tool count and REA 207-tool inventory.
-3. Recover all four tunnel profiles' exact command lines, IDs, endpoints, health files, and startup order.
-4. Inspect Termux external-command integration and test its lifecycle constraints.
-5. Only then implement the first Android dashboard and read-only checks.
+## Next engineering gates
+1. Pass the new unit-test and APK build workflow.
+2. Add graph-cycle validation tests and runtime state/event model.
+3. Recover exact source evidence for each profile's launch contract and endpoints.
+4. Prove supported Termux app integration before adding any process-control implementation.
+5. Add read-only live probes, then device tests.
+6. Only after those pass, add guarded start/stop/restart controls.
 
-## Safety boundary
-No existing Buddy app, protected checkpoint, REA working tree, tunnel configuration, runtime.env, token, or phone service was modified by this project initialization.
+## Safety and acceptance boundary
+The target remains a fully working utility, not a visual shell. Completion requires real live status, verified dependency-aware controls, bounded safe recovery, foreground/lifecycle tests on Infinix X678B, and repeated test/fix cycles. CI success alone is not completion.
 
-
-## User acceptance requirement (confirmed 2026-11-23)
-The target is a **fully working utility**, not a visual shell. Completion requires:
-- real live status for every registered component;
-- verified startup/shutdown/restart commands and dependency ordering;
-- bounded retries, error classification, diagnostics, and safe recovery;
-- foreground monitoring and measured Android/Termux lifecycle behavior;
-- on-device tests on Infinix X678B;
-- repeat test/fix cycles until all acceptance tests pass or a clearly documented external blocker is reached.
-
-A green CI build is only the first technical checkpoint, not project completion.
+No existing Buddy app, protected checkpoint, REA working tree, tunnel YAML, runtime.env, credentials, or live phone service has been changed by this development stage.
