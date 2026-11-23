@@ -70,9 +70,9 @@ public final class MainActivity extends Activity {
             if (!tool.group.equals(currentToolGroup)) {
                 if (toolNames.length() > 0) addCard(page, text(toolNames.toString(), 12, FG, false), 6);
                 currentToolGroup = tool.group;
-                toolNames = new StringBuilder(currentToolGroup).append(":\\n");
+                toolNames = new StringBuilder(currentToolGroup).append(":\n");
             }
-            if (toolNames.charAt(toolNames.length() - 1) != '\\n') toolNames.append(", ");
+            if (toolNames.charAt(toolNames.length() - 1) != '\n') toolNames.append(", ");
             toolNames.append(tool.name);
             if (tool.risk == ToolSpec.Risk.PRIVILEGED) toolNames.append(" [PRIVILEGED]");
             else if (tool.risk == ToolSpec.Risk.SENSITIVE_READ) toolNames.append(" [SENSITIVE]");
