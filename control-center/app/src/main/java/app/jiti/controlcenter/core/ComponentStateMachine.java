@@ -18,10 +18,10 @@ public final class ComponentStateMachine {
                 ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
         allow(ComponentStatus.AVAILABLE, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.READY, ComponentStatus.STOPPED,
-                ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.READY, ComponentStatus.CHECKING, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
+                ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.READY, ComponentStatus.CHECKING, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
         allow(ComponentStatus.NOT_READY, ComponentStatus.CHECKING, ComponentStatus.STARTING,
-                ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.ERROR, ComponentStatus.BLOCKED);
+                ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.ERROR, ComponentStatus.CHECKING, ComponentStatus.STARTING,
                 ComponentStatus.STOPPED, ComponentStatus.BLOCKED, ComponentStatus.UNAVAILABLE);
         allow(ComponentStatus.UNAVAILABLE, ComponentStatus.CHECKING, ComponentStatus.BLOCKED);
