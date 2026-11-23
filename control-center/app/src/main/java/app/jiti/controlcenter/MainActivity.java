@@ -135,10 +135,9 @@ public final class MainActivity extends Activity {
     private void addTermuxSection(LinearLayout page) {
         addSection(page, "Подключение Termux");
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
-        String status = state.installed
-                ? "Termux " + state.versionName + " • " + state.message
-                : state.message;
-        termuxStatusView = text(status + "\nДля запуска требуется RUN_COMMAND permission и allow-external-apps=true в Termux. Мониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
+        String status = (state.installed ? "Termux " + state.versionName + " • " : "") + state.message
+                + "\\n" + termuxPolicyText();
+        termuxStatusView = text(status + "\\nМониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
                 termuxBridgeVerified() ? GREEN : AMBER, true);
         addCard(page, termuxStatusView, 8);
 
@@ -468,6 +467,12 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private String termuxPolicyText() {
+        return termuxBridgeVerified()
+                ? "RUN_COMMAND и allow-external-apps подтверждены последним успешным callback."
+                : "RUN_COMMAND permission и allow-external-apps=true должны быть включены отдельно; внешняя политика пока не подтверждена.";
+    }
+
     private boolean termuxBridgeVerified() {
         if (eventStore == null) return false;
         RuntimeSnapshot snapshot = eventStore.snapshot("termux-run-command");
@@ -480,7 +485,8 @@ public final class MainActivity extends Activity {
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
         if (termuxStatusView != null) {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
-                    + "\nRUN_COMMAND permission и allow-external-apps=true включаются отдельно. Мониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
+                    + "\n" + termuxPolicyText()
+                    + "\nМониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
             termuxStatusView.setTextColor(getColor(termuxBridgeVerified() ? GREEN : AMBER));
         }
         if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
