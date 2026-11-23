@@ -1,6 +1,6 @@
 # Android application implementation
 
-## Implemented in M0.1–M1
+## Implemented through M2 (device validation pending)
 
 - Standalone Android application namespace/application ID: `app.jiti.controlcenter`.
 - Independent Gradle project under `control-center/`.
