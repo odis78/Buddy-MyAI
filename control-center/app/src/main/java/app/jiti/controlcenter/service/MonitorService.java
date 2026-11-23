@@ -119,8 +119,8 @@ public final class MonitorService extends Service {
             if (!install.message.equals(lastGateState)) {
                 lastGateState = install.message;
                 log("termux", "BLOCKED", install.message);
-                saveSnapshot("termux-run-command", ComponentStatus.BLOCKED, install.message, 0);
             }
+            saveSnapshot("termux-run-command", ComponentStatus.BLOCKED, install.message, 0);
             notificationText = "Termux setup required";
             updateNotification();
             scheduleNext();
