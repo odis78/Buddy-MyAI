@@ -153,15 +153,22 @@ public final class MonitorService extends Service {
 
     private void onMcpChallenge(TermuxCommandResult result) {
         String code = result.stdout == null ? "" : result.stdout.trim();
-        String state = result.succeeded() && "401".equals(code)
-                ? "LISTENER_UP_AUTH_REQUIRED" : "LISTENER_UNCONFIRMED";
+        String state;
+        if (result.succeeded() && "401".equals(code)) state = "LISTENER_UP_AUTH_REQUIRED";
+        else if (result.succeeded() && "200".equals(code)) state = "UNAUTHENTICATED_200_WARNING";
+        else state = "LISTENER_UNCONFIRMED";
         if (!state.equals(lastMcpState)) {
             lastMcpState = state;
             log("buddy-mcp", state, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code));
         }
-        notificationText = "LISTENER_UP_AUTH_REQUIRED".equals(state)
-                ? (lastHealthState.equals("READY") ? "Buddy tunnel READY • MCP listener up" : "MCP listener up • tunnel not ready")
-                : "Buddy MCP listener unconfirmed";
+        if ("LISTENER_UP_AUTH_REQUIRED".equals(state)) {
+            notificationText = lastHealthState.equals("READY")
+                    ? "Buddy tunnel READY • MCP listener up" : "MCP listener up • tunnel not ready";
+        } else if ("UNAUTHENTICATED_200_WARNING".equals(state)) {
+            notificationText = "Warning: MCP returned HTTP 200 without auth";
+        } else {
+            notificationText = "Tunnel " + lastHealthState + " • MCP listener unconfirmed";
+        }
         updateNotification();
         if ("NOT_READY".equals(lastHealthState)) {
             TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
