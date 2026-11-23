@@ -39,6 +39,9 @@ public final class TermuxCommandSpec {
                                 home + "/.config/tunnel-client-buddy/buddy-myai.yaml",
                                 home + "/.bashrc", home + "/.profile", home + "/.bash_profile",
                                 home + "/bin/tunnels"));
+            case TUNNELS_SCRIPT_AUDIT:
+                return new TermuxCommandSpec(operation, prefix + "/bin/sed",
+                        Arrays.asList("-n", "1,240p", home + "/bin/tunnels"));
             case BUDDY_TUNNEL_HEALTH:
                 return new TermuxCommandSpec(operation,
                         home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
