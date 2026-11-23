@@ -342,8 +342,11 @@ public final class MainActivity extends Activity {
     private void updateSnapshotForProbe(TermuxOperation operation, TermuxCommandResult result) {
         switch (operation) {
             case IDENTITY:
-                saveProbeSnapshot("termux", result.succeeded() ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
-                        result.succeeded() ? "Termux RUN_COMMAND responded" : "Termux identity command failed");
+                boolean commandAccepted = result.internalError == -1;
+                saveProbeSnapshot("termux", commandAccepted ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
+                        commandAccepted ? "Termux RUN_COMMAND responded" : "Termux identity command failed");
+                saveProbeSnapshot("termux-run-command", commandAccepted ? ComponentStatus.AVAILABLE : ComponentStatus.BLOCKED,
+                        commandAccepted ? "Termux accepted external command" : "Termux rejected RUN_COMMAND; check allow-external-apps policy");
                 break;
             case TUNNEL_CLIENT_VERSION:
                 saveProbeSnapshot("tunnel-client", result.succeeded() ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
