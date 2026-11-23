@@ -19,8 +19,8 @@
 
 ## Explicitly not complete
 - Live Android/Termux process inspection.
-- Termux external-command integration and permission/lifecycle proof.
-- HTTP MCP initialize/list-tools probes.
+- Termux RUN_COMMAND adapter is implemented for fixed read-only probes, but target-device permission, external-app property, and lifecycle proof are still pending.
+- Authenticated HTTP MCP initialize/list-tools probes; current probe only verifies the local listener/auth challenge.
 - Exact profile launch/stop contracts for all four tunnel-client instances.
 - Foreground monitoring service and persistence.
 - Runtime actions, recovery executor, and on-device acceptance tests.
