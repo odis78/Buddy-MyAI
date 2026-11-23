@@ -129,6 +129,8 @@ public final class MonitorService extends Service {
             lastGateState = "";
         }
         saveSnapshot("termux-run-command", ComponentStatus.AVAILABLE, "RUN_COMMAND permission and version gate passed", 0);
+        saveSnapshot("jiti-monitor-service", ComponentStatus.RUNNING, "Foreground monitor active", 0);
+        saveSnapshot("jiti-control-center", ComponentStatus.RUNNING, "Monitor process active", 0);
         inFlight = true;
         TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
@@ -146,7 +148,12 @@ public final class MonitorService extends Service {
         } catch (Exception ignored) {
             if (!result.stderr.isEmpty()) summary += " " + result.stderr;
         }
-        saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, summary, extractPid(result.stdout));
+        saveSnapshot("termux", result.internalError == -1 ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
+                "Termux RUN_COMMAND result received; exit=" + result.exitCode, 0);
+        int tunnelPid = extractPid(result.stdout);
+        saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, summary, tunnelPid);
+        saveSnapshot("tunnel-client", processRunning(result.stdout) ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+                "Tunnel Client health PID check; executable/config identity not yet verified", tunnelPid);
         String state = ready ? "READY" : "NOT_READY";
         if (!state.equals(lastHealthState)) {
             lastHealthState = state;
@@ -164,6 +171,9 @@ public final class MonitorService extends Service {
         if (result.succeeded() && "401".equals(code)) state = "LISTENER_UP_AUTH_REQUIRED";
         else if (result.succeeded() && "200".equals(code)) state = "UNAUTHENTICATED_200_WARNING";
         else state = "LISTENER_UNCONFIRMED";
+        saveSnapshot("termux-curl", result.internalError == -1 && result.exitCode != 127
+                ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
+                "curl challenge execution exit=" + result.exitCode, 0);
         ComponentStatus mcpStatus = "LISTENER_UP_AUTH_REQUIRED".equals(state) ? ComponentStatus.RUNNING
                 : "UNAUTHENTICATED_200_WARNING".equals(state) ? ComponentStatus.ERROR : ComponentStatus.NOT_READY;
         saveSnapshot("buddy-mcp", mcpStatus, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code), 0);
@@ -199,6 +209,14 @@ public final class MonitorService extends Service {
                 "Process-name snapshot; PID identity not yet verified", 0);
         inFlight = false;
         scheduleNext();
+    }
+
+    private boolean processRunning(String json) {
+        try {
+            JSONObject report = new JSONObject(json);
+            JSONObject process = report.optJSONObject("process");
+            return process != null && process.optBoolean("running");
+        } catch (Exception ignored) { return false; }
     }
 
     private int extractPid(String json) {
