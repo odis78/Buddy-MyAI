@@ -41,7 +41,15 @@ public final class TermuxCommandClient {
             this.dataDir = dataDir;
             this.message = message;
         }
-        public boolean canInvoke() { return installed && permissionGranted; }
+        public boolean versionSupportsResultCallback() {
+            try {
+                String[] parts = versionName.split("\\.");
+                int major = Integer.parseInt(parts[0]);
+                int minor = Integer.parseInt(parts[1].replaceAll("[^0-9].*$", ""));
+                return major > 0 || minor >= 109;
+            } catch (Exception ignored) { return false; }
+        }
+        public boolean canInvoke() { return installed && permissionGranted && versionSupportsResultCallback(); }
     }
 
     private static final AtomicInteger NEXT_ID = new AtomicInteger(1000);
@@ -56,9 +64,11 @@ public final class TermuxCommandClient {
             ApplicationInfo app = pm.getApplicationInfo(TERMUX_PACKAGE, 0);
             PackageInfo info = pm.getPackageInfo(TERMUX_PACKAGE, 0);
             boolean permission = context.checkSelfPermission(PERMISSION_RUN_COMMAND) == PackageManager.PERMISSION_GRANTED;
-            return new InstallState(true, permission, info.versionName, app.dataDir, permission
-                    ? "Termux установлен; RUN_COMMAND permission granted"
-                    : "Termux установлен; требуется RUN_COMMAND permission");
+            InstallState state = new InstallState(true, permission, info.versionName, app.dataDir, "");
+            String message = !permission ? "Требуется RUN_COMMAND permission"
+                    : !state.versionSupportsResultCallback() ? "Termux version must be >= 0.109 for result callbacks"
+                    : "Termux установлен; RUN_COMMAND permission granted";
+            return new InstallState(true, permission, info.versionName, app.dataDir, message);
         } catch (PackageManager.NameNotFoundException e) {
             return new InstallState(false, false, "", "", "Пакет com.termux не найден");
         } catch (Exception e) {
@@ -72,20 +82,21 @@ public final class TermuxCommandClient {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
             return;
         }
+        int requestId = 0;
         try {
             String prefix = state.dataDir + "/files/usr";
             String home = state.dataDir + "/files/home";
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(operation, prefix, home);
             if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
 
-            int id = NEXT_ID.incrementAndGet();
-            CALLBACKS.put(id, callback);
+            requestId = NEXT_ID.incrementAndGet();
+            if (callback != null) CALLBACKS.put(requestId, callback);
 
             Intent resultIntent = new Intent(context, TermuxResultService.class);
-            resultIntent.putExtra(TermuxResultService.EXTRA_EXECUTION_ID, id);
+            resultIntent.putExtra(TermuxResultService.EXTRA_EXECUTION_ID, requestId);
             int pendingFlags = PendingIntent.FLAG_ONE_SHOT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) pendingFlags |= PendingIntent.FLAG_MUTABLE;
-            PendingIntent resultPendingIntent = PendingIntent.getService(context, id, resultIntent, pendingFlags);
+            PendingIntent resultPendingIntent = PendingIntent.getService(context, requestId, resultIntent, pendingFlags);
 
             Intent intent = new Intent();
             intent.setClassName(TERMUX_PACKAGE, RUN_COMMAND_SERVICE);
@@ -99,8 +110,8 @@ public final class TermuxCommandClient {
             intent.putExtra(EXTRA_PENDING_INTENT, resultPendingIntent);
             context.startService(intent);
         } catch (Exception e) {
-            int id = 0;
-            deliver(callback, new TermuxCommandResult(id, "", "", -1, 0,
+            if (requestId != 0) CALLBACKS.remove(requestId);
+            deliver(callback, new TermuxCommandResult(requestId, "", "", -1, 0,
                     "Termux command could not be started: " + e.getClass().getSimpleName(), false));
         }
     }
