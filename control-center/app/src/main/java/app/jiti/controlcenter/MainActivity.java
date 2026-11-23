@@ -51,6 +51,16 @@ public final class MainActivity extends Activity {
     private Button monitorStopButton;
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
+    private final android.os.Handler uiRefreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable uiRefreshRunnable = new Runnable() {
+        @Override public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            refreshEventLog();
+            refreshLiveStatuses();
+            refreshTermuxControls();
+            uiRefreshHandler.postDelayed(this, 15000L);
+        }
+    };
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -248,6 +258,7 @@ public final class MainActivity extends Activity {
                     result.succeeded() || expectedNoMatch ? "PROBE_OK" : "PROBE_FAILED", message));
             refreshEventLog();
             refreshLiveStatuses();
+            refreshTermuxControls();
         }
     }
 
@@ -338,9 +349,17 @@ public final class MainActivity extends Activity {
         refreshEventLog();
         refreshLiveStatuses();
         refreshTermuxControls();
+        uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
+        uiRefreshHandler.postDelayed(uiRefreshRunnable, 15000L);
+    }
+
+    @Override protected void onPause() {
+        uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
+        super.onPause();
     }
 
     @Override protected void onDestroy() {
+        uiRefreshHandler.removeCallbacksAndMessages(null);
         if (eventStore != null) eventStore.close();
         super.onDestroy();
     }
