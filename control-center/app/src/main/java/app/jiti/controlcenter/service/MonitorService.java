@@ -280,6 +280,11 @@ public final class MonitorService extends Service {
     }
 
     private void onAuthenticatedMcpResult(TermuxCommandResult result) {
+        if (result.succeeded()) {
+            saveSnapshot("termux-python", ComponentStatus.AVAILABLE, "Python authenticated probe executed", 0);
+        } else if (result.internalError == -1 && result.exitCode == 127) {
+            saveSnapshot("termux-python", ComponentStatus.UNAVAILABLE, "Python executable not found", 0);
+        }
         JSONObject report = null;
         String state = "";
         try {
