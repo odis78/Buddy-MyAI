@@ -94,6 +94,22 @@ public final class TermuxCommandClient {
         }
     }
 
+    public static void runProcessExecutable(Context context, int pid, Callback callback) {
+        InstallState state = inspect(context);
+        if (!state.canInvoke()) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
+            return;
+        }
+        try {
+            String prefix = state.dataDir + "/files/usr";
+            TermuxCommandSpec spec = TermuxCommandSpec.forProcessExecutable(prefix, pid);
+            runSpec(context, state, spec, TermuxOperation.PROCESS_EXECUTABLE, callback);
+        } catch (Exception e) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
+                    "Executable identity probe rejected: " + e.getClass().getSimpleName(), false));
+        }
+    }
+
     public static void runProcessCmdline(Context context, int pid, Callback callback) {
         InstallState state = inspect(context);
         if (!state.canInvoke()) {
@@ -170,7 +186,8 @@ public final class TermuxCommandClient {
             case IDENTITY: return "JITI: Termux identity check";
             case TUNNEL_CLIENT_VERSION: return "JITI: Tunnel Client version check";
             case PROCESS_LIST: return "JITI: Android process list";
-            case PROCESS_CMDLINE: return "JITI: verify Tunnel Client process identity";
+            case PROCESS_EXECUTABLE: return "JITI: verify Tunnel Client executable";
+            case PROCESS_CMDLINE: return "JITI: verify Tunnel Client config identity";
             default: return "JITI read-only diagnostic";
         }
     }
