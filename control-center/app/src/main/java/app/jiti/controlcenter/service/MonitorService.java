@@ -155,7 +155,7 @@ public final class MonitorService extends Service {
         ComponentStatus tunnelStatus;
         if (result.internalError != -1 || result.exitCode == 127) tunnelStatus = ComponentStatus.UNAVAILABLE;
         else if (!hasProcessReport(result.stdout)) tunnelStatus = ComponentStatus.ERROR;
-        else tunnelStatus = processRunning(result.stdout) ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
+        else tunnelStatus = processRunning(result.stdout) ? ComponentStatus.PID_PRESENT : ComponentStatus.STOPPED;
         saveSnapshot("tunnel-client", tunnelStatus,
                 "Tunnel Client health PID check; executable/config identity not yet verified", tunnelPid);
         String state = ready ? "READY" : "NOT_READY";
