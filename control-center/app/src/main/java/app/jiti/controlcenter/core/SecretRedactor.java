@@ -5,14 +5,14 @@ import java.util.regex.Pattern;
 
 public final class SecretRedactor {
     private static final Pattern ASSIGNMENT = Pattern.compile(
-        "(?i)(\\b(?:authorization|proxy-authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|buddy[_-]?token|password|secret)\\b\\s*[:=]\\s*)([^\\s,;]+)");
+        "(?i)([\"']?(?:[A-Z0-9_]*_)?(?:AUTHORIZATION|PROXY_AUTHORIZATION|API_KEY|ACCESS_TOKEN|REFRESH_TOKEN|BUDDY_TOKEN|BUDDY_AUTH_HEADER|AUTH_HEADER|PASSWORD|SECRET|TOKEN|KEY)[\"']?\\s*[:=]\\s*)(?:Bearer\\s+)?([^\"'\\s,;}]+)([\"']?)");
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+/=-]+");
     private SecretRedactor() {}
 
     public static String redact(String input) {
         if (input == null) return "";
         Matcher m = ASSIGNMENT.matcher(input);
-        String safe = m.replaceAll("$1[REDACTED]");
+        String safe = m.replaceAll("$1[REDACTED]$3");
         return BEARER.matcher(safe).replaceAll("Bearer [REDACTED]");
     }
 }
