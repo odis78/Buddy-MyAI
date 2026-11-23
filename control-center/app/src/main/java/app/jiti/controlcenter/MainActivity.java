@@ -323,7 +323,7 @@ public final class MainActivity extends Activity {
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_preflight" : report.optString("result");
-            if (!result.succeeded() || report == null) {
+            if (report == null) {
                 buddyControlStatusView.setText("Stop preflight не выполнен: " + result.error);
                 logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
                 refreshTermuxControls();
