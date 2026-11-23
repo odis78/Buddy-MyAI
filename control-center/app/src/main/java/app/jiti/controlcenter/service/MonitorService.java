@@ -77,25 +77,42 @@ public final class MonitorService extends Service {
         if (!monitoring) {
             monitoring = true;
             running = true;
-            startAsForeground();
+            if (!startAsForegroundSafely()) {
+                monitoring = false;
+                running = false;
+                saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Android refused foreground service start", 0);
+                stopSelf(startId);
+                return START_NOT_STICKY;
+            }
             log("system", "MONITOR_STARTED", "User started read-only monitoring");
             saveSnapshot("jiti-monitor-service", ComponentStatus.RUNNING, "Foreground monitor active", 0);
             handler.removeCallbacks(poll);
             handler.post(poll);
-        } else {
-            startAsForeground();
+        } else if (!startAsForegroundSafely()) {
+            monitoring = false;
+            running = false;
+            releaseWakeLock();
+            stopSelf(startId);
+            return START_NOT_STICKY;
         }
         return START_STICKY;
     }
 
-    private void startAsForeground() {
+    private boolean startAsForegroundSafely() {
         Notification notification = buildNotification();
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
-        renewWakeLock();
+        try {
+            renewWakeLock();
+            return true;
+        } catch (Exception e) {
+            log("system", "FOREGROUND_START_FAILED", e.getClass().getSimpleName());
+            releaseWakeLock();
+            return false;
+        }
     }
 
     private void pollOnce() {
