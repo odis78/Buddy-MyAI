@@ -72,6 +72,9 @@ public final class TermuxCommandSpec {
         for (String arg : arguments) {
             if (arg == null || arg.contains("\n") || arg.contains("\r")) return false;
         }
+        if (operation == TermuxOperation.PROCESS_CMDLINE) {
+            return arguments.size() == 1 && arguments.get(0).matches("/proc/[1-9][0-9]*/cmdline");
+        }
         return true;
     }
 }
