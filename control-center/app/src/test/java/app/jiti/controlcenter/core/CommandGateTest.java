@@ -9,6 +9,16 @@ public class CommandGateTest {
     @Test public void defaultGateDeniesEverything() {
         assertFalse(CommandGate.locked().mayExecute("buddy.start", true, true, true));
     }
+    @Test public void buddyStartAndStopAreExplicitlyAllowlisted() {
+        HashSet<String> enabled = new HashSet<>();
+        enabled.add("buddy.start");
+        enabled.add("buddy.stop");
+        CommandGate gate = new CommandGate(enabled);
+        assertTrue(gate.mayExecute("buddy.start", true, true, true));
+        assertTrue(gate.mayExecute("buddy.stop", true, true, true));
+        assertFalse(gate.mayExecute("buddy.start", true, false, true));
+        assertFalse(gate.mayExecute("buddy.stop", true, true, false));
+    }
     @Test public void allIndependentGuardsMustPass() {
         HashSet<String> enabled = new HashSet<>(Collections.singletonList("buddy.restart"));
         CommandGate gate = new CommandGate(enabled);
