@@ -66,6 +66,7 @@ public final class MonitorService extends Service {
             handler.removeCallbacks(poll);
             releaseWakeLock();
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
+            stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf(startId);
             return START_NOT_STICKY;
         }
