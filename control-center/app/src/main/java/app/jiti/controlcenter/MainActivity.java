@@ -45,6 +45,10 @@ public final class MainActivity extends Activity {
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
     private EventStore eventStore;
     private TextView eventLogView;
+    private TextView termuxStatusView;
+    private Button termuxCheckButton;
+    private Button monitorStartButton;
+    private Button monitorStopButton;
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
 
@@ -124,13 +128,14 @@ public final class MainActivity extends Activity {
         String status = state.installed
                 ? "Termux " + state.versionName + " • " + state.message
                 : state.message;
-        addCard(page, text(status + "\nДля запуска требуется RUN_COMMAND permission и allow-external-apps=true в Termux. Мониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
-                state.canInvoke() ? GREEN : AMBER, true), 8);
+        termuxStatusView = text(status + "\nДля запуска требуется RUN_COMMAND permission и allow-external-apps=true в Termux. Мониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
+                state.canInvoke() ? GREEN : AMBER, true);
+        addCard(page, termuxStatusView, 8);
 
         TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
-        Button check = button("Безопасная проверка Termux");
-        check.setEnabled(state.canInvoke());
-        check.setOnClickListener(v -> runTermuxDiagnostics(check, output));
+        termuxCheckButton = button("Безопасная проверка Termux");
+        termuxCheckButton.setEnabled(state.canInvoke());
+        termuxCheckButton.setOnClickListener(v -> runTermuxDiagnostics(termuxCheckButton, output));
 
         Button settings = button("Настройки JITI");
         settings.setOnClickListener(v -> {
@@ -140,23 +145,22 @@ public final class MainActivity extends Activity {
         });
 
         LinearLayout row1 = new LinearLayout(this);
-        row1.addView(check, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row1.addView(termuxCheckButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
         row1.addView(settings, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
-        Button startMonitor = button("Запустить мониторинг");
-        startMonitor.setEnabled(state.canInvoke() && !MonitorService.running);
-        startMonitor.setOnClickListener(v -> requestNotificationAndStart());
-        Button stopMonitor = button("Остановить мониторинг");
-        stopMonitor.setEnabled(MonitorService.running);
-        stopMonitor.setOnClickListener(v -> {
+        monitorStartButton = button("Запустить мониторинг");
+        monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
+        monitorStartButton.setOnClickListener(v -> requestNotificationAndStart());
+        monitorStopButton = button("Остановить мониторинг");
+        monitorStopButton.setEnabled(MonitorService.running);
+        monitorStopButton.setOnClickListener(v -> {
             MonitorService.stop(this);
-            stopMonitor.setEnabled(false);
-            startMonitor.setEnabled(true);
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this::refreshTermuxControls, 500);
         });
 
         LinearLayout row2 = new LinearLayout(this);
-        row2.addView(startMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        row2.addView(stopMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row2.addView(monitorStartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row2.addView(monitorStopButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -279,6 +283,7 @@ public final class MainActivity extends Activity {
             return;
         }
         MonitorService.start(this);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this::refreshTermuxControls, 500);
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -320,6 +325,7 @@ public final class MainActivity extends Activity {
         super.onResume();
         refreshEventLog();
         refreshLiveStatuses();
+        refreshTermuxControls();
     }
 
     @Override protected void onDestroy() {
@@ -421,6 +427,18 @@ public final class MainActivity extends Activity {
             case BLOCKED: return "ЗАБЛОКИРОВАН";
             default: return "НЕ ПРОВЕРЕНО";
         }
+    }
+
+    private void refreshTermuxControls() {
+        if (isFinishing() || isDestroyed()) return;
+        TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
+        if (termuxStatusView != null) {
+            termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
+                    + "\nRUN_COMMAND разрешение и allow-external-apps должны быть включены отдельно.");
+        }
+        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
+        if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
+        if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
     }
 
     private void refreshLiveStatuses() {
