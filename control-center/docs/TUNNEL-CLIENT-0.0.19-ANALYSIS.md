@@ -27,7 +27,7 @@ The `connect` command accepts an alias, optional existing tunnel ID, profile nam
 
 The default managed process path starts the current tunnel-client executable with a fixed argument shape:
 `run --profile-dir <profile-dir> --profile <profile-name> --log.file ""`.
-The parent keeps the log handle, captures the child process, records stable identity, and checks health/readiness. Process termination is guarded by the recorded process identity; a bare PID is not considered sufficient. `runtimes stop` only stops an alias already known to this native state store, checks recorded PID start-time/executable or owned tmux identity, waits for termination, and clears the managed health URL/state. It is not a generic stop command for arbitrary `run --config` processes.
+The parent keeps the log handle, captures the child process, records stable identity, and checks health/readiness. Process termination is guarded by the recorded process identity; a bare PID is not considered sufficient. By contrast, the standalone `health --pid-file` probe only reads the PID and calls the process-exists check. It does not validate executable path, process start time, or config path. JITI labels this evidence `PID_PRESENT`, not verified `RUNNING`, until it performs its own /proc identity check. `runtimes stop` only stops an alias already known to this native state store, checks recorded PID start-time/executable or owned tmux identity, waits for termination, and clears the managed health URL/state. It is not a generic stop command for arbitrary `run --config` processes.
 
 ## Important incompatibility with the existing Buddy profile
 
