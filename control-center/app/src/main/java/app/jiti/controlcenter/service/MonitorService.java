@@ -152,7 +152,11 @@ public final class MonitorService extends Service {
                 "Termux RUN_COMMAND result received; exit=" + result.exitCode, 0);
         int tunnelPid = extractPid(result.stdout);
         saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, summary, tunnelPid);
-        saveSnapshot("tunnel-client", processRunning(result.stdout) ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+        ComponentStatus tunnelStatus;
+        if (result.internalError != -1 || result.exitCode == 127) tunnelStatus = ComponentStatus.UNAVAILABLE;
+        else if (!hasProcessReport(result.stdout)) tunnelStatus = ComponentStatus.ERROR;
+        else tunnelStatus = processRunning(result.stdout) ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
+        saveSnapshot("tunnel-client", tunnelStatus,
                 "Tunnel Client health PID check; executable/config identity not yet verified", tunnelPid);
         String state = ready ? "READY" : "NOT_READY";
         if (!state.equals(lastHealthState)) {
@@ -175,7 +179,9 @@ public final class MonitorService extends Service {
                 ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
                 "curl challenge execution exit=" + result.exitCode, 0);
         ComponentStatus mcpStatus = "LISTENER_UP_AUTH_REQUIRED".equals(state) ? ComponentStatus.RUNNING
-                : "UNAUTHENTICATED_200_WARNING".equals(state) ? ComponentStatus.ERROR : ComponentStatus.NOT_READY;
+                : "UNAUTHENTICATED_200_WARNING".equals(state) ? ComponentStatus.ERROR
+                : (result.internalError != -1 || result.exitCode == 127) ? ComponentStatus.UNAVAILABLE
+                : ComponentStatus.NOT_READY;
         saveSnapshot("buddy-mcp", mcpStatus, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code), 0);
         if (!state.equals(lastMcpState)) {
             lastMcpState = state;
@@ -209,6 +215,13 @@ public final class MonitorService extends Service {
                 "Process-name snapshot; PID identity not yet verified", 0);
         inFlight = false;
         scheduleNext();
+    }
+
+    private boolean hasProcessReport(String json) {
+        try {
+            JSONObject report = new JSONObject(json);
+            return report.optJSONObject("process") != null;
+        } catch (Exception ignored) { return false; }
     }
 
     private boolean processRunning(String json) {
