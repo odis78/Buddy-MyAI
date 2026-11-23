@@ -6,7 +6,8 @@ import static org.junit.Assert.*;
 public class TermuxCommandSpecTest {
     @Test public void onlyFixedAbsoluteReadOnlyOperationsAreAvailable() {
         for (TermuxOperation op : TermuxOperation.values()) {
-            if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE) continue;
+            if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE
+                    || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE) continue;
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(op,
                     "/data/data/com.termux/files/usr",
                     "/data/data/com.termux/files/home");
@@ -48,6 +49,22 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.arguments.contains("http://127.0.0.1:8766/mcp"));
         assertFalse(probe.arguments.stream().anyMatch(a -> a.contains("Authorization")));
         assertTrue(probe.isSafeFixedCommand());
+    }
+
+    @Test public void authenticatedMcpProbeIsFixedAndNeverReturnsSecretMaterial() {
+        TermuxCommandSpec probe = TermuxCommandSpec.forBuddyMcpAuthProbe(
+                "/data/data/com.termux/files/usr", 1234);
+        assertTrue(probe.executable.endsWith("/bin/python"));
+        assertTrue(probe.arguments.get(1).contains("/proc/%d/environ"));
+        assertTrue(probe.arguments.get(1).contains("BUDDY_AUTH_HEADER"));
+        assertTrue(probe.arguments.get(1).contains("BUDDY_TOKEN"));
+        assertFalse(probe.arguments.get(1).contains("Bearer very-secret"));
+        assertTrue(probe.isSafeFixedCommand());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void authenticatedMcpProbeRejectsNonPositivePid() {
+        TermuxCommandSpec.forBuddyMcpAuthProbe("/data/data/com.termux/files/usr", -1);
     }
 
     @Test public void dynamicProcReadsRequirePositiveNumericPid() {
