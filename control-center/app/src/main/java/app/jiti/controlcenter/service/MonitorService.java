@@ -211,7 +211,9 @@ public final class MonitorService extends Service {
                 "tunnelClientSeen=" + tunnelSeen
                         + " termuxSeen=" + text.contains("termux")
                         + " buddySeen=" + text.contains("buddy"));
-        saveSnapshot("tunnel-client", tunnelSeen ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+        ComponentStatus processStatus = !result.succeeded() ? ComponentStatus.UNAVAILABLE
+                : tunnelSeen ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
+        saveSnapshot("tunnel-client", processStatus,
                 "Process-name snapshot; PID identity not yet verified", 0);
         inFlight = false;
         scheduleNext();
