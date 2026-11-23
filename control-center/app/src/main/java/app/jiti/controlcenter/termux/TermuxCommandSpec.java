@@ -107,7 +107,14 @@ if status != 200:
     sys.exit(0)
 
 message = decode_message(body)
-if not isinstance(message, dict) or "result" not in message:
+if not isinstance(message, dict):
+    emit({"result": "initialize_response_invalid", "http_status": status, "auth_source": auth_source})
+    sys.exit(0)
+if "error" in message:
+    error = message.get("error") or {}
+    emit({"result": "initialize_mcp_error", "error_code": error.get("code"), "auth_source": auth_source})
+    sys.exit(0)
+if "result" not in message:
     emit({"result": "initialize_response_invalid", "http_status": status, "auth_source": auth_source})
     sys.exit(0)
 
@@ -115,38 +122,64 @@ init_result = message.get("result") or {}
 protocol = init_result.get("protocolVersion", "2025-11-25")
 server_info = init_result.get("serverInfo") or {}
 session_id = headers.get("Mcp-Session-Id")
-
 send({"jsonrpc": "2.0", "method": "notifications/initialized"}, session_id, protocol)
 
-tools_status, tools_headers, tools_body = send(
-    {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-    session_id, protocol
-)
-if tools_status in (401, 403):
-    result = {"result": "auth_rejected", "http_status": tools_status, "auth_source": auth_source}
-elif tools_status != 200:
-    result = {"result": "tools_list_http_error", "http_status": tools_status, "auth_source": auth_source}
-else:
+names = []
+cursor = None
+page_count = 0
+failure = None
+while page_count < 10:
+    params = {} if not cursor else {"cursor": cursor}
+    tools_status, tools_headers, tools_body = send(
+        {"jsonrpc": "2.0", "id": 2 + page_count, "method": "tools/list", "params": params},
+        session_id, protocol
+    )
+    if tools_status in (401, 403):
+        failure = {"result": "auth_rejected", "http_status": tools_status}
+        break
+    if tools_status != 200:
+        failure = {"result": "tools_list_http_error", "http_status": tools_status}
+        break
     tools_message = decode_message(tools_body)
-    tool_items = ((tools_message or {}).get("result") or {}).get("tools", []) if isinstance(tools_message, dict) else []
+    if not isinstance(tools_message, dict):
+        failure = {"result": "tools_list_response_invalid"}
+        break
+    if "error" in tools_message:
+        error = tools_message.get("error") or {}
+        failure = {"result": "tools_list_mcp_error", "error_code": error.get("code")}
+        break
+    tools_result = tools_message.get("result") or {}
+    tool_items = tools_result.get("tools", [])
     if not isinstance(tool_items, list):
-        result = {"result": "tools_list_response_invalid", "http_status": tools_status, "auth_source": auth_source}
-    else:
-        names = [item.get("name") for item in tool_items if isinstance(item, dict) and isinstance(item.get("name"), str)]
-        result = {
-            "result": "authenticated_ready",
-            "http_status": tools_status,
-            "auth_source": auth_source,
-            "protocol": protocol,
-            "server": server_info.get("name", ""),
-            "version": server_info.get("version", ""),
-            "tool_count": len(names),
-            "tools": names
-        }
+        failure = {"result": "tools_list_response_invalid"}
+        break
+    names.extend([item.get("name") for item in tool_items
+                  if isinstance(item, dict) and isinstance(item.get("name"), str)])
+    cursor = tools_result.get("nextCursor")
+    page_count += 1
+    if not cursor:
+        break
 
 if session_id:
     send(None, session_id, protocol, "DELETE")
-emit(result)
+
+if failure:
+    failure.update({"auth_source": auth_source, "tool_count_partial": len(names), "page_count": page_count})
+    emit(failure)
+elif cursor:
+    emit({"result": "tools_list_page_limit", "auth_source": auth_source,
+          "tool_count_partial": len(names), "page_count": page_count})
+else:
+    emit({
+        "result": "authenticated_ready",
+        "auth_source": auth_source,
+        "protocol": protocol,
+        "server": server_info.get("name", ""),
+        "version": server_info.get("version", ""),
+        "tool_count": len(names),
+        "page_count": page_count,
+        "tools": names
+    })
 """;
     public final TermuxOperation operation;
     public final String executable;
