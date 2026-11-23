@@ -544,8 +544,8 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                     + " && unset BUDDY_TOKEN";
         } else {
             cmd = bootstrap + cleanup + "{ claude mcp remove -s user phone >/dev/null 2>&1 || true; } && "
-                    + "claude mcp add-json -s user phone '{\\"type\\":\\"http\\",\\"url\\":\\"" + url
-                    + "\\\",\\"headers\\":{\\"Authorization\\":\\"Bearer ' \\"$BUDDY_TOKEN\\" '\\"},\\"timeout\\":600000}'"
+                    + "claude mcp add-json -s user phone '{\"type\":\"http\",\"url\":\"" + url
+                    + "\",\"headers\":{\"Authorization\":\"Bearer ' \"$BUDDY_TOKEN\" '\"},\"timeout\":600000}'"
                     + " && unset BUDDY_TOKEN";
         }
         mcp.addView(codeBlock(this, cmd), topGap(12));
