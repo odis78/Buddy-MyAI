@@ -35,7 +35,7 @@ final class Prefs {
     /** Replace the local MCP secret immediately; callers must restart the server with the returned value. */
     static synchronized String rotateToken(Context c) {
         String t = newMcpToken();
-        sp(c).edit().putString("token", t).apply();
+        if (!sp(c).edit().putString("token", t).commit()) throw new IllegalStateException("Could not persist the new MCP token");
         return t;
     }
 
