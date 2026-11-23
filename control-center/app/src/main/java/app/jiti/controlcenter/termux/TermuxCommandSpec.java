@@ -59,6 +59,13 @@ public final class TermuxCommandSpec {
         }
     }
 
+    public static TermuxCommandSpec forProcessCmdline(String prefix, int pid) {
+        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..") || pid <= 0)
+            throw new IllegalArgumentException("valid absolute prefix and positive PID required");
+        return new TermuxCommandSpec(TermuxOperation.PROCESS_CMDLINE, prefix + "/bin/cat",
+                Arrays.asList("/proc/" + pid + "/cmdline"));
+    }
+
     public boolean isSafeFixedCommand() {
         if (!executable.startsWith("/") || executable.contains("..")) return false;
         if (executable.endsWith("/sh") || executable.endsWith("/bash")) return false;
