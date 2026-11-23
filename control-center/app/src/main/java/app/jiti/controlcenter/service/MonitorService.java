@@ -175,8 +175,9 @@ public final class MonitorService extends Service {
                 return;
             }
             TermuxCommandClient.runProcessCmdline(this, pid, commandLine -> {
-                String home = TermuxCommandClient.inspect(this).dataDir + "/files/home";
-                boolean configMatches = commandLine.succeeded()
+                TermuxCommandClient.InstallState currentInstall = TermuxCommandClient.inspect(this);
+                String home = currentInstall.dataDir == null ? "" : currentInstall.dataDir + "/files/home";
+                boolean configMatches = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProcessIdentity.matchesBuddyConfig(commandLine.stdout, home);
                 completeHealthCheck(endpointsReady, configMatches,
                         configMatches ? ComponentStatus.RUNNING : ComponentStatus.PID_PRESENT,
@@ -246,8 +247,6 @@ public final class MonitorService extends Service {
                 "tunnelClientSeen=" + tunnelSeen
                         + " termuxSeen=" + text.contains("termux")
                         + " buddySeen=" + text.contains("buddy"));
-        ComponentStatus processStatus = !result.succeeded() ? ComponentStatus.UNAVAILABLE
-                : tunnelSeen ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
         // Aggregate process-name inventory is diagnostic only; it must not overwrite profile-specific PID identity.
         inFlight = false;
         scheduleNext();
