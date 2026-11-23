@@ -426,6 +426,9 @@ public final class MainActivity extends Activity {
         row.addView(text(evidenceLabel(item.evidence), 10, evidenceColor(item.evidence), true));
         card.addView(row);
 
+        TextView live = text(liveStatusLabel(item.id), 10, MUTED, false);
+        liveStatusViews.put(item.id, live);
+        addTop(card, live, 3);
         addTop(card, text(item.detail, 12, MUTED, false), 5);
         if (!item.dependencies.isEmpty()) {
             addTop(card, text("Зависимости: " + String.join(", ", item.dependencies), 10, MUTED, false), 4);
