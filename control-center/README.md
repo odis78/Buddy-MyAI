@@ -57,6 +57,13 @@ The control app is intended to stay active as a foreground service with a persis
 
 A critical feasibility spike must prove how the control app can safely invoke Termux commands using Termux's supported external-command interface, and what survives when the Termux UI is closed versus when the Termux process is killed. Do not claim independence from Termux until this is demonstrated on the target phone.
 
+## Engineering notes
+
+- [Historical runtime inventory](docs/HISTORICAL-INVENTORY.md)
+- [Startup and recovery design](docs/STARTUP-AND-RECOVERY.md)
+- [Termux RUN_COMMAND security gate](docs/TERMUX-INTEGRATION-GATE.md)
+- [Tunnel Client v0.0.19 source audit](docs/TUNNEL-CLIENT-0.0.19-ANALYSIS.md)
+
 ## Development stages
 
 1. Historical inventory and evidence reconciliation (2026-11-22 known-good state and 2026-11-23 failure diagnostics).
