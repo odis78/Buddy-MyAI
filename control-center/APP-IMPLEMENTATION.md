@@ -19,7 +19,8 @@
 ## Deliberately not enabled yet
 
 - No process launch/kill code.
-- No Termux RUN_COMMAND permission declaration or invocation.
+- Termux RUN_COMMAND adapter exists for a fixed allowlist of read-only checks: identity, Tunnel Client version, curl version, Buddy tunnel health, unauthenticated local MCP challenge, and process-name inventory.
+- The adapter uses Java PendingIntent result callbacks, output redaction/capping, a timeout, and requires Termux >= 0.109 plus the explicit Android permission.
 - No changes to Termux external-app policy.
 - No foreground service.
 - No automatic retries executing commands.
