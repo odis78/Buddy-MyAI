@@ -17,7 +17,7 @@ Evidence:
 - Tunnel Client health reported process running, healthz 200, readyz 200, and control-plane poll OK.
 - ChatGPT successfully invoked Buddy `read_screen` and received the real Android screen.
 - `device_status`, `list_apps`, and `open_app` were also used in documented checks.
-- A later 22-Nov session discovered 44 tools through the phone MCP connector; historical project inventory refers to 52 Buddy tools. These are different observations and must not be silently normalized: catalog-vs-discovery reconciliation is an explicit audit task.
+- The checkpoint source explains the 44-vs-52 count: 31 core tools + 13 phone tools = 44 base tools; 8 BrowserTools are added only when `Browser.available()` is true. `Browser.available()` reads `Prefs.browser`, whose default is false. Thus the 44-tool discovery matches the default catalog when the optional browser feature is off.
 - The protected Buddy checkpoint is `checkpoint/buddy-myai-2.3.17-JITI.1-2026-11-21`; checkpoint commit used by the existing PR history: `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`.
 
 Buddy MCP:
@@ -70,8 +70,9 @@ Confirmed as part of the 22-Nov working ecosystem:
 - REA-Termux-Bridge 0.1.3 is a distinct MCP bridge process.
 - DroidMCP-Filesystem is a distinct read-only filesystem MCP runtime.
 - REA-Termux-Android is a distinct REA MCP runtime.
-- Android package recorded in the runbook: `app.buddy.myai.test`.
-- Android-side Buddy app and its AccessibilityService are dependencies of phone operations. Their exact live process/service state at the historical checkpoint requires device evidence.
+- Package identity discrepancy: the 22-Nov runbook records `app.buddy.myai.test`, while the protected checkpoint's `app/build.gradle.kts` declares applicationId `app.buddy.myai`. The live installed package must be read from Android before any package-targeted command; do not hardcode either value.
+- Checkpoint `BuildInfo.java` records version `2.3.17-JITI.1`, versionCode 215.
+- The checkpoint manifest declares `.BuddyService` as the AccessibilityService and `.NotificationWatcher` as a separate NotificationListenerService. Notification access is optional and user-granted.
 - Shizuku was installed and running in prior Android checks, but whether it is a hard dependency for the Buddy MCP path is not established.
 - ADB / Android shell access is a capability path, not automatically a separate tunnel.
 
