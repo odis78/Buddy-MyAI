@@ -36,10 +36,13 @@ public final class ComponentRegistry {
         c.add(spec("termux", "Termux", "Среда выполнения", "Внешний командный интерфейс ещё не проверен", EvidenceStatus.PRESENT_CONFIGURED, set("android"), false, null));
         c.add(spec("tunnel-client", "Tunnel Client v0.0.19", "Runtime", "ARM64 executable; launch contract требует проверки", EvidenceStatus.PRESENT_CONFIGURED, set("termux"), false, null));
         c.add(spec("buddy-app", "Buddy-MyAI Android app", "Android", "Package: app.buddy.myai.test; version/state требуют live-проверки", EvidenceStatus.CONFIRMED_WORKING, set("android"), false, null));
-        c.add(spec("buddy-accessibility", "Buddy AccessibilityService", "Android service", "Нужна проверка enabled/running", EvidenceStatus.CONFIRMED_WORKING, set("buddy-app"), false, null));
-        c.add(spec("buddy-mcp", "Buddy MCP", "MCP server", "HTTP MCP endpoint; Bearer token не логировать", EvidenceStatus.CONFIRMED_WORKING, set("buddy-app"), false, "http://127.0.0.1:8766/mcp"));
+        c.add(spec("buddy-accessibility", "BuddyService (Accessibility + MCP host)", "Android service", "Class .BuddyService; hosts local MCP listener on 127.0.0.1:8766", EvidenceStatus.CONFIRMED_WORKING, set("buddy-app"), false, null));
+        c.add(spec("buddy-mcp", "Buddy MCP", "MCP server", "Hosted inside BuddyService; 127.0.0.1:8766; Bearer auth required", EvidenceStatus.CONFIRMED_WORKING, set("buddy-accessibility"), false, "http://127.0.0.1:8766/mcp"));
         c.add(spec("buddy-tunnel", "Buddy-MyAI tunnel", "Tunnel Client profile", "Dynamic health URL хранится в health.url", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client", "buddy-mcp"), false, null));
-        c.add(spec("buddy-tools", "Buddy tool catalog", "MCP catalog", "52 project inventory vs 44 discovered; reconciliation pending", EvidenceStatus.CONFIRMED_WORKING, set("buddy-mcp"), false, null));
+        c.add(spec("buddy-tools", "Buddy MCP tool catalog", "MCP catalog", "52 source entries: 44 base + 8 optional browser tools; source audit reconciled", EvidenceStatus.CONFIRMED_WORKING, set("buddy-mcp"), false, null));
+        c.add(spec("buddy-linux", "Buddy Linux / proot", "Optional runtime", "Embedded Alpine environment for agent and browser features", EvidenceStatus.UNVERIFIED, set("buddy-app"), false, null));
+        c.add(spec("buddy-browser", "Buddy background browser", "Optional feature", "8 browser tools appear only when Buddy browser setting is enabled", EvidenceStatus.UNVERIFIED, set("buddy-accessibility", "buddy-linux"), false, null));
+        c.add(spec("buddy-notifications", "Buddy NotificationWatcher", "Optional Android service", "Notification access is a separate user-granted capability", EvidenceStatus.UNVERIFIED, set("buddy-app"), false, null));
         c.add(spec("rea-bridge", "REA-Termux-Bridge 0.1.3", "Tunnel Client profile", "Separate profile; launch order/ID unresolved", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
         c.add(spec("droidmcp", "DroidMCP-Filesystem", "Tunnel Client profile", "Read-only filesystem profile", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
         c.add(spec("rea-android", "REA-Termux-Android", "Tunnel Client profile", "Separate REA Android profile", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
