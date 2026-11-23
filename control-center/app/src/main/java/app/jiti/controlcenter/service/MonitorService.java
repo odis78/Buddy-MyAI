@@ -158,7 +158,8 @@ public final class MonitorService extends Service {
         final boolean pidPresent = processRunning(result.stdout);
 
         if (!pidPresent || pid <= 0) {
-            ComponentStatus processState = result.internalError != -1 || result.exitCode == 127
+            ComponentStatus processState = pidPresent ? ComponentStatus.ERROR
+                    : result.internalError != -1 || result.exitCode == 127
                     ? ComponentStatus.UNAVAILABLE : hasProcessReport(result.stdout)
                     ? ComponentStatus.STOPPED : ComponentStatus.ERROR;
             completeHealthCheck(endpointsReady, false, processState, pid,
