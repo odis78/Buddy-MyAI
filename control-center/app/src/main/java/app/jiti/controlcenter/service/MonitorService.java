@@ -15,11 +15,17 @@ import android.os.Looper;
 import android.os.PowerManager;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import app.jiti.controlcenter.MainActivity;
 import app.jiti.controlcenter.core.DiagnosticEvent;
 import app.jiti.controlcenter.core.ComponentStatus;
 import app.jiti.controlcenter.core.RuntimeSnapshot;
+import app.jiti.controlcenter.core.ToolCatalog;
+import app.jiti.controlcenter.core.ToolSpec;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
@@ -43,6 +49,7 @@ public final class MonitorService extends Service {
     private String lastHealthState = "";
     private String lastMcpState = "";
     private String lastGateState = "";
+    private long lastAuthProbeAtEpochMillis = 0L;
     private String notificationText = "Ожидание первой проверки";
 
     private final Runnable poll = this::pollOnce;
@@ -223,7 +230,13 @@ public final class MonitorService extends Service {
         notificationText = ready ? "Buddy tunnel READY • identity verified"
                 : "Buddy tunnel NOT READY • identity unverified";
         updateNotification();
-        TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+        long now = System.currentTimeMillis();
+        if (ready && now - lastAuthProbeAtEpochMillis >= 300000L) {
+            lastAuthProbeAtEpochMillis = now;
+            TermuxCommandClient.runBuddyMcpAuthProbe(this, pid, this::onAuthenticatedMcpResult);
+        } else {
+            TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+        }
     }
 
     private void onMcpChallenge(TermuxCommandResult result) {
@@ -239,6 +252,12 @@ public final class MonitorService extends Service {
                 : "UNAUTHENTICATED_200_WARNING".equals(state) ? ComponentStatus.ERROR
                 : (result.internalError != -1 || result.exitCode == 127) ? ComponentStatus.UNAVAILABLE
                 : ComponentStatus.NOT_READY;
+        RuntimeSnapshot authSnapshot = eventStore.snapshot("buddy-mcp-auth");
+        if (mcpStatus == ComponentStatus.RUNNING && authSnapshot != null
+                && authSnapshot.status == ComponentStatus.READY
+                && System.currentTimeMillis() - authSnapshot.checkedAtEpochMillis <= 600000L) {
+            mcpStatus = ComponentStatus.READY;
+        }
         saveSnapshot("buddy-mcp", mcpStatus, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code), 0);
         if (!state.equals(lastMcpState)) {
             lastMcpState = state;
@@ -259,6 +278,90 @@ public final class MonitorService extends Service {
             inFlight = false;
             scheduleNext();
         }
+    }
+
+    private void onAuthenticatedMcpResult(TermuxCommandResult result) {
+        JSONObject report = null;
+        String state = "";
+        try {
+            report = new JSONObject(result.stdout);
+            state = report.optString("result");
+        } catch (Exception ignored) { }
+
+        if (result.succeeded() && "authenticated_ready".equals(state) && report != null) {
+            JSONArray tools = report.optJSONArray("tools");
+            Set<String> liveNames = new HashSet<>();
+            if (tools != null) {
+                for (int i = 0; i < tools.length(); i++) {
+                    String name = tools.optString(i, "");
+                    if (!name.isEmpty()) liveNames.add(name);
+                }
+            }
+            Set<String> expectedBase = new HashSet<>();
+            Set<String> expectedOptional = new HashSet<>();
+            for (ToolSpec spec : ToolCatalog.all()) {
+                (spec.optionalFeature ? expectedOptional : expectedBase).add(spec.name);
+            }
+            Set<String> missingBase = new HashSet<>(expectedBase);
+            missingBase.removeAll(liveNames);
+            Set<String> missingOptional = new HashSet<>(expectedOptional);
+            missingOptional.removeAll(liveNames);
+            Set<String> extra = new HashSet<>(liveNames);
+            extra.removeAll(expectedBase);
+            extra.removeAll(expectedOptional);
+            String detail = "Authenticated tools/list: live=" + report.optInt("tool_count", liveNames.size())
+                    + ", base expected=" + expectedBase.size() + ", missing base=" + missingBase
+                    + ", optional missing=" + missingOptional + ", extra=" + extra
+                    + ", pages=" + report.optInt("page_count", 1)
+                    + ", auth source name=" + report.optString("auth_source", "unknown");
+            saveSnapshot("buddy-mcp", ComponentStatus.READY, "Authenticated MCP initialize succeeded", 0);
+            saveSnapshot("buddy-mcp-auth", ComponentStatus.READY,
+                    "Authenticated initialize and tools/list succeeded; " + detail, 0);
+            saveSnapshot("buddy-tools", missingBase.isEmpty() ? ComponentStatus.READY : ComponentStatus.NOT_READY,
+                    detail, 0);
+            log("buddy-mcp-auth", "AUTHENTICATED_READY", detail);
+            notificationText = "Buddy MCP authenticated • " + liveNames.size() + " tools";
+            updateNotification();
+            inFlight = false;
+            scheduleNext();
+            return;
+        }
+
+        ComponentStatus authStatus;
+        String detail;
+        if (!result.succeeded()) {
+            authStatus = result.exitCode == 127 ? ComponentStatus.UNAVAILABLE : ComponentStatus.NOT_READY;
+            detail = "Authenticated MCP probe command failed; exit=" + result.exitCode
+                    + ", internalError=" + result.internalError;
+        } else {
+            switch (state) {
+                case "missing_auth_env":
+                case "process_env_unavailable":
+                    authStatus = ComponentStatus.BLOCKED;
+                    detail = "Buddy tunnel process environment did not expose BUDDY_AUTH_HEADER or BUDDY_TOKEN";
+                    break;
+                case "auth_rejected":
+                case "invalid_auth_header":
+                case "initialize_mcp_error":
+                case "tools_list_mcp_error":
+                    authStatus = ComponentStatus.ERROR;
+                    detail = "Authenticated MCP handshake rejected; state=" + state
+                            + ", HTTP=" + (report == null ? 0 : report.optInt("http_status", 0));
+                    break;
+                default:
+                    authStatus = ComponentStatus.NOT_READY;
+                    detail = "Authenticated MCP probe did not complete; state=" + state;
+                    break;
+            }
+        }
+        saveSnapshot("buddy-mcp-auth", authStatus, detail, 0);
+        saveSnapshot("buddy-tools", authStatus == ComponentStatus.UNAVAILABLE
+                ? ComponentStatus.UNAVAILABLE : authStatus == ComponentStatus.BLOCKED
+                ? ComponentStatus.BLOCKED : ComponentStatus.NOT_READY, detail, 0);
+        log("buddy-mcp-auth", authStatus.name(), detail);
+        notificationText = "Buddy MCP auth probe: " + state;
+        updateNotification();
+        TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
     }
 
     private void onProcessSnapshot(TermuxCommandResult result) {
