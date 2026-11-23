@@ -50,7 +50,7 @@ public final class TermuxCommandSpec {
                         Arrays.asList("--silent", "--show-error", "--output", "/dev/null",
                                 "--write-out", "%{http_code}", "--max-time", "3", "--request", "POST",
                                 "--header", "Content-Type: application/json",
-                                "--data-binary", "{\\"jsonrpc\\":\\"2.0\\",\\"id\\":1,\\"method\\":\\"initialize\\",\\"params\\":{\\"protocolVersion\\":\\"2025-11-25\\",\\"capabilities\\":{},\\"clientInfo\\":{\\"name\\":\\"jiti-control-center\\",\\"version\\":\\"0.2.0\\"}}}",
+                                "--data-binary", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"jiti-control-center\",\"version\":\"0.2.0\"}}}",
                                 "http://127.0.0.1:8766/mcp"));
             case PROCESS_LIST:
                 return new TermuxCommandSpec(operation, "/system/bin/ps", Arrays.asList("-A"));
