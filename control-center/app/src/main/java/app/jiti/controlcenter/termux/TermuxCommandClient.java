@@ -253,8 +253,7 @@ public final class TermuxCommandClient {
             intent.putExtra(EXTRA_LABEL, label(operation));
             intent.putExtra(EXTRA_DESCRIPTION, "JITI Control Center read-only diagnostic");
             intent.putExtra(EXTRA_PENDING_INTENT, resultPendingIntent);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent);
-            else context.startService(intent);
+            context.startService(intent);
         } catch (Exception e) {
             if (requestId != 0) { CALLBACKS.remove(requestId); cancelTimeout(requestId); }
             deliver(callback, new TermuxCommandResult(requestId, "", "", -1, 0,
