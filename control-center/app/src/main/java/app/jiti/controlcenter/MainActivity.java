@@ -116,7 +116,7 @@ public final class MainActivity extends Activity {
         String status = state.installed
                 ? "Termux " + state.versionName + " • " + state.message
                 : state.message;
-        addCard(page, text(status + "\\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
+        addCard(page, text(status + "\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
                 state.canInvoke() ? GREEN : AMBER, true), 8);
 
         TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
