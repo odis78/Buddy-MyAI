@@ -11,7 +11,7 @@
 - Restart mode: `START_STICKY` as a best-effort recovery hint.
 - Poll interval: 60 seconds.
 - A bounded 10-minute `PARTIAL_WAKE_LOCK` is renewed during monitoring so Handler-based polling can run while the screen is off. It is released on stop/destroy and naturally expires if the monitor cannot renew it. This increases battery use; the notification states that the CPU wake lock is active.
-- Current probes: Buddy tunnel health/readyz/Control Plane poll and unauthenticated local MCP challenge. When health fails, collect a bounded process-name snapshot.
+- Current probes: Buddy tunnel health/readyz/Control Plane poll, exact Tunnel Client executable path via `/proc/PID/exe`, exact Buddy config argument via `/proc/PID/cmdline`, and unauthenticated local MCP challenge. A PID-exists result alone is labelled `PID_PRESENT`, never `RUNNING` or `READY`. When health fails, collect a bounded process-name snapshot.
 - Event journal: SQLite, 2,000 most recent events maximum, messages redacted before persistence.
 
 ## Why specialUse
@@ -40,6 +40,7 @@ On Infinix X678B / Android 14, test each case separately and record the observed
 1. Start monitor from visible Activity; verify notification appears immediately.
 2. Swipe JITI task away; verify monitor continues and notification remains.
 3. Close Termux UI without force-stopping Termux; verify read-only health probes continue.
+4. Verify Buddy reports READY only when healthz, readyz, Control Plane poll, executable path, and Buddy config argument all match; a stale/reused PID must remain PID_PRESENT or NOT_READY.
 4. Kill Termux process; verify monitor reports unavailable and does not loop commands.
 5. Kill JITI process; verify whether Android recreates the sticky service.
 6. Revoke RUN_COMMAND permission; verify monitor reports BLOCKED and stops issuing commands.
