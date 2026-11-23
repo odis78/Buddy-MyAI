@@ -39,6 +39,7 @@ Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
 - `BUDDY_TUNNEL_HEALTH`: v0.0.19 `health --url-file ... --pid-file ... --require-control-plane-poll --json` using the recorded Buddy health/PID files.
 - `BUDDY_MCP_LISTENER_CHALLENGE`: a fixed unauthenticated POST to `http://127.0.0.1:8766/mcp`; HTTP 401 is reported as listener-up/auth-required, never as authenticated readiness.
 - `PROCESS_LIST`: `/system/bin/ps -A`, with only Termux/Buddy/REA/Tunnel Client lines displayed.
+- `PROCESS_EXECUTABLE` and `PROCESS_CMDLINE`: dynamically constructed only from a positive PID parsed from the Buddy health JSON; they read `/proc/PID/exe` and `/proc/PID/cmdline` through `/system/bin/readlink` and `/system/bin/cat`. The app never displays or persists raw command-line content. It verifies both the v0.0.19 binary path and exact Buddy YAML path before marking the Buddy tunnel READY.
 
 No free-form command is accepted, no shell is invoked, and no start/stop/restart operation is currently in the allowlist. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
 
