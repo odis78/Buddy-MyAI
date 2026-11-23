@@ -124,6 +124,10 @@ public final class TermuxCommandClient {
         }
     }
 
+    public static void runBuddyLaunchStatus(Context context, Callback callback) {
+        run(context, TermuxOperation.BUDDY_LAUNCH_STATUS, callback);
+    }
+
     public static void runBuddyStop(Context context, Callback callback) {
         InstallState state = inspect(context);
         if (!state.canInvoke()) {
