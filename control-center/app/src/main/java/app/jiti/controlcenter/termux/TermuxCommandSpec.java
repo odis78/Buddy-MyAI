@@ -260,8 +260,14 @@ else:
     }
 
     public boolean isSafeFixedCommand() {
-        if (!executable.startsWith("/") || executable.contains("..")) return false;
+        if (executable == null || !executable.startsWith("/") || executable.contains("..")) return false;
         if (executable.endsWith("/sh") || executable.endsWith("/bash")) return false;
+        if (operation == TermuxOperation.BUDDY_MCP_AUTH_PROBE) {
+            return executable.endsWith("/bin/python") && arguments.size() == 3
+                    && "-c".equals(arguments.get(0))
+                    && BUDDY_MCP_AUTH_PROBE_SCRIPT.equals(arguments.get(1))
+                    && arguments.get(2).matches("[1-9][0-9]*");
+        }
         for (String arg : arguments) {
             if (arg == null || arg.contains("\n") || arg.contains("\r")) return false;
         }
