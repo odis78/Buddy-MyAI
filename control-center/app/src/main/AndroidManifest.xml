@@ -32,7 +32,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started monitoring and recovery coordination for local Termux tunnel and MCP services" />
+                android:value="User-started continuous read-only monitoring of local Termux tunnel and MCP service health" />
         </service>
     </application>
 </manifest>
