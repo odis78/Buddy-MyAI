@@ -29,13 +29,16 @@ Android OS
 
 1. **Preflight**: Android API, package presence, app permissions, Termux package/activity state, executable/config existence, file permissions, available storage, and secret-variable presence (boolean only).
 2. **Process reconciliation**: read PID files, inspect process command lines, identify duplicate instances, verify ownership/config path. Never trust stale PID files.
-3. **Local services**: verify Buddy app and MCP listener; verify REA/Bridge/DroidMCP services only if enabled in the selected profile set.
-4. **Tunnel Client profiles**: start one profile at a time in dependency order; await process identity and health readiness before moving on.
-5. **MCP discovery**: initialize each endpoint, list tools/prompts, compare against expected catalog fingerprints/counts.
-6. **End-to-end tests**: perform read-only calls such as Buddy read_screen and REA inventory/health probes; no phone mutations.
-7. **Final state**: report per-component status, skipped optional dependencies, errors, retries, and the first failing edge.
+3. **Local services**: verify Buddy app and MCP listener. Verify REA/Bridge/DroidMCP services only if enabled in the selected profile set.
+4. **Environment preflight**: verify the expected environment file exists, has restrictive permissions, and contains required variable names with non-empty values (booleans only). For Buddy, the documented source is `$HOME/.config/termux-bridge/runtime.env`; never print or persist values.
+5. **Tunnel Client profiles**: start one profile at a time. For the three existing REA profiles, preserve the script-defined order Bridge → DroidMCP → REA Android and wait for readiness between launches. Buddy remains independent; check Buddy MCP readiness before starting its tunnel. Do not use `runtimes connect` blindly because v0.0.19 generated HTTP profiles omit the Buddy Authorization headers.
+6. **MCP discovery**: initialize each endpoint, list tools/prompts, compare against expected catalog fingerprints/counts.
+7. **End-to-end tests**: perform read-only calls such as Buddy read_screen and REA inventory/health probes; no phone mutations.
+8. **Final state**: report per-component status, skipped optional dependencies, errors, retries, and the first failing edge.
 
-The exact order of REA Bridge, DroidMCP, and REA Android startup must be recovered from the 22-Nov run history. The app must not invent an order.
+The existing launcher script defines this observed sequence for the three REA profiles: REA-Termux-Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android; shutdown is reverse order. Preserve it as the operational baseline, but do not invent dependency edges between those three until health/consumer probes establish them.
+
+Buddy is a separate profile and has a separate known-good runbook. Its runtime environment source is `$HOME/.config/termux-bridge/runtime.env`, which supplies the `CONTROL_PLANE_API_KEY` reference and Buddy token/header variables. The 23-Nov Doctor failure occurred because the variable was not present in that command's shell; the 22-Nov successful control-plane poll proves the documented source worked at that checkpoint. Never substitute the different REA runtime.env value.
 
 ## 4. Restart policy
 
