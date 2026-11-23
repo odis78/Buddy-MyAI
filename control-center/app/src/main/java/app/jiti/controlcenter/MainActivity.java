@@ -342,8 +342,7 @@ public final class MainActivity extends Activity {
                 try {
                     JSONObject report = new JSONObject(result.stdout);
                     ready = result.succeeded() && "ok".equals(report.optString("result"));
-                    detail = "healthz=" + report.optJSONObject("healthz").optBoolean("ok")
-                            + " readyz=" + report.optJSONObject("readyz").optBoolean("ok");
+                    detail = summarizeHealth(result.stdout);
                 } catch (Exception ignored) { }
                 saveProbeSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, detail);
                 break;
