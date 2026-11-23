@@ -59,17 +59,15 @@ public final class TermuxCommandSpec {
         }
     }
 
-    public static TermuxCommandSpec forProcessExecutable(String prefix, int pid) {
-        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..") || pid <= 0)
-            throw new IllegalArgumentException("valid absolute prefix and positive PID required");
-        return new TermuxCommandSpec(TermuxOperation.PROCESS_EXECUTABLE, prefix + "/bin/readlink",
+    public static TermuxCommandSpec forProcessExecutable(int pid) {
+        if (pid <= 0) throw new IllegalArgumentException("positive PID required");
+        return new TermuxCommandSpec(TermuxOperation.PROCESS_EXECUTABLE, "/system/bin/readlink",
                 Arrays.asList("/proc/" + pid + "/exe"));
     }
 
-    public static TermuxCommandSpec forProcessCmdline(String prefix, int pid) {
-        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..") || pid <= 0)
-            throw new IllegalArgumentException("valid absolute prefix and positive PID required");
-        return new TermuxCommandSpec(TermuxOperation.PROCESS_CMDLINE, prefix + "/bin/cat",
+    public static TermuxCommandSpec forProcessCmdline(int pid) {
+        if (pid <= 0) throw new IllegalArgumentException("positive PID required");
+        return new TermuxCommandSpec(TermuxOperation.PROCESS_CMDLINE, "/system/bin/cat",
                 Arrays.asList("/proc/" + pid + "/cmdline"));
     }
 
