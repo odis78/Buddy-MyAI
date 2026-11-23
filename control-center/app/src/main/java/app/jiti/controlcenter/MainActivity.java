@@ -28,8 +28,12 @@ import app.jiti.controlcenter.termux.TermuxOperation;
 import app.jiti.controlcenter.service.MonitorService;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.core.DiagnosticEvent;
+import app.jiti.controlcenter.core.ComponentStatus;
+import app.jiti.controlcenter.core.RuntimeSnapshot;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final int BG = 0xFF10151D;
@@ -41,11 +45,14 @@ public final class MainActivity extends Activity {
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
     private EventStore eventStore;
     private TextView eventLogView;
+    private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         eventStore = new EventStore(this);
+        saveProbeSnapshot("jiti-control-center", ComponentStatus.RUNNING, "MainActivity active");
+        saveProbeSnapshot("jiti-event-store", ComponentStatus.AVAILABLE, "SQLite event journal available");
         render();
     }
 
@@ -216,10 +223,13 @@ public final class MainActivity extends Activity {
         if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
         if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
         if (eventStore != null && !isFinishing() && !isDestroyed()) {
+            updateSnapshotForProbe(operation, result);
+
             String message = "operation=" + operation.name() + " exit=" + result.exitCode + " termuxErr=" + result.internalError;
             eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "termux",
                     result.succeeded() ? "PROBE_OK" : "PROBE_FAILED", message));
             refreshEventLog();
+            refreshLiveStatuses();
         }
     }
 
@@ -307,11 +317,100 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         refreshEventLog();
+        refreshLiveStatuses();
     }
 
     @Override protected void onDestroy() {
         if (eventStore != null) eventStore.close();
         super.onDestroy();
+    }
+
+
+    private void updateSnapshotForProbe(TermuxOperation operation, TermuxCommandResult result) {
+        switch (operation) {
+            case IDENTITY:
+                saveProbeSnapshot("termux", result.succeeded() ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
+                        result.succeeded() ? "Termux RUN_COMMAND responded" : "Termux identity command failed");
+                break;
+            case TUNNEL_CLIENT_VERSION:
+                saveProbeSnapshot("tunnel-client", result.succeeded() ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
+                        result.succeeded() ? result.stdout.trim() : "Tunnel Client binary/version check failed");
+                break;
+            case BUDDY_TUNNEL_HEALTH:
+                boolean ready = false;
+                String detail = "Health probe failed";
+                try {
+                    JSONObject report = new JSONObject(result.stdout);
+                    ready = result.succeeded() && "ok".equals(report.optString("result"));
+                    detail = "healthz=" + report.optJSONObject("healthz").optBoolean("ok")
+                            + " readyz=" + report.optJSONObject("readyz").optBoolean("ok");
+                } catch (Exception ignored) { }
+                saveProbeSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, detail);
+                break;
+            case BUDDY_MCP_LISTENER_CHALLENGE:
+                boolean listener = result.succeeded() && "401".equals(result.stdout.trim());
+                saveProbeSnapshot("buddy-mcp", listener ? ComponentStatus.RUNNING : ComponentStatus.NOT_READY,
+                        listener ? "HTTP 401: listener up; authentication not yet tested" : "MCP listener challenge unconfirmed");
+                break;
+            case PROCESS_LIST:
+                boolean tunnel = result.stdout.toLowerCase(java.util.Locale.ROOT).contains("tunnel-client");
+                saveProbeSnapshot("tunnel-client", tunnel ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+                        "Process-name check only; PID identity not verified");
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void saveProbeSnapshot(String id, ComponentStatus status, String detail) {
+        if (eventStore == null) return;
+        try {
+            RuntimeSnapshot previous = eventStore.snapshot(id);
+            int errors = previous == null ? 0 : previous.errorCount;
+            int retries = previous == null ? 0 : previous.retryCount;
+            if (status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
+                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE) errors++;
+            eventStore.saveSnapshot(new RuntimeSnapshot(id, status, System.currentTimeMillis(),
+                    0, errors, retries, detail));
+        } catch (Exception ignored) { }
+    }
+
+    private String liveStatusLabel(String componentId) {
+        if (eventStore == null) return "LIVE: НЕ ПРОВЕРЕНО";
+        RuntimeSnapshot snapshot = eventStore.snapshot(componentId);
+        if (snapshot == null) return "LIVE: НЕ ПРОВЕРЕНО";
+        long age = Math.max(0, System.currentTimeMillis() - snapshot.checkedAtEpochMillis);
+        boolean stale = age > 120000L;
+        SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
+        String detail = snapshot.detail == null ? "" : snapshot.detail;
+        if (detail.length() > 100) detail = detail.substring(0, 100) + "…";
+        return "LIVE: " + statusLabel(snapshot.status) + " • " + format.format(new Date(snapshot.checkedAtEpochMillis))
+                + (stale ? " • УСТАРЕЛО" : "")
+                + (snapshot.errorCount > 0 ? " • errors=" + snapshot.errorCount : "")
+                + (snapshot.retryCount > 0 ? " • retries=" + snapshot.retryCount : "")
+                + (detail.isEmpty() ? "" : " • " + detail);
+    }
+
+    private String statusLabel(ComponentStatus status) {
+        switch (status) {
+            case CHECKING: return "ПРОВЕРКА";
+            case AVAILABLE: return "ДОСТУПЕН";
+            case RUNNING: return "РАБОТАЕТ";
+            case READY: return "ГОТОВ";
+            case STARTING: return "ЗАПУСК";
+            case STOPPED: return "ОСТАНОВЛЕН";
+            case NOT_READY: return "НЕ ГОТОВ";
+            case ERROR: return "ОШИБКА";
+            case UNAVAILABLE: return "НЕДОСТУПЕН";
+            case BLOCKED: return "ЗАБЛОКИРОВАН";
+            default: return "НЕ ПРОВЕРЕНО";
+        }
+    }
+
+    private void refreshLiveStatuses() {
+        for (Map.Entry<String, TextView> entry : liveStatusViews.entrySet()) {
+            entry.getValue().setText(liveStatusLabel(entry.getKey()));
+        }
     }
 
     private void addComponentCard(LinearLayout parent, ComponentSpec item) {
