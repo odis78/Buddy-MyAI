@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 
 import org.json.JSONObject;
 
@@ -27,11 +28,13 @@ public final class MonitorService extends Service {
     private static final String CHANNEL_ID = "jiti_monitor";
     private static final int NOTIFICATION_ID = 4101;
     private static final long POLL_INTERVAL_MS = 60000L;
+    private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L;
 
     public static volatile boolean running = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private EventStore eventStore;
+    private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
     private boolean inFlight;
     private String lastHealthState = "";
@@ -84,10 +87,12 @@ public final class MonitorService extends Service {
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
+        renewWakeLock();
     }
 
     private void pollOnce() {
         if (!monitoring) return;
+        renewWakeLock();
         NotificationManager notifications = getSystemService(NotificationManager.class);
         if (notifications == null || !notifications.areNotificationsEnabled()
                 || (Build.VERSION.SDK_INT >= 33
@@ -185,6 +190,7 @@ public final class MonitorService extends Service {
 
     private void scheduleNext() {
         if (monitoring) {
+            renewWakeLock();
             handler.removeCallbacks(poll);
             handler.postDelayed(poll, POLL_INTERVAL_MS);
         }
@@ -241,10 +247,33 @@ public final class MonitorService extends Service {
         manager.createNotificationChannel(channel);
     }
 
+    private void renewWakeLock() {
+        try {
+            if (wakeLock == null) {
+                PowerManager power = getSystemService(PowerManager.class);
+                if (power == null) return;
+                wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                        "app.jiti.controlcenter:monitor");
+                wakeLock.setReferenceCounted(false);
+            }
+            if (wakeLock.isHeld()) wakeLock.release();
+            wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS);
+        } catch (Exception e) {
+            log("system", "WAKE_LOCK_UNAVAILABLE", e.getClass().getSimpleName());
+        }
+    }
+
+    private void releaseWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        } catch (Exception ignored) { }
+    }
+
     private void stopMonitoring() {
         monitoring = false;
         running = false;
         handler.removeCallbacks(poll);
+        releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
@@ -259,6 +288,7 @@ public final class MonitorService extends Service {
         monitoring = false;
         running = false;
         handler.removeCallbacksAndMessages(null);
+        releaseWakeLock();
         if (eventStore != null) eventStore.close();
         super.onDestroy();
     }
