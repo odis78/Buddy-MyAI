@@ -17,7 +17,7 @@ Evidence:
 - Tunnel Client health reported process running, healthz 200, readyz 200, and control-plane poll OK.
 - ChatGPT successfully invoked Buddy `read_screen` and received the real Android screen.
 - `device_status`, `list_apps`, and `open_app` were also used in documented checks.
-- The checkpoint source explains the 44-vs-52 count: 31 core tools + 13 phone tools = 44 base tools; 8 BrowserTools are added only when `Browser.available()` is true. `Browser.available()` reads `Prefs.browser`, whose default is false. Thus the 44-tool discovery matches the default catalog when the optional browser feature is off.
+- Source reconciliation is exact: 31 unique core Tools + 13 PhoneTools = 44 base tools; 8 BrowserTools are added only when `Browser.available()` is true. `Browser.available()` reads `Prefs.browser`, whose default is false. The 44 connected Buddy functions exposed in this ChatGPT session match the 44 source base names exactly, with zero missing or extra names. None of the optional 8 BrowserTools is exposed in this connector snapshot. This explains the historical 44-vs-52 count.
 - The protected Buddy checkpoint is `checkpoint/buddy-myai-2.3.17-JITI.1-2026-11-21`; checkpoint commit used by the existing PR history: `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`.
 
 Buddy MCP:
@@ -65,7 +65,7 @@ The exact historical OpenAI Tunnel IDs and health URLs for these three profiles 
 
 Confirmed as part of the 22-Nov working ecosystem:
 - Buddy MCP server on port 8766.
-- Buddy tool catalog: source audit reconciles 44 base tools (31 core + 13 phone) plus 8 optional background-browser tools. The browser tools are included only when the Buddy browser setting is enabled; its source default is false.
+- Buddy tool catalog: 44 base tools (31 core + 13 phone) match the connected ChatGPT Buddy tool names exactly; 8 optional background-browser tools are present in source but absent from this connector snapshot. The browser tools are included only when the Buddy browser setting is enabled; its source default is false.
 - REA MCP server/tool inventory: latest saved direct inventory was 207/207 tools and 6/6 prompts. Do not report 208 unless a fresh inventory proves it.
 - REA-Termux-Bridge 0.1.3 is a distinct MCP bridge process.
 - DroidMCP-Filesystem is a distinct read-only filesystem MCP runtime.
