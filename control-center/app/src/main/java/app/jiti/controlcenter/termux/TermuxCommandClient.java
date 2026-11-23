@@ -172,8 +172,7 @@ public final class TermuxCommandClient {
         intent.putExtra(EXTRA_BACKGROUND, true);
         intent.putExtra(EXTRA_LABEL, commandLabel);
         intent.putExtra(EXTRA_DESCRIPTION, description);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent);
-        else context.startService(intent);
+        context.startService(intent);
     }
 
     public static void runBuddyMcpAuthProbe(Context context, int pid, Callback callback) {
