@@ -504,6 +504,9 @@ else:
             case TUNNELS_SCRIPT_AUDIT:
                 return new TermuxCommandSpec(operation, prefix + "/bin/sed",
                         Arrays.asList("-n", "1,240p", home + "/bin/tunnels"));
+            case BUDDY_LAUNCH_STATUS:
+                return new TermuxCommandSpec(operation, prefix + "/bin/cat",
+                        Arrays.asList(home + "/.config/tunnel-client-buddy/jiti-launcher.status"));
             case BUDDY_TUNNEL_HEALTH:
                 return new TermuxCommandSpec(operation,
                         home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
@@ -522,6 +525,21 @@ else:
             default:
                 throw new IllegalArgumentException("operation is not allowlisted");
         }
+    }
+
+    public static TermuxCommandSpec forBuddyLaunch(String prefix, String mode) {
+        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..")
+                || !("preflight".equals(mode) || "start".equals(mode)))
+            throw new IllegalArgumentException("valid absolute prefix and launch mode required");
+        return new TermuxCommandSpec(TermuxOperation.BUDDY_LAUNCH, prefix + "/bin/python",
+                Arrays.asList("-c", BUDDY_LAUNCH_SCRIPT, mode));
+    }
+
+    public static TermuxCommandSpec forBuddyStop(String prefix) {
+        if (prefix == null || !prefix.startsWith("/") || prefix.contains(".."))
+            throw new IllegalArgumentException("valid absolute prefix required");
+        return new TermuxCommandSpec(TermuxOperation.BUDDY_STOP, prefix + "/bin/python",
+                Arrays.asList("-c", BUDDY_STOP_SCRIPT));
     }
 
     public static TermuxCommandSpec forBuddyMcpAuthProbe(String prefix, int pid) {
@@ -551,6 +569,17 @@ else:
                     && "-c".equals(arguments.get(0))
                     && BUDDY_MCP_AUTH_PROBE_SCRIPT.equals(arguments.get(1))
                     && arguments.get(2).matches("[1-9][0-9]*");
+        }
+        if (operation == TermuxOperation.BUDDY_LAUNCH) {
+            return executable.endsWith("/bin/python") && arguments.size() == 3
+                    && "-c".equals(arguments.get(0))
+                    && BUDDY_LAUNCH_SCRIPT.equals(arguments.get(1))
+                    && ("preflight".equals(arguments.get(2)) || "start".equals(arguments.get(2)));
+        }
+        if (operation == TermuxOperation.BUDDY_STOP) {
+            return executable.endsWith("/bin/python") && arguments.size() == 2
+                    && "-c".equals(arguments.get(0))
+                    && BUDDY_STOP_SCRIPT.equals(arguments.get(1));
         }
         for (String arg : arguments) {
             if (arg == null || arg.contains("\n") || arg.contains("\r")) return false;
