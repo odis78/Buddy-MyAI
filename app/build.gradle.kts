@@ -55,6 +55,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep this test build beside both the installed release and the previous test APK.
+            applicationIdSuffix = ".test219"
+            versionNameSuffix = "-test"
+        }
         release {
             isMinifyEnabled = false
             vcsInfo.include = false

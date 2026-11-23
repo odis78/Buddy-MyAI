@@ -13,17 +13,29 @@ final class Prefs {
         return c.getSharedPreferences("buddy", Context.MODE_PRIVATE);
     }
 
+    /** A fresh 192-bit secret for the local MCP server. */
+    private static String newMcpToken() {
+        byte[] b = new byte[24];
+        new SecureRandom().nextBytes(b);
+        StringBuilder sb = new StringBuilder();
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
+    }
+
     /** Shared secret for the local MCP server; generated once per install. */
     static synchronized String token(Context c) {
         String t = sp(c).getString("token", null);
         if (t == null) {
-            byte[] b = new byte[24];
-            new SecureRandom().nextBytes(b);
-            StringBuilder sb = new StringBuilder();
-            for (byte x : b) sb.append(String.format("%02x", x));
-            t = sb.toString();
+            t = newMcpToken();
             sp(c).edit().putString("token", t).apply();
         }
+        return t;
+    }
+
+    /** Replace the local MCP secret immediately; callers must restart the server with the returned value. */
+    static synchronized String rotateToken(Context c) {
+        String t = newMcpToken();
+        if (!sp(c).edit().putString("token", t).commit()) throw new IllegalStateException("Could not persist the new MCP token");
         return t;
     }
 

@@ -71,6 +71,21 @@ public class BuddyService extends AccessibilityService implements McpServer.Hand
         return instance;
     }
 
+    /** Rotate the local MCP bearer token and restart the live listener, if the accessibility service is connected. */
+    static synchronized void rotateMcpToken(Context context) {
+        String token = Prefs.rotateToken(context);
+        BuddyService active = instance;
+        if (active != null) active.restartMcpServer(token);
+    }
+
+    private synchronized void restartMcpServer(String token) {
+        McpServer old = server;
+        if (old != null) old.stop();
+        McpServer replacement = new McpServer(token, this);
+        server = replacement;
+        replacement.start();
+    }
+
     /** Update notices: Updates.maybeCheck asks GitHub at most once a day. */
     private final Runnable updateCheck = new Runnable() {
         @Override

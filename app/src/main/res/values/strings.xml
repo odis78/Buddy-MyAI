@@ -1348,6 +1348,12 @@
     <!-- Button. -->
     <string name="setup_copy_command">Copy command</string>
     <string name="setup_command_copied">Copied. Paste it in your terminal.</string>
+    <string name="setup_copy_mcp_token">Copy MCP token</string>
+    <string name="setup_mcp_token_copied">Token copied. Paste it only at the hidden terminal prompt.</string>
+    <string name="setup_rotate_mcp_token">Rotate MCP token</string>
+    <string name="setup_rotate_mcp_token_warning">The current token will stop working immediately. MCP clients must be reconfigured with the new token. Your chats and saved settings will remain unchanged.</string>
+    <string name="setup_rotate_mcp_token_confirm">Rotate token</string>
+    <string name="setup_mcp_token_rotated">A new MCP token is active. Copy the token and run the updated setup command in each MCP client.</string>
     <string name="setup_outside_background">Work in the background</string>
     <string name="setup_outside_background_info">Agents in your own sessions work on a hidden screen, as a chat in background mode does: you keep using your phone, and they go on while it\'s locked. Cards and questions still come to you. A step for your own eyes, like a sign-in, brings its app to your screen. Needs background mode set up.</string>
     <string name="setup_tailnet">Phone tools on Tailscale</string>
