@@ -16,6 +16,8 @@ public class DependencyPlannerTest {
         assertTrue(start.indexOf("buddy-app") < start.indexOf("buddy-accessibility"));
         assertTrue(start.indexOf("buddy-accessibility") < start.indexOf("buddy-mcp"));
         assertTrue(start.indexOf("buddy-mcp") < start.indexOf("buddy-tunnel"));
+        assertTrue(start.indexOf("remote-tunnel-buddy") < start.indexOf("buddy-tunnel"));
+        assertTrue(start.indexOf("buddy-tunnel") < start.indexOf("chatgpt-connector-buddy"));
         List<String> stop = DependencyPlanner.shutdownOrder(registry, selected);
         assertEquals(start.get(0), stop.get(stop.size() - 1));
     }
