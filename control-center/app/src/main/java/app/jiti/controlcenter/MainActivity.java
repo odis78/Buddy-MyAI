@@ -99,7 +99,7 @@ public final class MainActivity extends Activity {
         String status = state.installed
                 ? "Termux " + state.versionName + " • " + state.message
                 : state.message;
-        addCard(page, text(status + "\\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
+        addCard(page, text(status + "\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
                 state.canInvoke() ? GREEN : AMBER, true), 8);
 
         LinearLayout actions = new LinearLayout(this);
@@ -127,13 +127,13 @@ public final class MainActivity extends Activity {
         output.setText("Проверка 1/3: Termux identity…");
         TermuxCommandClient.run(this, TermuxOperation.IDENTITY, identity -> {
             appendCommandResult(output, "IDENTITY", identity, false);
-            output.append("\\nПроверка 2/3: Tunnel Client version…");
+            output.append("\nПроверка 2/3: Tunnel Client version…");
             TermuxCommandClient.run(this, TermuxOperation.TUNNEL_CLIENT_VERSION, version -> {
                 appendCommandResult(output, "TUNNEL CLIENT", version, false);
-                output.append("\\nПроверка 3/3: process inventory…");
+                output.append("\nПроверка 3/3: process inventory…");
                 TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, processes -> {
                     appendCommandResult(output, "PROCESSES", processes, true);
-                    output.append("\\nRead-only preflight завершён. Это ещё не подтверждает health/readiness туннелей.");
+                    output.append("\nRead-only preflight завершён. Это ещё не подтверждает health/readiness туннелей.");
                     button.setEnabled(true);
                 });
             });
@@ -141,21 +141,21 @@ public final class MainActivity extends Activity {
     }
 
     private void appendCommandResult(TextView output, String label, TermuxCommandResult result, boolean filterProcesses) {
-        output.append("\\n\\n[" + label + "] exit=" + result.exitCode
+        output.append("\n\n[" + label + "] exit=" + result.exitCode
                 + " termuxErr=" + result.internalError);
-        if (!result.internalErrorMessage.isEmpty()) output.append("\\n" + result.internalErrorMessage);
+        if (!result.internalErrorMessage.isEmpty()) output.append("\n" + result.internalErrorMessage);
         String body = filterProcesses ? relevantProcesses(result.stdout) : result.stdout;
-        if (!body.isEmpty()) output.append("\\n" + body.trim());
-        if (!result.stderr.isEmpty()) output.append("\\nSTDERR: " + result.stderr.trim());
-        if (result.truncated) output.append("\\n[OUTPUT TRUNCATED]");
+        if (!body.isEmpty()) output.append("\n" + body.trim());
+        if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
+        if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
     }
 
     private String relevantProcesses(String source) {
         StringBuilder result = new StringBuilder();
-        for (String line : source.split("\\n")) {
+        for (String line : source.split("\n")) {
             String lower = line.toLowerCase(java.util.Locale.ROOT);
             if (lower.contains("tunnel-client") || lower.contains("termux") || lower.contains("buddy") || lower.contains("rea")) {
-                if (result.length() > 0) result.append('\\n');
+                if (result.length() > 0) result.append('\n');
                 result.append(line);
             }
         }
