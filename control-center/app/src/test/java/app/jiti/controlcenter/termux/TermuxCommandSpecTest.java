@@ -16,6 +16,14 @@ public class TermuxCommandSpecTest {
             assertTrue(spec.executable.startsWith("/"));
         }
     }
+    @Test public void pythonVersionProbeUsesFixedBinaryAndArgument() {
+        TermuxCommandSpec python = TermuxCommandSpec.forOperation(TermuxOperation.PYTHON_VERSION,
+                "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
+        assertTrue(python.executable.endsWith("/bin/python"));
+        assertEquals(java.util.Collections.singletonList("--version"), python.arguments);
+        assertTrue(python.isSafeFixedCommand());
+    }
+
     @Test public void tunnelsScriptAuditReadsOnlyTheExistingScript() {
         TermuxCommandSpec audit = TermuxCommandSpec.forOperation(TermuxOperation.TUNNELS_SCRIPT_AUDIT,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
