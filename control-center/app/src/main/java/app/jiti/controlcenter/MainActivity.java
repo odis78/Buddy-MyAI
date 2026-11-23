@@ -17,6 +17,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import org.json.JSONObject;
 
+import app.jiti.controlcenter.core.CommandGate;
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
 import app.jiti.controlcenter.core.EvidenceStatus;
@@ -32,6 +33,8 @@ import app.jiti.controlcenter.core.ComponentStatus;
 import app.jiti.controlcenter.core.RuntimeSnapshot;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,6 +47,8 @@ public final class MainActivity extends Activity {
     private static final int GREEN = 0xFF7DD3A7;
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
     private EventStore eventStore;
+    private final CommandGate commandGate = new CommandGate(
+            new HashSet<>(Arrays.asList("buddy.start", "buddy.stop")));
     private TextView eventLogView;
     private TextView termuxStatusView;
     private Button termuxCheckButton;
