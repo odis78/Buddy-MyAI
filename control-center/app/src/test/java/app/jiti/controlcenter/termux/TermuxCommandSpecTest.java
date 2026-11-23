@@ -67,6 +67,9 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.arguments.get(1).contains("BUDDY_AUTH_HEADER"));
         assertTrue(probe.arguments.get(1).contains("BUDDY_TOKEN"));
         assertFalse(probe.arguments.get(1).contains("Bearer very-secret"));
+        assertTrue(probe.arguments.get(1).contains("ProxyHandler({})"));
+        assertTrue(probe.arguments.get(1).contains("NoRedirect"));
+        assertFalse(probe.arguments.get(1).contains("print(auth)"));
         assertTrue(probe.isSafeFixedCommand());
     }
 
