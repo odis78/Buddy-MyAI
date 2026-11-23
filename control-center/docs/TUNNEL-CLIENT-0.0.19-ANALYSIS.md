@@ -23,11 +23,11 @@ The v0.0.19 CLI includes the native `runtimes` command family:
 - `runtimes rm <alias>`
 - `runtimes cleanup`
 
-The `connect` command accepts an alias, optional existing tunnel ID, profile name/directory, MCP server URL or stdio command, runtime-key reference, and optional admin profile details. It writes a generated native profile and local alias/process state, then starts or reuses a managed runtime. The implementation records process identity (PID start time and executable), health URL, profile/config paths, and log path. It performs health/readiness observation rather than treating a successful process spawn as sufficient.
+The `connect` command accepts an alias, optional existing tunnel ID, profile name/directory, MCP server URL or stdio command, runtime-key reference, and optional admin profile details. It writes a generated native profile and local alias/process state, then starts or reuses a managed runtime. This is a state-changing operation: it may resolve/create remote tunnel metadata, write a local YAML profile, persist alias and process records, clear/write health URL files, and launch a process. The implementation records process identity (PID start time and executable), health URL, profile/config paths, and log path. It performs health/readiness observation rather than treating a successful process spawn as sufficient.
 
 The default managed process path starts the current tunnel-client executable with a fixed argument shape:
 `run --profile-dir <profile-dir> --profile <profile-name> --log.file ""`.
-The parent keeps the log handle, captures the child process, records stable identity, and checks health/readiness. Process termination is guarded by the recorded process identity; a bare PID is not considered sufficient.
+The parent keeps the log handle, captures the child process, records stable identity, and checks health/readiness. Process termination is guarded by the recorded process identity; a bare PID is not considered sufficient. `runtimes stop` only stops an alias already known to this native state store, checks recorded PID start-time/executable or owned tmux identity, waits for termination, and clears the managed health URL/state. It is not a generic stop command for arbitrary `run --config` processes.
 
 ## Important incompatibility with the existing Buddy profile
 
@@ -43,6 +43,9 @@ The existing Buddy and REA launcher scripts run explicit YAML configurations usi
 
 Consequences:
 - `runtimes status <alias>` and `runtimes stop <alias>` must only be used for runtimes created/registered through that native managed-runtime subsystem.
+- The v0.0.19 manager's `Status` path loads local alias/process records and may perform a remote tunnel lookup when a key reference is available. It also calls admin-profile resolution, which can write/update the local admin-profile state if the expected profile is missing or differs. Treat it as a managed-runtime status operation, not a guaranteed filesystem-read-only probe.
+- `runtimes rm` removes managed local profile/config/health/log files and alias/process records; never use it against an unverified alias.
+- `runtimes cleanup --apply` removes local stale alias/process metadata. It is not a generic repair or restart command.
 - Do not assume the old profiles have corresponding aliases or process records.
 - Do not run `runtimes cleanup --apply` as a general repair action.
 - Do not let a generated alias overwrite, replace, or silently shadow an existing profile.
