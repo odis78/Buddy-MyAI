@@ -196,6 +196,11 @@ public final class MainActivity extends Activity {
         TermuxCommandClient.run(this, operation, result -> {
             if (isFinishing() || isDestroyed()) return;
             appendCommandResult(output, operation, result);
+            if (operation == TermuxOperation.IDENTITY && result.internalError != -1) {
+                output.append("\\nRemaining probes skipped: Termux rejected RUN_COMMAND before execution.");
+                button.setEnabled(true);
+                return;
+            }
             runTermuxStep(button, output, index + 1);
         });
     }
