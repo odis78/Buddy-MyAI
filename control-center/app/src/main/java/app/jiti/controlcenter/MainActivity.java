@@ -434,7 +434,7 @@ public final class MainActivity extends Activity {
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
         if (termuxStatusView != null) {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
-                    + "\nRUN_COMMAND разрешение и allow-external-apps должны быть включены отдельно.");
+                    + "\nRUN_COMMAND permission и allow-external-apps=true включаются отдельно. Мониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
         }
         if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
