@@ -63,6 +63,8 @@ public final class MonitorService extends Service {
                 || notificationManager == null || !notificationManager.areNotificationsEnabled()) {
             running = false;
             monitoring = false;
+            handler.removeCallbacks(poll);
+            releaseWakeLock();
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
             stopSelf(startId);
             return START_NOT_STICKY;
