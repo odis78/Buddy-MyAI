@@ -220,7 +220,7 @@ public final class MainActivity extends Activity {
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_preflight_result" : report.optString("result");
             if (!result.succeeded() || report == null) {
-                buddyControlStatusView.setText("Preflight не выполнен: " + result.error);
+                buddyControlStatusView.setText("Preflight не выполнен: " + result.internalErrorMessage);
                 logControlEvent("buddy-tunnel", "START_PREFLIGHT_FAILED", "Buddy launch preflight command failed");
                 refreshTermuxControls();
                 return;
@@ -286,7 +286,7 @@ public final class MainActivity extends Activity {
     private void readBuddyLauncherStatus() {
         TermuxCommandClient.runBuddyLaunchStatus(this, result -> {
             if (!result.succeeded()) {
-                buddyControlStatusView.setText("Нет свежего подтверждения запуска от Termux: " + result.error
+                buddyControlStatusView.setText("Нет свежего подтверждения запуска от Termux: " + result.internalErrorMessage
                         + ". Проверка health продолжится отдельно.");
                 refreshTermuxControls();
                 return;
@@ -324,7 +324,7 @@ public final class MainActivity extends Activity {
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_preflight" : report.optString("result");
             if (report == null) {
-                buddyControlStatusView.setText("Stop preflight не выполнен: " + result.error);
+                buddyControlStatusView.setText("Stop preflight не выполнен: " + result.internalErrorMessage);
                 logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
                 refreshTermuxControls();
                 return;
@@ -389,7 +389,7 @@ public final class MainActivity extends Activity {
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(afterStopped, 500L);
                 }
             } else {
-                String reason = report == null ? result.error : report.optString("reason", state);
+                String reason = report == null ? result.internalErrorMessage : report.optString("reason", state);
                 buddyControlStatusView.setText("Остановка не подтверждена: " + state + " • " + reason
                         + ". Процесс не принудительно завершался.");
                 saveProbeSnapshot("buddy-tunnel", "pid_identity_mismatch".equals(state)
