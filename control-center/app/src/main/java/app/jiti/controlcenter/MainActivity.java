@@ -383,7 +383,11 @@ public final class MainActivity extends Activity {
         RuntimeSnapshot snapshot = eventStore.snapshot(componentId);
         if (snapshot == null) return "LIVE: НЕ ПРОВЕРЕНО";
         long age = Math.max(0, System.currentTimeMillis() - snapshot.checkedAtEpochMillis);
-        boolean stale = age > 120000L;
+        long staleAfter = ("buddy-tunnel".equals(componentId) || "buddy-mcp".equals(componentId)
+                || "tunnel-client".equals(componentId) || "termux".equals(componentId)
+                || "termux-run-command".equals(componentId) || "jiti-monitor-service".equals(componentId))
+                ? 120000L : 24 * 60 * 60 * 1000L;
+        boolean stale = age > staleAfter;
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
         String detail = snapshot.detail == null ? "" : snapshot.detail;
         if (detail.length() > 100) detail = detail.substring(0, 100) + "…";
