@@ -35,7 +35,7 @@ jobs:
           names = ("BUDDY_MCP_AUTH_PROBE_SCRIPT", "BUDDY_LAUNCH_SCRIPT", "BUDDY_STOP_SCRIPT")
           scripts = {}
           for name in names:
-              match = re.search(rf'{name} = """\\n(.*?)\\n""";', source, re.S)
+              match = re.search(rf'{name} = """\n(.*?)\n""";', source, re.S)
               if not match:
                   raise SystemExit(f"{name} text block not found")
               script = match.group(1).replace("\\\\", "\\")
