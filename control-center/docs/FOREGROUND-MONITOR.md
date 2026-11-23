@@ -5,7 +5,7 @@
 - Android foreground service: `MonitorService`.
 - Declared type: `specialUse`.
 - Required permissions: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, and runtime `POST_NOTIFICATIONS`.
-- Manifest subtype: user-started monitoring and recovery coordination for local Termux tunnel and MCP services.
+- Manifest subtype: user-started continuous read-only monitoring of local Termux tunnel and MCP service health.
 - Start: explicit user action in JITI Control Center after Termux RUN_COMMAND permission/version checks.
 - Stop: in-app stop button or persistent notification action.
 - Restart mode: `START_STICKY` as a best-effort recovery hint.
