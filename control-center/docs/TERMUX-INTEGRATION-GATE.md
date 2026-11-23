@@ -30,7 +30,16 @@ The RUN_COMMAND integration is therefore a future explicit opt-in. The supported
 
 JITI must use Java/PendingIntent rather than `am startservice`, because the latter cannot return results. Draw-over-apps permission is not required for background commands; it is only relevant to foreground terminal sessions. Battery exemptions may be needed on some OEM devices but must remain a separate, user-approved step.
 
-Until these requirements are verified on the target phone, all command contracts remain disabled.
+Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
+
+- `IDENTITY`: Termux `id` executable.
+- `TUNNEL_CLIENT_VERSION`: the known v0.0.19 ARM64 binary with `--version`.
+- `CURL_VERSION`: curl version check.
+- `BUDDY_TUNNEL_HEALTH`: v0.0.19 `health --url-file ... --pid-file ... --require-control-plane-poll --json` using the recorded Buddy health/PID files.
+- `BUDDY_MCP_LISTENER_CHALLENGE`: a fixed unauthenticated POST to `http://127.0.0.1:8766/mcp`; HTTP 401 is reported as listener-up/auth-required, never as authenticated readiness.
+- `PROCESS_LIST`: `/system/bin/ps -A`, with only Termux/Buddy/REA/Tunnel Client lines displayed.
+
+No free-form command is accepted, no shell is invoked, and no start/stop/restart operation is currently in the allowlist. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
 
 ## Android 11+ package visibility
 
