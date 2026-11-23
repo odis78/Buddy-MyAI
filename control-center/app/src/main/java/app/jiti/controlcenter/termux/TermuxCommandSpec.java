@@ -28,6 +28,21 @@ public final class TermuxCommandSpec {
                 return new TermuxCommandSpec(operation,
                         home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
                         Arrays.asList("--version"));
+            case CURL_VERSION:
+                return new TermuxCommandSpec(operation, prefix + "/bin/curl", Arrays.asList("--version"));
+            case BUDDY_TUNNEL_HEALTH:
+                return new TermuxCommandSpec(operation,
+                        home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
+                        Arrays.asList("health", "--url-file", home + "/.config/tunnel-client-buddy/health.url",
+                                "--pid-file", home + "/.config/tunnel-client-buddy/buddy-myai.pid",
+                                "--require-control-plane-poll", "--json"));
+            case BUDDY_MCP_LISTENER_CHALLENGE:
+                return new TermuxCommandSpec(operation, prefix + "/bin/curl",
+                        Arrays.asList("--silent", "--show-error", "--output", "/dev/null",
+                                "--write-out", "%{http_code}", "--max-time", "3", "--request", "POST",
+                                "--header", "Content-Type: application/json",
+                                "--data-binary", "{\\"jsonrpc\\":\\"2.0\\",\\"id\\":1,\\"method\\":\\"initialize\\",\\"params\\":{\\"protocolVersion\\":\\"2025-11-25\\",\\"capabilities\\":{},\\"clientInfo\\":{\\"name\\":\\"jiti-control-center\\",\\"version\\":\\"0.2.0\\"}}}",
+                                "http://127.0.0.1:8766/mcp"));
             case PROCESS_LIST:
                 return new TermuxCommandSpec(operation, "/system/bin/ps", Arrays.asList("-A"));
             default:
