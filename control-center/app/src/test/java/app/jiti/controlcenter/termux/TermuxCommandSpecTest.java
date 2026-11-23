@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 public class TermuxCommandSpecTest {
     @Test public void onlyFixedAbsoluteReadOnlyOperationsAreAvailable() {
         for (TermuxOperation op : TermuxOperation.values()) {
+            if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE) continue;
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(op,
                     "/data/data/com.termux/files/usr",
                     "/data/data/com.termux/files/home");
@@ -38,6 +39,22 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.arguments.contains("http://127.0.0.1:8766/mcp"));
         assertFalse(probe.arguments.stream().anyMatch(a -> a.contains("Authorization")));
         assertTrue(probe.isSafeFixedCommand());
+    }
+
+    @Test public void dynamicProcReadsRequirePositiveNumericPid() {
+        TermuxCommandSpec cmdline = TermuxCommandSpec.forProcessCmdline(
+                "/data/data/com.termux/files/usr", 1234);
+        TermuxCommandSpec executable = TermuxCommandSpec.forProcessExecutable(
+                "/data/data/com.termux/files/usr", 1234);
+        assertTrue(cmdline.isSafeFixedCommand());
+        assertTrue(executable.isSafeFixedCommand());
+        assertTrue(cmdline.arguments.get(0).equals("/proc/1234/cmdline"));
+        assertTrue(executable.arguments.get(0).equals("/proc/1234/exe"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void nonPositivePidIsRejected() {
+        TermuxCommandSpec.forProcessCmdline("/data/data/com.termux/files/usr", 0);
     }
 
     @Test(expected = IllegalArgumentException.class)
