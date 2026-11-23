@@ -182,6 +182,7 @@ public final class MainActivity extends Activity {
         TermuxOperation operation = operations[index];
         output.append("\n\n[" + operationLabel(operation) + "] running…");
         TermuxCommandClient.run(this, operation, result -> {
+            if (isFinishing() || isDestroyed()) return;
             appendCommandResult(output, operation, result);
             runTermuxStep(button, output, index + 1);
         });
@@ -214,7 +215,7 @@ public final class MainActivity extends Activity {
         if (!body.isEmpty()) output.append("\n" + body.trim());
         if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
         if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
-        if (eventStore != null) {
+        if (eventStore != null && !isFinishing() && !isDestroyed()) {
             String message = "operation=" + operation.name() + " exit=" + result.exitCode + " termuxErr=" + result.internalError;
             eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "termux",
                     result.succeeded() ? "PROBE_OK" : "PROBE_FAILED", message));
