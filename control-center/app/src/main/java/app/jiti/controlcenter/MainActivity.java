@@ -242,8 +242,10 @@ public final class MainActivity extends Activity {
             updateSnapshotForProbe(operation, result);
 
             String message = "operation=" + operation.name() + " exit=" + result.exitCode + " termuxErr=" + result.internalError;
+            boolean expectedNoMatch = operation == TermuxOperation.BUDDY_ENV_SOURCE_AUDIT
+                    && result.exitCode == 1 && result.internalError == -1;
             eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "termux",
-                    result.succeeded() ? "PROBE_OK" : "PROBE_FAILED", message));
+                    result.succeeded() || expectedNoMatch ? "PROBE_OK" : "PROBE_FAILED", message));
             refreshEventLog();
             refreshLiveStatuses();
         }
