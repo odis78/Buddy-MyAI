@@ -24,6 +24,7 @@ import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
 import app.jiti.controlcenter.termux.TermuxOperation;
+import app.jiti.controlcenter.termux.TunnelProcessIdentity;
 
 public final class MonitorService extends Service {
     public static final String ACTION_STOP = "app.jiti.controlcenter.action.STOP_MONITOR";
@@ -136,36 +137,70 @@ public final class MonitorService extends Service {
     }
 
     private void onHealthResult(TermuxCommandResult result) {
-        boolean ready = false;
+        boolean healthEndpointsReady = false;
         String summary = "health command exit=" + result.exitCode + " termuxErr=" + result.internalError;
         try {
             JSONObject report = new JSONObject(result.stdout);
-            ready = result.succeeded() && "ok".equals(report.optString("result"));
+            healthEndpointsReady = result.succeeded() && "ok".equals(report.optString("result"));
             summary = "healthz=" + ok(report, "healthz")
                     + " readyz=" + ok(report, "readyz")
                     + " controlPlanePoll=" + nestedOk(report, "control_plane_poll")
-                    + " processRunning=" + nestedOk(report, "process");
+                    + " pidRunning=" + nestedOk(report, "process");
         } catch (Exception ignored) {
             if (!result.stderr.isEmpty()) summary += " " + result.stderr;
         }
+
         saveSnapshot("termux", result.internalError == -1 ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
                 "Termux RUN_COMMAND result received; exit=" + result.exitCode, 0);
-        int tunnelPid = extractPid(result.stdout);
-        saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, summary, tunnelPid);
-        ComponentStatus tunnelStatus;
-        if (result.internalError != -1 || result.exitCode == 127) tunnelStatus = ComponentStatus.UNAVAILABLE;
-        else if (!hasProcessReport(result.stdout)) tunnelStatus = ComponentStatus.ERROR;
-        else tunnelStatus = processRunning(result.stdout) ? ComponentStatus.PID_PRESENT : ComponentStatus.STOPPED;
-        saveSnapshot("tunnel-client", tunnelStatus,
-                "Tunnel Client health PID check; executable/config identity not yet verified", tunnelPid);
+        final boolean endpointsReady = healthEndpointsReady;
+        final String healthSummary = summary;
+        final int pid = extractPid(result.stdout);
+        final boolean pidPresent = processRunning(result.stdout);
+
+        if (!pidPresent || pid <= 0) {
+            ComponentStatus processState = result.internalError != -1 || result.exitCode == 127
+                    ? ComponentStatus.UNAVAILABLE : hasProcessReport(result.stdout)
+                    ? ComponentStatus.STOPPED : ComponentStatus.ERROR;
+            completeHealthCheck(endpointsReady, false, processState, pid,
+                    healthSummary + "; process identity unavailable");
+            return;
+        }
+
+        TermuxCommandClient.runProcessExecutable(this, pid, executable -> {
+            boolean executableMatches = executable.succeeded()
+                    && TunnelProcessIdentity.matchesExecutable(executable.stdout);
+            if (!executableMatches) {
+                completeHealthCheck(endpointsReady, false, ComponentStatus.PID_PRESENT, pid,
+                        healthSummary + "; PID exists but executable identity did not match");
+                return;
+            }
+            TermuxCommandClient.runProcessCmdline(this, pid, commandLine -> {
+                String home = TermuxCommandClient.inspect(this).dataDir + "/files/home";
+                boolean configMatches = commandLine.succeeded()
+                        && TunnelProcessIdentity.matchesBuddyConfig(commandLine.stdout, home);
+                completeHealthCheck(endpointsReady, configMatches,
+                        configMatches ? ComponentStatus.RUNNING : ComponentStatus.PID_PRESENT,
+                        pid, healthSummary + "; " + (configMatches
+                                ? "Buddy executable and config identity verified"
+                                : "executable matched but Buddy config identity did not"));
+            });
+        });
+    }
+
+    private void completeHealthCheck(boolean endpointsReady, boolean identityVerified,
+                                     ComponentStatus processStatus, int pid, String detail) {
+        saveSnapshot("tunnel-client", processStatus, detail, pid);
+        boolean ready = endpointsReady && identityVerified;
+        saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY,
+                detail, pid);
         String state = ready ? "READY" : "NOT_READY";
         if (!state.equals(lastHealthState)) {
             lastHealthState = state;
-            log("buddy-tunnel", state, summary);
+            log("buddy-tunnel", state, detail);
         }
-        notificationText = ready ? "Buddy tunnel: READY" : "Buddy tunnel: NOT READY";
+        notificationText = ready ? "Buddy tunnel READY • identity verified"
+                : "Buddy tunnel NOT READY • identity unverified";
         updateNotification();
-
         TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
     }
 
@@ -213,8 +248,7 @@ public final class MonitorService extends Service {
                         + " buddySeen=" + text.contains("buddy"));
         ComponentStatus processStatus = !result.succeeded() ? ComponentStatus.UNAVAILABLE
                 : tunnelSeen ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
-        saveSnapshot("tunnel-client", processStatus,
-                "Process-name snapshot; PID identity not yet verified", 0);
+        // Aggregate process-name inventory is diagnostic only; it must not overwrite profile-specific PID identity.
         inFlight = false;
         scheduleNext();
     }
