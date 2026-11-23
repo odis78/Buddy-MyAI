@@ -275,9 +275,9 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
-        buddyControlStatusView.setText("Запрос запуска отправлен в TermuxTask. Ожидается подтверждение процесса и healthz/readyz…");
+        buddyControlStatusView.setText("Запрос запуска отправлен в Termux RUN_COMMAND. Ожидается подтверждение процесса и healthz/readyz…");
         saveProbeSnapshot("buddy-tunnel", ComponentStatus.STARTING, "Termux background task start requested; health verification pending");
-        logControlEvent("buddy-tunnel", "START_REQUESTED", "Buddy Tunnel Client start requested through TermuxTask");
+        logControlEvent("buddy-tunnel", "START_REQUESTED", "Buddy Tunnel Client start requested through Termux RUN_COMMAND");
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this::readBuddyLauncherStatus, 1200L);
         MonitorService.pollNow(this);
         refreshTermuxControls();
@@ -323,7 +323,7 @@ public final class MainActivity extends Activity {
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_preflight" : report.optString("result");
-            if (report == null) {
+            if (!result.succeeded() || report == null) {
                 buddyControlStatusView.setText("Stop preflight не выполнен: " + result.internalErrorMessage);
                 logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
                 refreshTermuxControls();
