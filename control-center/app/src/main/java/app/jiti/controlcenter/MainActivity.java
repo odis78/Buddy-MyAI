@@ -10,8 +10,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.util.Arrays;
-import java.util.List;
+import app.jiti.controlcenter.core.ComponentRegistry;
+import app.jiti.controlcenter.core.ComponentSpec;
+import app.jiti.controlcenter.core.EvidenceStatus;
 
 public final class MainActivity extends Activity {
     private static final int BG = 0xFF10151D;
@@ -19,42 +20,10 @@ public final class MainActivity extends Activity {
     private static final int FG = 0xFFF1F5F9;
     private static final int MUTED = 0xFF9AA8B8;
     private static final int AMBER = 0xFFFFC46B;
+    private static final int GREEN = 0xFF7DD3A7;
+    private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
 
-    private static final class Component {
-        final String name;
-        final String kind;
-        final String detail;
-
-        Component(String name, String kind, String detail) {
-            this.name = name;
-            this.kind = kind;
-            this.detail = detail;
-        }
-    }
-
-    private final List<Component> components = Arrays.asList(
-        new Component("Buddy-MyAI Tunnel", "Tunnel Client profile", "OpenAI tunnel • health URL is dynamic"),
-        new Component("REA-Termux-Bridge 0.1.3", "Tunnel Client profile", "Separate Bridge profile"),
-        new Component("DroidMCP-Filesystem", "Tunnel Client profile", "Dedicated filesystem profile"),
-        new Component("REA-Termux-Android", "Tunnel Client profile", "REA Android profile"),
-        new Component("Buddy MCP", "MCP server", "http://127.0.0.1:8766/mcp • Bearer auth"),
-        new Component("Buddy tools", "MCP tool catalog", "Historical catalogue: 52; one discovery session: 44"),
-        new Component("REA MCP", "MCP server / tools", "Latest saved inventory: 207/207 tools, 6/6 prompts"),
-        new Component("Bridge MCP", "MCP bridge", "Termux Bridge 0.1.3"),
-        new Component("DroidMCP-Filesystem", "MCP server", "Read-only filesystem runtime"),
-        new Component("Buddy-MyAI app", "Android application", "Package/version must be verified on device"),
-        new Component("Buddy AccessibilityService", "Android service", "Required for phone interaction"),
-        new Component("ADB / Android shell", "Android capability", "Availability and authorization must be checked"),
-        new Component("Shizuku", "Android service", "Presence known historically; dependency is unverified"),
-        new Component("Termux", "Execution environment", "External-command integration not yet validated"),
-        new Component("Tunnel Client v0.0.19", "Runtime executable", "ARM64 binary in Termux home"),
-        new Component("Control Plane connectivity", "Network dependency", "Poll result and auth state; never expose secrets"),
-        new Component("ChatGPT → Buddy → Android", "End-to-end path", "Read-only read_screen probe"),
-        new Component("ChatGPT → REA / Bridge", "End-to-end path", "Discovery and safe health probe")
-    );
-
-    @Override
-    protected void onCreate(Bundle state) {
+    @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         render();
     }
@@ -67,79 +36,77 @@ public final class MainActivity extends Activity {
         page.setPadding(dp(18), dp(22), dp(18), dp(28));
         scroll.addView(page);
 
-        TextView title = text("JITI CONTROL CENTER", 22, FG, true);
-        page.addView(title);
-        TextView subtitle = text("Полная панель Buddy-MyAI и инфраструктуры", 14, MUTED, false);
-        addTop(page, subtitle, 5);
-
-        TextView warning = text("ПРОТОТИП • состояния пока не опрашиваются. Все компоненты отмечены «Не проверено», а команды управления отключены до подключения безопасного адаптера.", 13, AMBER, true);
-        addCard(page, warning, 12);
+        page.addView(text("JITI CONTROL CENTER", 22, FG, true));
+        addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
+        addCard(page, text("РЕЖИМ АУДИТА. Сейчас приложение показывает исторические доказательства и реестр зависимостей. Live-проверки и команды управления будут включены только после подтверждения безопасного Termux-адаптера.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.VERTICAL);
-        Button check = button("Проверить всё");
-        Button start = button("Запустить всё");
-        Button restart = button("Перезапустить всё");
-        Button stop = button("Остановить всё");
-        for (Button b : Arrays.asList(check, start, restart, stop)) {
-            b.setEnabled(false);
-            controls.addView(b, matchWrap());
+        for (String label : new String[]{"Проверить всё", "Запустить всё", "Перезапустить всё", "Остановить всё"}) {
+            Button button = button(label);
+            button.setEnabled(false);
+            controls.addView(button, matchWrap());
         }
         addCard(page, controls, 8);
 
-        addSection(page, "Полный реестр компонентов");
+        addSection(page, "Реестр компонентов (" + registry.all().size() + ")");
         String currentGroup = "";
-        for (Component c : components) {
-            if (!c.kind.equals(currentGroup)) {
-                currentGroup = c.kind;
-                TextView group = text(currentGroup.toUpperCase(), 12, MUTED, true);
-                addTop(page, group, 14);
+        for (ComponentSpec item : registry.all()) {
+            if (!item.category.equals(currentGroup)) {
+                currentGroup = item.category;
+                addTop(page, text(currentGroup.toUpperCase(), 11, MUTED, true), 14);
             }
-            addComponentCard(page, c);
+            addComponentCard(page, item);
         }
 
-        addSection(page, "Последняя диагностика");
-        TextView diag = text("Ещё не выполнялась из приложения. Исторические данные 22–23 ноября используются как исходные сведения, но не подменяют текущую проверку телефона.", 13, MUTED, false);
-        addCard(page, diag, 8);
-
+        addSection(page, "Диагностика");
+        addCard(page, text("Live-проверка ещё не выполнялась. Историческое состояние не выдаётся за текущее. Следующий технический этап: read-only Termux integration и MCP health probes.", 13, MUTED, false), 8);
         setContentView(scroll);
     }
 
-    private void addComponentCard(LinearLayout parent, Component c) {
+    private void addComponentCard(LinearLayout parent, ComponentSpec item) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setPadding(dp(13), dp(12), dp(13), dp(12));
         card.setBackgroundColor(CARD);
 
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        TextView name = text(c.name, 15, FG, true);
+        TextView name = text(item.title, 14, FG, true);
         row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
-        TextView status = text("НЕ ПРОВЕРЕНО", 10, AMBER, true);
-        row.addView(status);
+        row.addView(text(evidenceLabel(item.evidence), 10, evidenceColor(item.evidence), true));
         card.addView(row);
 
-        TextView detail = text(c.detail, 12, MUTED, false);
-        addTop(card, detail, 5);
-
+        addTop(card, text(item.detail, 12, MUTED, false), 5);
+        if (!item.dependencies.isEmpty()) {
+            addTop(card, text("Зависимости: " + String.join(", ", item.dependencies), 10, MUTED, false), 4);
+        }
         LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button inspect = button("Проверить");
+        Button inspect = button("Live-проверка");
         Button restart = button("Перезапустить");
         inspect.setEnabled(false);
         restart.setEnabled(false);
-        actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(42), 1f));
-        actions.addView(restart, new LinearLayout.LayoutParams(0, dp(42), 1f));
-        addTop(card, actions, 9);
+        actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
+        actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
+        addTop(card, actions, 8);
         addCard(parent, card, 7);
     }
 
-    private void addSection(LinearLayout parent, String label) {
-        addTop(parent, text(label, 17, FG, true), 18);
+    private String evidenceLabel(EvidenceStatus value) {
+        switch (value) {
+            case CONFIRMED_WORKING: return "РАБОТАЛО 22.11";
+            case PRESENT_CONFIGURED: return "НАСТРОЕНО";
+            case OBSERVED_STOPPED: return "ОСТАНОВЛЕНО 23.11";
+            default: return "НЕ ПРОВЕРЕНО";
+        }
     }
-
+    private int evidenceColor(EvidenceStatus value) {
+        if (value == EvidenceStatus.CONFIRMED_WORKING) return GREEN;
+        if (value == EvidenceStatus.OBSERVED_STOPPED) return AMBER;
+        return MUTED;
+    }
+    private void addSection(LinearLayout parent, String label) { addTop(parent, text(label, 17, FG, true), 18); }
     private void addCard(LinearLayout parent, View child, int top) {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
@@ -150,13 +117,11 @@ public final class MainActivity extends Activity {
         lp.topMargin = dp(top);
         parent.addView(wrapper, lp);
     }
-
     private void addTop(LinearLayout parent, View child, int top) {
         LinearLayout.LayoutParams lp = matchWrap();
         lp.topMargin = dp(top);
         parent.addView(child, lp);
     }
-
     private TextView text(String value, int size, int color, boolean bold) {
         TextView v = new TextView(this);
         v.setText(value);
@@ -165,7 +130,6 @@ public final class MainActivity extends Activity {
         if (bold) v.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return v;
     }
-
     private Button button(String label) {
         Button b = new Button(this);
         b.setText(label);
@@ -173,12 +137,6 @@ public final class MainActivity extends Activity {
         b.setTextSize(12);
         return b;
     }
-
-    private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(-1, -2);
-    }
-
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
-    }
+    private LinearLayout.LayoutParams matchWrap() { return new LinearLayout.LayoutParams(-1, -2); }
+    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
 }
