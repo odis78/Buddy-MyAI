@@ -227,6 +227,11 @@ def write_status(value):
     except Exception:
         pass
 
+mode = sys.argv[1] if len(sys.argv) > 1 else ""
+if mode not in ("preflight", "stop"):
+    emit({"result": "blocked", "reason": "invalid_operation"})
+    sys.exit(2)
+
 try:
     with open(PID_FILE, "r", encoding="utf-8") as handle:
         pid = int(handle.read().strip())
@@ -253,6 +258,11 @@ if not identity(pid):
     emit(result)
     write_status(result)
     sys.exit(2)
+
+if mode == "preflight":
+    result = {"result": "ready_to_stop", "pid": pid}
+    emit(result)
+    sys.exit(0)
 
 try:
     os.kill(pid, signal.SIGTERM)
@@ -551,11 +561,12 @@ else:
                 Arrays.asList("-c", BUDDY_LAUNCH_SCRIPT, mode));
     }
 
-    public static TermuxCommandSpec forBuddyStop(String prefix) {
-        if (prefix == null || !prefix.startsWith("/") || prefix.contains(".."))
-            throw new IllegalArgumentException("valid absolute prefix required");
+    public static TermuxCommandSpec forBuddyStop(String prefix, String mode) {
+        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..")
+                || !("preflight".equals(mode) || "stop".equals(mode)))
+            throw new IllegalArgumentException("valid absolute prefix and stop mode required");
         return new TermuxCommandSpec(TermuxOperation.BUDDY_STOP, prefix + "/bin/python",
-                Arrays.asList("-c", BUDDY_STOP_SCRIPT));
+                Arrays.asList("-c", BUDDY_STOP_SCRIPT, mode));
     }
 
     public static TermuxCommandSpec forBuddyMcpAuthProbe(String prefix, int pid) {
@@ -593,9 +604,10 @@ else:
                     && ("preflight".equals(arguments.get(2)) || "start".equals(arguments.get(2)));
         }
         if (operation == TermuxOperation.BUDDY_STOP) {
-            return executable.endsWith("/bin/python") && arguments.size() == 2
+            return executable.endsWith("/bin/python") && arguments.size() == 3
                     && "-c".equals(arguments.get(0))
-                    && BUDDY_STOP_SCRIPT.equals(arguments.get(1));
+                    && BUDDY_STOP_SCRIPT.equals(arguments.get(1))
+                    && ("preflight".equals(arguments.get(2)) || "stop".equals(arguments.get(2)));
         }
         for (String arg : arguments) {
             if (arg == null || arg.contains("\n") || arg.contains("\r")) return false;
