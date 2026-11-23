@@ -383,7 +383,7 @@ public final class MonitorService extends Service {
         try {
             if (wakeLock == null) {
                 PowerManager power = getSystemService(PowerManager.class);
-                if (power == null) return;
+                if (power == null) return false;
                 wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                         "app.jiti.controlcenter:monitor");
                 wakeLock.setReferenceCounted(false);
