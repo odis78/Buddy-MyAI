@@ -73,6 +73,9 @@ Confirmed as part of the 22-Nov working ecosystem:
 - Package identity discrepancy: the 22-Nov runbook records `app.buddy.myai.test`, while the protected checkpoint's `app/build.gradle.kts` declares applicationId `app.buddy.myai`. The live installed package must be read from Android before any package-targeted command; do not hardcode either value.
 - Checkpoint `BuildInfo.java` records version `2.3.17-JITI.1`, versionCode 215.
 - The checkpoint manifest declares `.BuddyService` as the AccessibilityService and `.NotificationWatcher` as a separate NotificationListenerService. Notification access is optional and user-granted.
+- `BuddyService.onServiceConnected()` starts the local MCP listener immediately, then schedules `RemoteSession.ensure`, `SshServer.ensure`, and `CodexRemote.ensure` after 4 seconds. Each is gated by a separate preference and is off by default in source; RemoteSession/CodexRemote also require the corresponding agent sign-in. `SshServer` runs inside Buddy Linux on port 8767.
+- `McpServer` also has a Tailscale listener on port 8766, but `Tailnet.address()` returns an address only when the Buddy Tailscale-tools preference is enabled and an active VPN interface has a Tailscale CGNAT address. It is not required for the local ChatGPT tunnel path.
+- The background browser is a separate optional feature. Its eight tools are advertised only when `Prefs.browser` is true; source default is false. Chromium is installed/run inside Buddy Linux.
 - Shizuku was installed and running in prior Android checks, but whether it is a hard dependency for the Buddy MCP path is not established.
 - ADB / Android shell access is a capability path, not automatically a separate tunnel.
 
