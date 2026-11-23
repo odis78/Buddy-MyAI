@@ -55,8 +55,10 @@ public final class MonitorService extends Service {
             stopMonitoring();
             return START_NOT_STICKY;
         }
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        if ((Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                || notificationManager == null || !notificationManager.areNotificationsEnabled()) {
             running = false;
             monitoring = false;
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
