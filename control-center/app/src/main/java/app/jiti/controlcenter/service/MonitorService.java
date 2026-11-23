@@ -17,7 +17,7 @@ import android.os.PowerManager;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import app.jiti.controlcenter.MainActivity;
@@ -290,7 +290,7 @@ public final class MonitorService extends Service {
 
         if (result.succeeded() && "authenticated_ready".equals(state) && report != null) {
             JSONArray tools = report.optJSONArray("tools");
-            Set<String> liveNames = new HashSet<>();
+            Set<String> liveNames = new LinkedHashSet<>();
             if (tools != null) {
                 for (int i = 0; i < tools.length(); i++) {
                     String name = tools.optString(i, "");
@@ -302,11 +302,11 @@ public final class MonitorService extends Service {
             for (ToolSpec spec : ToolCatalog.all()) {
                 (spec.optionalFeature ? expectedOptional : expectedBase).add(spec.name);
             }
-            Set<String> missingBase = new HashSet<>(expectedBase);
+            Set<String> missingBase = new LinkedHashSet<>(expectedBase);
             missingBase.removeAll(liveNames);
-            Set<String> missingOptional = new HashSet<>(expectedOptional);
+            Set<String> missingOptional = new LinkedHashSet<>(expectedOptional);
             missingOptional.removeAll(liveNames);
-            Set<String> extra = new HashSet<>(liveNames);
+            Set<String> extra = new LinkedHashSet<>(liveNames);
             extra.removeAll(expectedBase);
             extra.removeAll(expectedOptional);
             String detail = "Authenticated tools/list: live=" + report.optInt("tool_count", liveNames.size())
