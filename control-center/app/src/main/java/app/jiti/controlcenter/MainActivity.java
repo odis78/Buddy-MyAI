@@ -449,6 +449,13 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private boolean termuxBridgeVerified() {
+        if (eventStore == null) return false;
+        RuntimeSnapshot snapshot = eventStore.snapshot("termux-run-command");
+        return snapshot != null && snapshot.status == ComponentStatus.AVAILABLE
+                && System.currentTimeMillis() - snapshot.checkedAtEpochMillis <= 120000L;
+    }
+
     private void refreshTermuxControls() {
         if (isFinishing() || isDestroyed()) return;
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
