@@ -191,6 +191,7 @@ public final class MainActivity extends Activity {
                 TermuxOperation.TUNNEL_CLIENT_VERSION,
                 TermuxOperation.CURL_VERSION,
                 TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
+                TermuxOperation.TUNNELS_SCRIPT_AUDIT,
                 TermuxOperation.BUDDY_TUNNEL_HEALTH,
                 TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE,
                 TermuxOperation.PROCESS_LIST
@@ -220,6 +221,7 @@ public final class MainActivity extends Activity {
             case TUNNEL_CLIENT_VERSION: return "TUNNEL CLIENT VERSION";
             case CURL_VERSION: return "CURL VERSION";
             case BUDDY_ENV_SOURCE_AUDIT: return "BUDDY ENV SOURCE AUDIT (NAMES ONLY)";
+            case TUNNELS_SCRIPT_AUDIT: return "EXISTING TUNNELS SCRIPT (READ ONLY)";
             case BUDDY_TUNNEL_HEALTH: return "BUDDY TUNNEL HEALTH";
             case BUDDY_MCP_LISTENER_CHALLENGE: return "BUDDY MCP AUTH CHALLENGE";
             case PROCESS_LIST: return "PROCESS INVENTORY";
