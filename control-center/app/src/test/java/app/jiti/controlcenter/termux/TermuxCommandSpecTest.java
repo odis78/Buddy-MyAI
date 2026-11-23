@@ -75,11 +75,15 @@ public class TermuxCommandSpecTest {
                 "/data/data/com.termux/files/usr", "preflight");
         TermuxCommandSpec start = TermuxCommandSpec.forBuddyLaunch(
                 "/data/data/com.termux/files/usr", "start");
+        TermuxCommandSpec stopPreflight = TermuxCommandSpec.forBuddyStop(
+                "/data/data/com.termux/files/usr", "preflight");
         TermuxCommandSpec stop = TermuxCommandSpec.forBuddyStop(
-                "/data/data/com.termux/files/usr");
+                "/data/data/com.termux/files/usr", "stop");
         assertTrue(preflight.isSafeFixedCommand());
         assertTrue(start.isSafeFixedCommand());
+        assertTrue(stopPreflight.isSafeFixedCommand());
         assertTrue(stop.isSafeFixedCommand());
+        assertEquals("preflight", stopPreflight.arguments.get(2));
         assertTrue(preflight.arguments.get(1).contains(".config/termux-bridge/runtime.env"));
         assertTrue(preflight.arguments.get(1).contains("CONTROL_PLANE_API_KEY"));
         assertTrue(preflight.arguments.get(1).contains("BUDDY_TOKEN"));
