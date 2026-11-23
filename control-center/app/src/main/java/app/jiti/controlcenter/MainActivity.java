@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import org.json.JSONObject;
 
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
@@ -122,40 +123,87 @@ public final class MainActivity extends Activity {
         addCard(page, card, 8);
     }
 
+
     private void runTermuxDiagnostics(Button button, TextView output) {
         button.setEnabled(false);
-        output.setText("Проверка 1/3: Termux identity…");
-        TermuxCommandClient.run(this, TermuxOperation.IDENTITY, identity -> {
-            appendCommandResult(output, "IDENTITY", identity, false);
-            output.append("\nПроверка 2/3: Tunnel Client version…");
-            TermuxCommandClient.run(this, TermuxOperation.TUNNEL_CLIENT_VERSION, version -> {
-                appendCommandResult(output, "TUNNEL CLIENT", version, false);
-                output.append("\nПроверка 3/3: process inventory…");
-                TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, processes -> {
-                    appendCommandResult(output, "PROCESSES", processes, true);
-                    output.append("\nRead-only preflight завершён. Это ещё не подтверждает health/readiness туннелей.");
-                    button.setEnabled(true);
-                });
-            });
+        output.setText("Read-only preflight запущен…");
+        runTermuxStep(button, output, 0);
+    }
+
+    private void runTermuxStep(Button button, TextView output, int index) {
+        TermuxOperation[] operations = new TermuxOperation[]{
+                TermuxOperation.IDENTITY,
+                TermuxOperation.TUNNEL_CLIENT_VERSION,
+                TermuxOperation.CURL_VERSION,
+                TermuxOperation.BUDDY_TUNNEL_HEALTH,
+                TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE,
+                TermuxOperation.PROCESS_LIST
+        };
+        if (index >= operations.length) {
+            output.append("\\n\\nRead-only preflight завершён. MCP 401 подтверждает только доступность listener и требование авторизации, но не успешную аутентификацию.");
+            button.setEnabled(true);
+            return;
+        }
+        TermuxOperation operation = operations[index];
+        output.append("\\n\\n[" + operationLabel(operation) + "] running…");
+        TermuxCommandClient.run(this, operation, result -> {
+            appendCommandResult(output, operation, result);
+            runTermuxStep(button, output, index + 1);
         });
     }
 
-    private void appendCommandResult(TextView output, String label, TermuxCommandResult result, boolean filterProcesses) {
-        output.append("\n\n[" + label + "] exit=" + result.exitCode
-                + " termuxErr=" + result.internalError);
-        if (!result.internalErrorMessage.isEmpty()) output.append("\n" + result.internalErrorMessage);
-        String body = filterProcesses ? relevantProcesses(result.stdout) : result.stdout;
-        if (!body.isEmpty()) output.append("\n" + body.trim());
-        if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
-        if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
+    private String operationLabel(TermuxOperation operation) {
+        switch (operation) {
+            case IDENTITY: return "TERMUX IDENTITY";
+            case TUNNEL_CLIENT_VERSION: return "TUNNEL CLIENT VERSION";
+            case CURL_VERSION: return "CURL VERSION";
+            case BUDDY_TUNNEL_HEALTH: return "BUDDY TUNNEL HEALTH";
+            case BUDDY_MCP_LISTENER_CHALLENGE: return "BUDDY MCP AUTH CHALLENGE";
+            case PROCESS_LIST: return "PROCESS INVENTORY";
+            default: return operation.name();
+        }
+    }
+
+    private void appendCommandResult(TextView output, TermuxOperation operation, TermuxCommandResult result) {
+        output.append("\\nexit=" + result.exitCode + " termuxErr=" + result.internalError);
+        if (!result.internalErrorMessage.isEmpty()) output.append("\\n" + result.internalErrorMessage);
+        String body = result.stdout;
+        if (operation == TermuxOperation.PROCESS_LIST) body = relevantProcesses(body);
+        if (operation == TermuxOperation.BUDDY_TUNNEL_HEALTH) body = summarizeHealth(body);
+        if (operation == TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE) {
+            String code = body.trim();
+            if ("401".equals(code)) body = "HTTP 401: локальный MCP listener отвечает и требует Bearer auth. Authenticated initialize ещё не проверен.";
+            else if ("200".equals(code)) body = "HTTP 200 без Authorization: проверьте политику доступа MCP listener.";
+            else body = "HTTP status: " + (code.isEmpty() ? "нет ответа" : code);
+        }
+        if (!body.isEmpty()) output.append("\\n" + body.trim());
+        if (!result.stderr.isEmpty()) output.append("\\nSTDERR: " + result.stderr.trim());
+        if (result.truncated) output.append("\\n[OUTPUT TRUNCATED]");
+    }
+
+    private String summarizeHealth(String json) {
+        try {
+            JSONObject report = new JSONObject(json);
+            JSONObject healthz = report.optJSONObject("healthz");
+            JSONObject readyz = report.optJSONObject("readyz");
+            JSONObject poll = report.optJSONObject("control_plane_poll");
+            JSONObject process = report.optJSONObject("process");
+            return "result=" + report.optString("result", "unknown")
+                    + " healthz=" + (healthz != null && healthz.optBoolean("ok"))
+                    + " readyz=" + (readyz != null && readyz.optBoolean("ok"))
+                    + " controlPlanePoll=" + (poll == null ? "not reported" : poll.optBoolean("ok"))
+                    + " processRunning=" + (process == null ? "not checked" : process.optBoolean("running"));
+        } catch (Exception e) {
+            return json.isEmpty() ? "No health report returned." : json;
+        }
     }
 
     private String relevantProcesses(String source) {
         StringBuilder result = new StringBuilder();
-        for (String line : source.split("\n")) {
+        for (String line : source.split("\\n")) {
             String lower = line.toLowerCase(java.util.Locale.ROOT);
             if (lower.contains("tunnel-client") || lower.contains("termux") || lower.contains("buddy") || lower.contains("rea")) {
-                if (result.length() > 0) result.append('\n');
+                if (result.length() > 0) result.append('\\n');
                 result.append(line);
             }
         }
