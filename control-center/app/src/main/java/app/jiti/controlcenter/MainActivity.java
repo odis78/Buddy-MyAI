@@ -49,6 +49,10 @@ public final class MainActivity extends Activity {
     private Button termuxCheckButton;
     private Button monitorStartButton;
     private Button monitorStopButton;
+    private Button buddyStartButton;
+    private Button buddyStopButton;
+    private Button buddyRestartButton;
+    private TextView buddyControlStatusView;
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
     private final android.os.Handler uiRefreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -175,6 +179,22 @@ public final class MainActivity extends Activity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.addView(row1);
         addTop(card, row2, 6);
+
+        buddyControlStatusView = text("Управление Buddy заблокировано до проверки Termux и запуска монитора.", 11, MUTED, false);
+        buddyStartButton = button("Запустить Buddy");
+        buddyStartButton.setOnClickListener(v -> requestBuddyStart());
+        buddyStopButton = button("Остановить Buddy");
+        buddyStopButton.setOnClickListener(v -> confirmBuddyStop());
+        buddyRestartButton = button("Перезапустить Buddy");
+        buddyRestartButton.setOnClickListener(v -> confirmBuddyRestart());
+        LinearLayout row3 = new LinearLayout(this);
+        row3.addView(buddyStartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row3.addView(buddyStopButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        LinearLayout row4 = new LinearLayout(this);
+        row4.addView(buddyRestartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        addTop(card, buddyControlStatusView, 8);
+        addTop(card, row3, 4);
+        addTop(card, row4, 4);
         addTop(card, output, 8);
         addCard(page, card, 8);
     }
