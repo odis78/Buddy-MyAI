@@ -33,6 +33,7 @@ import app.jiti.controlcenter.termux.TunnelProcessIdentity;
 
 public final class MonitorService extends Service {
     public static final String ACTION_STOP = "app.jiti.controlcenter.action.STOP_MONITOR";
+    public static final String ACTION_POLL_NOW = "app.jiti.controlcenter.action.POLL_NOW";
     private static final String CHANNEL_ID = "jiti_monitor";
     private static final int NOTIFICATION_ID = 4101;
     private static final long POLL_INTERVAL_MS = 60000L;
@@ -45,6 +46,7 @@ public final class MonitorService extends Service {
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
     private boolean inFlight;
+    private boolean pollRequested;
     private String lastHealthState = "";
     private String lastMcpState = "";
     private String lastGateState = "";
