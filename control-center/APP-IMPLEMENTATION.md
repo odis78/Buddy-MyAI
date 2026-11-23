@@ -19,7 +19,7 @@
 ## Deliberately not enabled yet
 
 - No process launch/kill code.
-- Termux RUN_COMMAND adapter exists for a fixed allowlist of read-only checks: identity, Tunnel Client version, curl version, secret-safe Buddy environment-source audit, Buddy tunnel health, unauthenticated local MCP challenge, process-name inventory, and PID-scoped executable/config identity checks.
+- Termux RUN_COMMAND adapter exists for a fixed allowlist of read-only checks: identity, Tunnel Client/curl/Python versions, secret-safe Buddy environment-source audit, existing tunnels-script audit, Buddy tunnel health, unauthenticated local MCP challenge, PID-scoped executable/config identity checks, and an authenticated MCP initialize plus paginated tools/list probe that returns no secret values.
 - The adapter uses Java PendingIntent result callbacks, output redaction/capping, a timeout, and requires Termux >= 0.109 plus the explicit Android permission.
 - No changes to Termux external-app policy.
 - User-started foreground monitor is implemented with Android 14 `specialUse` service type, persistent notification, notification stop action, sticky restart behavior, and a 60-second read-only Buddy health/MCP-listener poll.
@@ -27,7 +27,7 @@
 - No automatic retries executing state-changing commands.
 - No configuration editing.
 - No credential retrieval or storage.
-- No authenticated MCP initialize or tools/list calls from the app; only the unauthenticated local 401 listener challenge is implemented.
+- The authenticated MCP probe is implemented but not yet proven on the target device; it reads only the verified Tunnel Client process environment inside a fixed Termux Python operation, returns tool names/status only, and never displays or persists the token.
 - No automatic permission changes.
 
 This is intentional. The RUN_COMMAND interface is powerful enough to execute arbitrary commands in Termux if both Android permission and Termux policy are enabled. It must be an explicit opt-in and all command paths must be fixed and reviewed. See [TERMUX-INTEGRATION-GATE.md](docs/TERMUX-INTEGRATION-GATE.md).
