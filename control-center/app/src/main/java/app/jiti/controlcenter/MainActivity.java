@@ -219,7 +219,7 @@ public final class MainActivity extends Activity {
         String body = result.stdout;
         if (operation == TermuxOperation.BUDDY_ENV_SOURCE_AUDIT) {
             if (result.exitCode == 1) body = "No matching variable names found in the known files.";
-            else if (result.exitCode == 2) body = (body.isEmpty() ? "" : body + "\\n")
+            else if (result.exitCode == 2) body = (body.isEmpty() ? "" : body + "\n")
                     + "Partial scan: some candidate files may be missing or unreadable. Output contains key names only.";
         }
         if (operation == TermuxOperation.PROCESS_LIST) body = relevantProcesses(body);
