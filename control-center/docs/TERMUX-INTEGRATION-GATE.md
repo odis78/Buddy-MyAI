@@ -36,6 +36,7 @@ Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
 - `TUNNEL_CLIENT_VERSION`: the known v0.0.19 ARM64 binary with `--version`.
 - `CURL_VERSION`: curl version check.
 - `PYTHON_VERSION`: Python 3 availability check for the fixed authenticated MCP probe.
+- `BUDDY_MCP_AUTH_PROBE`: fixed Python argv script, invoked only after PID/executable/Buddy-config identity is verified. It reads `BUDDY_AUTH_HEADER` or `BUDDY_TOKEN` from that process's `/proc/PID/environ`, performs MCP initialize, initialized notification, and paginated `tools/list`, then emits only auth-source variable name, server/protocol, tool count, and tool names. Secret values and raw HTTP bodies are never printed, logged, or persisted.
 - `BUDDY_ENV_SOURCE_AUDIT`: grep only the names `BUDDY_TOKEN`, `BUDDY_AUTH_HEADER`, and `CONTROL_PLANE_API_KEY` in a fixed list of known config/shell files; values are never printed.
 - `TUNNELS_SCRIPT_AUDIT`: read-only `sed -n 1,240p ~/bin/tunnels` to recover the exact existing three-profile launch/status/stop contracts; the script is displayed as data and never executed.
 - `BUDDY_TUNNEL_HEALTH`: v0.0.19 `health --url-file ... --pid-file ... --require-control-plane-poll --json` using the recorded Buddy health/PID files.
