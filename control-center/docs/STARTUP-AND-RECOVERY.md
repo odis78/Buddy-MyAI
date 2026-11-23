@@ -29,7 +29,7 @@ Android OS
 
 1. **Preflight**: Android API, package presence, app permissions, Termux package/activity state, executable/config existence, file permissions, available storage, and secret-variable presence (boolean only).
 2. **Process reconciliation**: read PID files, inspect process command lines, identify duplicate instances, verify ownership/config path. Never trust stale PID files.
-3. **Local services**: verify Buddy app and MCP listener. Verify REA/Bridge/DroidMCP services only if enabled in the selected profile set.
+3. **Local services**: verify Buddy app, then its `.BuddyService` AccessibilityService, then the MCP listener hosted inside that service at `127.0.0.1:8766`. If the service is disabled/stopped, the MCP listener is expected to stop with it. Verify REA/Bridge/DroidMCP services only if enabled in the selected profile set.
 4. **Environment preflight**: verify the expected environment file exists, has restrictive permissions, and contains required variable names with non-empty values (booleans only). For Buddy, the documented source is `$HOME/.config/termux-bridge/runtime.env`; never print or persist values.
 5. **Tunnel Client profiles**: start one profile at a time. For the three existing REA profiles, preserve the script-defined order Bridge → DroidMCP → REA Android and wait for readiness between launches. Buddy remains independent; check Buddy MCP readiness before starting its tunnel. Do not use `runtimes connect` blindly because v0.0.19 generated HTTP profiles omit the Buddy Authorization headers.
 6. **MCP discovery**: initialize each endpoint, list tools/prompts, compare against expected catalog fingerprints/counts.
