@@ -13,6 +13,10 @@ on:
       - ".github/workflows/jiti-control-center.yml"
   workflow_dispatch:
 
+concurrency:
+  group: jiti-control-center-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
