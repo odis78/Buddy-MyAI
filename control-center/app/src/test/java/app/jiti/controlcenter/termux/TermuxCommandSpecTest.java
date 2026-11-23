@@ -17,6 +17,16 @@ public class TermuxCommandSpecTest {
             assertTrue(spec.executable.startsWith("/"));
         }
     }
+    @Test public void buddyLauncherStatusReadsOnlyFixedStatusFile() {
+        TermuxCommandSpec status = TermuxCommandSpec.forOperation(TermuxOperation.BUDDY_LAUNCH_STATUS,
+                "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
+        assertEquals("/data/data/com.termux/files/usr/bin/cat", status.executable);
+        assertEquals(java.util.Collections.singletonList(
+                "/data/data/com.termux/files/home/.config/tunnel-client-buddy/jiti-launcher.status"),
+                status.arguments);
+        assertTrue(status.isSafeFixedCommand());
+    }
+
     @Test public void pythonVersionProbeUsesFixedBinaryAndArgument() {
         TermuxCommandSpec python = TermuxCommandSpec.forOperation(TermuxOperation.PYTHON_VERSION,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
