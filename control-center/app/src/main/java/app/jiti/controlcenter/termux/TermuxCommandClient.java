@@ -128,6 +128,22 @@ public final class TermuxCommandClient {
         run(context, TermuxOperation.BUDDY_LAUNCH_STATUS, callback);
     }
 
+    public static void runBuddyStopPreflight(Context context, Callback callback) {
+        InstallState state = inspect(context);
+        if (!state.canInvoke()) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
+            return;
+        }
+        try {
+            String prefix = state.dataDir + "/files/usr";
+            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "preflight");
+            runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
+        } catch (Exception e) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
+                    "Buddy stop preflight rejected: " + e.getClass().getSimpleName(), false));
+        }
+    }
+
     public static void runBuddyStop(Context context, Callback callback) {
         InstallState state = inspect(context);
         if (!state.canInvoke()) {
@@ -136,7 +152,7 @@ public final class TermuxCommandClient {
         }
         try {
             String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix);
+            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "stop");
             runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
         } catch (Exception e) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
