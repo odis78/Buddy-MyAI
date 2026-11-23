@@ -22,8 +22,8 @@
 - Termux RUN_COMMAND adapter is implemented for fixed read-only probes, but target-device permission, external-app property, and lifecycle proof are still pending.
 - Authenticated HTTP MCP initialize/list-tools probes; current probe only verifies the local listener/auth challenge.
 - Exact profile launch/stop contracts for all four tunnel-client instances.
-- Foreground monitoring service and persistence.
-- Runtime actions, recovery executor, and on-device acceptance tests.
+- Foreground monitor and bounded SQLite event journal are implemented, but Android 14/Infinix lifecycle and notification behavior are not yet device-tested.
+- State-changing runtime actions and recovery executor remain disabled; no on-device acceptance tests have passed yet.
 
 ## Next engineering gates
 1. Pass the new unit-test and APK build workflow.
