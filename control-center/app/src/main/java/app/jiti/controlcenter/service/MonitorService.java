@@ -134,6 +134,24 @@ public final class MonitorService extends Service {
             lastMcpState = state;
             log("buddy-mcp", state, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code));
         }
+        notificationText = "LISTENER_UP_AUTH_REQUIRED".equals(state)
+                ? (lastHealthState.equals("READY") ? "Buddy tunnel READY • MCP listener up" : "MCP listener up • tunnel not ready")
+                : "Buddy MCP listener unconfirmed";
+        updateNotification();
+        if ("NOT_READY".equals(lastHealthState)) {
+            TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
+        } else {
+            inFlight = false;
+            scheduleNext();
+        }
+    }
+
+    private void onProcessSnapshot(TermuxCommandResult result) {
+        String text = result.stdout == null ? "" : result.stdout.toLowerCase(java.util.Locale.ROOT);
+        log("buddy-tunnel", "PROCESS_SNAPSHOT",
+                "tunnelClientSeen=" + text.contains("tunnel-client")
+                        + " termuxSeen=" + text.contains("termux")
+                        + " buddySeen=" + text.contains("buddy"));
         inFlight = false;
         scheduleNext();
     }
