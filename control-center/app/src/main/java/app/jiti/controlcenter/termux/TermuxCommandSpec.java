@@ -68,6 +68,12 @@ if "\\r" in auth or "\\n" in auth:
 
 url = "http://127.0.0.1:8766/mcp"
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        return None
+
+opener = urllib.request.build_opener(NoRedirect)
+
 def send(payload, session_id=None, protocol=None, method="POST"):
     headers = {
         "Authorization": auth,
@@ -81,7 +87,7 @@ def send(payload, session_id=None, protocol=None, method="POST"):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=6) as response:
+        with opener.open(request, timeout=6) as response:
             return response.status, response.headers, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.headers, error.read()
