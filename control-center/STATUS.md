@@ -27,3 +27,15 @@
 
 ## Safety boundary
 No existing Buddy app, protected checkpoint, REA working tree, tunnel configuration, runtime.env, token, or phone service was modified by this project initialization.
+
+
+## User acceptance requirement (confirmed 2026-11-23)
+The target is a **fully working utility**, not a visual shell. Completion requires:
+- real live status for every registered component;
+- verified startup/shutdown/restart commands and dependency ordering;
+- bounded retries, error classification, diagnostics, and safe recovery;
+- foreground monitoring and measured Android/Termux lifecycle behavior;
+- on-device tests on Infinix X678B;
+- repeat test/fix cycles until all acceptance tests pass or a clearly documented external blocker is reached.
+
+A green CI build is only the first technical checkpoint, not project completion.
