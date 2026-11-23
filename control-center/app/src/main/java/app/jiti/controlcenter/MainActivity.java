@@ -289,7 +289,7 @@ public final class MainActivity extends Activity {
         StringBuilder value = new StringBuilder("Ошибки: " + eventStore.countType("PROBE_FAILED")
                 + " • NOT_READY: " + eventStore.countType("NOT_READY")
                 + " • блокировки: " + eventStore.countType("BLOCKED")
-                + " • автоматические перезапуски: отключены\\n\\n");
+                + " • автоматические перезапуски: отключены\n\n");
         for (DiagnosticEvent event : events) {
             value.append(format.format(new Date(event.timestampEpochMillis)))
                     .append("  ").append(event.componentId).append(" / ")
