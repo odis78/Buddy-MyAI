@@ -116,8 +116,10 @@ def validate():
         return None, {"result": "blocked", "reason": "buddy_config_read_" + type(exc).__name__}
     if EXPECTED_TUNNEL_ID not in config_text:
         return None, {"result": "blocked", "reason": "buddy_tunnel_id_mismatch"}
-    if "env:CONTROL_PLANE_API_KEY" not in config_text or "BUDDY_AUTH_HEADER" not in config_text:
-        return None, {"result": "blocked", "reason": "buddy_config_auth_reference_missing"}
+    if "env:CONTROL_PLANE_API_KEY" not in config_text:
+        return None, {"result": "blocked", "reason": "buddy_control_plane_key_reference_missing"}
+    if config_text.count("BUDDY_AUTH_HEADER") < 2:
+        return None, {"result": "blocked", "reason": "buddy_mcp_auth_header_references_incomplete"}
     for directory in (os.path.dirname(PID_FILE), os.path.dirname(HEALTH_URL_FILE), os.path.dirname(LOG_FILE)):
         if not os.path.isdir(directory) or not os.access(directory, os.W_OK):
             return None, {"result": "blocked", "reason": "buddy_runtime_directory_not_writable"}
