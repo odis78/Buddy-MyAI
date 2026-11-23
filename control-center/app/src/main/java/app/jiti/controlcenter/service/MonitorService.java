@@ -150,7 +150,6 @@ public final class MonitorService extends Service {
             log("termux", "READY", "RUN_COMMAND permission and result callback gate passed");
             lastGateState = "";
         }
-        saveSnapshot("termux-run-command", ComponentStatus.AVAILABLE, "RUN_COMMAND permission and version gate passed", 0);
         inFlight = true;
         TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
@@ -171,6 +170,8 @@ public final class MonitorService extends Service {
 
         saveSnapshot("termux", result.internalError == -1 ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
                 "Termux RUN_COMMAND result received; exit=" + result.exitCode, 0);
+        saveSnapshot("termux-run-command", result.internalError == -1 ? ComponentStatus.AVAILABLE : ComponentStatus.BLOCKED,
+                result.internalError == -1 ? "Termux accepted external command" : "Termux rejected RUN_COMMAND; check allow-external-apps policy", 0);
         final boolean endpointsReady = healthEndpointsReady;
         final String healthSummary = summary;
         final int pid = extractPid(result.stdout);
