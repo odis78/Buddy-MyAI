@@ -391,7 +391,12 @@ public final class MonitorService extends Service {
             }
             if (wakeLock.isHeld()) wakeLock.release();
             wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS);
-            return wakeLock.isHeld();
+            boolean held = wakeLock.isHeld();
+            if (held && "Monitor active; CPU wake lock unavailable".equals(notificationText)) {
+                notificationText = "Buddy monitoring active";
+                updateNotification();
+            }
+            return held;
         } catch (Exception e) {
             log("system", "WAKE_LOCK_UNAVAILABLE", e.getClass().getSimpleName());
             return false;
