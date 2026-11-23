@@ -304,21 +304,60 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmBuddyStop() {
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Остановить Buddy Tunnel?")
-                .setMessage("JITI проверит PID, точный Tunnel Client binary и Buddy YAML. Только совпавшему процессу будет отправлен SIGTERM. SIGKILL и массовое завершение процессов не используются.")
-                .setPositiveButton("Остановить", (dialog, which) -> performBuddyStop(null))
-                .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
-                .show();
+        preflightBuddyStop(false);
     }
 
     private void confirmBuddyRestart() {
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Перезапустить Buddy Tunnel?")
-                .setMessage("Сначала будет остановлен только проверенный Buddy Tunnel Client через SIGTERM. После подтверждения остановки JITI повторит preflight и запустит тот же профиль. При несовпадении PID или тайм-ауте перезапуск будет отменён.")
-                .setPositiveButton("Перезапустить", (dialog, which) -> performBuddyStop(() -> preflightBuddyStart(false)))
-                .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
-                .show();
+        preflightBuddyStop(true);
+    }
+
+    private void preflightBuddyStop(boolean restart) {
+        buddyControlStatusView.setText("Read-only preflight: проверка PID, executable и точного Buddy YAML…");
+        TermuxCommandClient.runBuddyStopPreflight(this, result -> {
+            JSONObject report = null;
+            try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
+            String state = report == null ? "invalid_stop_preflight" : report.optString("result");
+            if (!result.succeeded() || report == null) {
+                buddyControlStatusView.setText("Stop preflight не выполнен: " + result.error);
+                logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
+                refreshTermuxControls();
+                return;
+            }
+            if ("ready_to_stop".equals(state)) {
+                int pid = report.optInt("pid", 0);
+                String title = restart ? "Перезапустить Buddy Tunnel?" : "Остановить Buddy Tunnel?";
+                String message = "PID " + pid + " совпадает с точным Tunnel Client binary и Buddy YAML. "
+                        + "После подтверждения будет отправлен только SIGTERM. SIGKILL и массовое завершение процессов запрещены.";
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle(title)
+                        .setMessage(message)
+                        .setPositiveButton(restart ? "Перезапустить" : "Остановить",
+                                (dialog, which) -> performBuddyStop(restart ? () -> preflightBuddyStart(false) : null))
+                        .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
+                        .show();
+                return;
+            }
+            if ("already_stopped".equals(state) || "stale_pid_file".equals(state)) {
+                if (restart) {
+                    new android.app.AlertDialog.Builder(this)
+                            .setTitle("Buddy уже остановлен")
+                            .setMessage("Работающий процесс не найден. JITI повторит launch preflight и запустит только проверенный Buddy профиль.")
+                            .setPositiveButton("Запустить", (dialog, which) -> preflightBuddyStart(false))
+                            .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
+                            .show();
+                } else {
+                    buddyControlStatusView.setText("Buddy уже остановлен. Устаревший PID-файл не удалялся.");
+                }
+                refreshTermuxControls();
+                return;
+            }
+            String reason = report.optString("reason", state);
+            buddyControlStatusView.setText("Остановка заблокирована: " + state + " • " + reason
+                    + ". Процесс не затрагивался.");
+            saveProbeSnapshot("buddy-tunnel", ComponentStatus.BLOCKED, "Buddy stop preflight: " + state);
+            logControlEvent("buddy-tunnel", "STOP_BLOCKED", "Buddy stop preflight blocked: " + state);
+            refreshTermuxControls();
+        });
     }
 
     private void performBuddyStop(Runnable afterStopped) {
