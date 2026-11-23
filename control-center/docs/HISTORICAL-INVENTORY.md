@@ -58,7 +58,7 @@ The 23-Nov script audit identifies the configuration paths:
 - REA Android: `$HOME/.config/rea-tunnel/profile/rea-android.yaml`.
 - REA env: `$HOME/.config/rea-tunnel/runtime.env`.
 
-The exact historical OpenAI Tunnel IDs and health URLs for these three profiles still need to be recovered from their configuration files / historical logs. Do not guess them.
+The exact historical OpenAI Tunnel IDs and health URLs for these three profiles still need to be recovered from their configuration files / historical logs. Do not guess them. Stage 7 confirms the existing launcher sequence: Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android; its stop sequence is the reverse. This is a script-defined operational sequence, not proof that each profile is a hard dependency of the next.
 
 ### 1.3 MCP servers, tools, and runtime services
 
@@ -111,7 +111,7 @@ Stage 5:
 Stage 7:
 - Buddy YAML contains configured non-empty Control Plane base URL, tunnel ID, and api_key field.
 - Stage 7's structural inspection initially recorded only that the field was non-empty. The subsequent Stage 3 Doctor output resolves the representation: it is `env:CONTROL_PLANE_API_KEY`.
-- The remaining discrepancy is environmental: the variable was absent in the shell that ran Doctor, although it exists in two separate protected runtime.env files. The intended Buddy launch source still must be established; do not substitute either file blindly.
+- The runbook explicitly identifies `$HOME/.config/termux-bridge/runtime.env` as the Buddy environment source. Stage 5 confirms that this file contains `CONTROL_PLANE_API_KEY` and has mode 600. The Stage 3 Doctor failure is explained by running Doctor in a shell where the runtime.env had not been sourced. The differing value in `$HOME/.config/rea-tunnel/runtime.env` belongs to a separate REA environment and must not be substituted into Buddy.
 
 ### 2.2 All tunnel processes stopped after Termux reopen
 
