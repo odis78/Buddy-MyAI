@@ -16,7 +16,6 @@ import android.os.Looper;
 import org.json.JSONObject;
 
 import app.jiti.controlcenter.MainActivity;
-import app.jiti.controlcenter.R;
 import app.jiti.controlcenter.core.DiagnosticEvent;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
@@ -89,6 +88,14 @@ public final class MonitorService extends Service {
 
     private void pollOnce() {
         if (!monitoring) return;
+        NotificationManager notifications = getSystemService(NotificationManager.class);
+        if (notifications == null || !notifications.areNotificationsEnabled()
+                || (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)) {
+            log("system", "BLOCKED", "Notification permission or app notification channel was disabled");
+            stopMonitoring();
+            return;
+        }
         if (inFlight) {
             scheduleNext();
             return;
