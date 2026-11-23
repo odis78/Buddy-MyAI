@@ -272,7 +272,7 @@ public final class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_NOTIFICATIONS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                MonitorService.start(this);
+                requestNotificationAndStart();
             } else if (eventStore != null) {
                 eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "system",
                         "NOTIFICATION_PERMISSION_DENIED", "Foreground monitoring was not started"));
