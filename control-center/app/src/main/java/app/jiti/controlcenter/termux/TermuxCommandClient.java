@@ -84,13 +84,38 @@ public final class TermuxCommandClient {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
             return;
         }
-        int requestId = 0;
         try {
             String prefix = state.dataDir + "/files/usr";
             String home = state.dataDir + "/files/home";
-            TermuxCommandSpec spec = TermuxCommandSpec.forOperation(operation, prefix, home);
-            if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
+            runSpec(context, state, TermuxCommandSpec.forOperation(operation, prefix, home), operation, callback);
+        } catch (Exception e) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
+                    "Termux command rejected: " + e.getClass().getSimpleName(), false));
+        }
+    }
 
+    public static void runProcessCmdline(Context context, int pid, Callback callback) {
+        InstallState state = inspect(context);
+        if (!state.canInvoke()) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
+            return;
+        }
+        try {
+            String prefix = state.dataDir + "/files/usr";
+            TermuxCommandSpec spec = TermuxCommandSpec.forProcessCmdline(prefix, pid);
+            runSpec(context, state, spec, TermuxOperation.PROCESS_CMDLINE, callback);
+        } catch (Exception e) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
+                    "Process identity probe rejected: " + e.getClass().getSimpleName(), false));
+        }
+    }
+
+    private static void runSpec(Context context, InstallState state, TermuxCommandSpec spec,
+                                TermuxOperation operation, Callback callback) {
+        int requestId = 0;
+        try {
+            if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
+            String home = state.dataDir + "/files/home";
             requestId = NEXT_ID.incrementAndGet();
             if (callback != null) {
                 CALLBACKS.put(requestId, callback);
@@ -145,6 +170,7 @@ public final class TermuxCommandClient {
             case IDENTITY: return "JITI: Termux identity check";
             case TUNNEL_CLIENT_VERSION: return "JITI: Tunnel Client version check";
             case PROCESS_LIST: return "JITI: Android process list";
+            case PROCESS_CMDLINE: return "JITI: verify Tunnel Client process identity";
             default: return "JITI read-only diagnostic";
         }
     }
