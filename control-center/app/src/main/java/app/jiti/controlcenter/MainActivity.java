@@ -129,7 +129,7 @@ public final class MainActivity extends Activity {
                 ? "Termux " + state.versionName + " • " + state.message
                 : state.message;
         termuxStatusView = text(status + "\nДля запуска требуется RUN_COMMAND permission и allow-external-apps=true в Termux. Мониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
-                state.canInvoke() ? GREEN : AMBER, true);
+                termuxBridgeVerified() ? GREEN : AMBER, true);
         addCard(page, termuxStatusView, 8);
 
         TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
@@ -462,6 +462,7 @@ public final class MainActivity extends Activity {
         if (termuxStatusView != null) {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
                     + "\nRUN_COMMAND permission и allow-external-apps=true включаются отдельно. Мониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
+            termuxStatusView.setTextColor(getColor(termuxBridgeVerified() ? GREEN : AMBER));
         }
         if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
