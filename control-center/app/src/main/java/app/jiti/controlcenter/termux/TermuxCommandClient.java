@@ -101,8 +101,7 @@ public final class TermuxCommandClient {
             return;
         }
         try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forProcessExecutable(prefix, pid);
+            TermuxCommandSpec spec = TermuxCommandSpec.forProcessExecutable(pid);
             runSpec(context, state, spec, TermuxOperation.PROCESS_EXECUTABLE, callback);
         } catch (Exception e) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
@@ -117,8 +116,7 @@ public final class TermuxCommandClient {
             return;
         }
         try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forProcessCmdline(prefix, pid);
+            TermuxCommandSpec spec = TermuxCommandSpec.forProcessCmdline(pid);
             runSpec(context, state, spec, TermuxOperation.PROCESS_CMDLINE, callback);
         } catch (Exception e) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
