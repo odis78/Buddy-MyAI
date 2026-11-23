@@ -30,6 +30,15 @@ public final class TermuxCommandSpec {
                         Arrays.asList("--version"));
             case CURL_VERSION:
                 return new TermuxCommandSpec(operation, prefix + "/bin/curl", Arrays.asList("--version"));
+            case BUDDY_ENV_SOURCE_AUDIT:
+                return new TermuxCommandSpec(operation, prefix + "/bin/grep",
+                        Arrays.asList("-s", "-n", "-oE",
+                                "(BUDDY_TOKEN|BUDDY_AUTH_HEADER|CONTROL_PLANE_API_KEY)",
+                                home + "/.config/termux-bridge/runtime.env",
+                                home + "/.config/rea-tunnel/runtime.env",
+                                home + "/.config/tunnel-client-buddy/buddy-myai.yaml",
+                                home + "/.bashrc", home + "/.profile", home + "/.bash_profile",
+                                home + "/bin/tunnels"));
             case BUDDY_TUNNEL_HEALTH:
                 return new TermuxCommandSpec(operation,
                         home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
