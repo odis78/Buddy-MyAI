@@ -18,6 +18,8 @@ import org.json.JSONObject;
 
 import app.jiti.controlcenter.MainActivity;
 import app.jiti.controlcenter.core.DiagnosticEvent;
+import app.jiti.controlcenter.core.ComponentStatus;
+import app.jiti.controlcenter.core.RuntimeSnapshot;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
@@ -66,6 +68,7 @@ public final class MonitorService extends Service {
             handler.removeCallbacks(poll);
             releaseWakeLock();
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
+            saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Notification permission required", 0);
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf(startId);
             return START_NOT_STICKY;
@@ -75,6 +78,7 @@ public final class MonitorService extends Service {
             running = true;
             startAsForeground();
             log("system", "MONITOR_STARTED", "User started read-only monitoring");
+            saveSnapshot("jiti-monitor-service", ComponentStatus.RUNNING, "Foreground monitor active", 0);
             handler.removeCallbacks(poll);
             handler.post(poll);
         } else {
@@ -113,6 +117,7 @@ public final class MonitorService extends Service {
             if (!install.message.equals(lastGateState)) {
                 lastGateState = install.message;
                 log("termux", "BLOCKED", install.message);
+                saveSnapshot("termux-run-command", ComponentStatus.BLOCKED, install.message, 0);
             }
             notificationText = "Termux setup required";
             updateNotification();
@@ -123,6 +128,7 @@ public final class MonitorService extends Service {
             log("termux", "READY", "RUN_COMMAND permission and result callback gate passed");
             lastGateState = "";
         }
+        saveSnapshot("termux-run-command", ComponentStatus.AVAILABLE, "RUN_COMMAND permission and version gate passed", 0);
         inFlight = true;
         TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
@@ -140,6 +146,7 @@ public final class MonitorService extends Service {
         } catch (Exception ignored) {
             if (!result.stderr.isEmpty()) summary += " " + result.stderr;
         }
+        saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, summary, extractPid(result.stdout));
         String state = ready ? "READY" : "NOT_READY";
         if (!state.equals(lastHealthState)) {
             lastHealthState = state;
@@ -157,6 +164,9 @@ public final class MonitorService extends Service {
         if (result.succeeded() && "401".equals(code)) state = "LISTENER_UP_AUTH_REQUIRED";
         else if (result.succeeded() && "200".equals(code)) state = "UNAUTHENTICATED_200_WARNING";
         else state = "LISTENER_UNCONFIRMED";
+        ComponentStatus mcpStatus = "LISTENER_UP_AUTH_REQUIRED".equals(state) ? ComponentStatus.RUNNING
+                : "UNAUTHENTICATED_200_WARNING".equals(state) ? ComponentStatus.ERROR : ComponentStatus.NOT_READY;
+        saveSnapshot("buddy-mcp", mcpStatus, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code), 0);
         if (!state.equals(lastMcpState)) {
             lastMcpState = state;
             log("buddy-mcp", state, "Unauthenticated loopback challenge HTTP " + (code.isEmpty() ? "no-response" : code));
@@ -180,12 +190,35 @@ public final class MonitorService extends Service {
 
     private void onProcessSnapshot(TermuxCommandResult result) {
         String text = result.stdout == null ? "" : result.stdout.toLowerCase(java.util.Locale.ROOT);
+        boolean tunnelSeen = text.contains("tunnel-client");
         log("buddy-tunnel", "PROCESS_SNAPSHOT",
-                "tunnelClientSeen=" + text.contains("tunnel-client")
+                "tunnelClientSeen=" + tunnelSeen
                         + " termuxSeen=" + text.contains("termux")
                         + " buddySeen=" + text.contains("buddy"));
+        saveSnapshot("tunnel-client", tunnelSeen ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+                "Process-name snapshot; PID identity not yet verified", 0);
         inFlight = false;
         scheduleNext();
+    }
+
+    private int extractPid(String json) {
+        try {
+            JSONObject report = new JSONObject(json);
+            JSONObject process = report.optJSONObject("process");
+            return process == null ? 0 : process.optInt("pid", 0);
+        } catch (Exception ignored) { return 0; }
+    }
+
+    private void saveSnapshot(String id, ComponentStatus status, String detail, int pid) {
+        try {
+            RuntimeSnapshot previous = eventStore == null ? null : eventStore.snapshot(id);
+            int errors = previous == null ? 0 : previous.errorCount;
+            int retries = previous == null ? 0 : previous.retryCount;
+            if (status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
+                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE) errors++;
+            eventStore.saveSnapshot(new RuntimeSnapshot(id, status, System.currentTimeMillis(),
+                    pid, errors, retries, detail));
+        } catch (Exception ignored) { }
     }
 
     private boolean ok(JSONObject parent, String key) {
@@ -286,6 +319,7 @@ public final class MonitorService extends Service {
         handler.removeCallbacks(poll);
         releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");
+        saveSnapshot("jiti-monitor-service", ComponentStatus.STOPPED, "User stopped foreground monitor", 0);
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
