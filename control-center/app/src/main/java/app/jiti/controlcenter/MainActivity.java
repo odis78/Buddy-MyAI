@@ -136,8 +136,8 @@ public final class MainActivity extends Activity {
         addSection(page, "Подключение Termux");
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
         String status = (state.installed ? "Termux " + state.versionName + " • " : "") + state.message
-                + "\\n" + termuxPolicyText();
-        termuxStatusView = text(status + "\\nМониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
+                + "\n" + termuxPolicyText();
+        termuxStatusView = text(status + "\nМониторинг удерживает CPU активным между проверками и расходует больше батареи; остановка снимает wake lock. Настройки Termux JITI не меняет автоматически.", 12,
                 termuxBridgeVerified() ? GREEN : AMBER, true);
         addCard(page, termuxStatusView, 8);
 
