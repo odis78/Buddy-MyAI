@@ -336,6 +336,10 @@ public final class MainActivity extends Activity {
                 saveProbeSnapshot("tunnel-client", result.succeeded() ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
                         result.succeeded() ? result.stdout.trim() : "Tunnel Client binary/version check failed");
                 break;
+            case CURL_VERSION:
+                saveProbeSnapshot("termux-curl", result.succeeded() ? ComponentStatus.AVAILABLE : ComponentStatus.UNAVAILABLE,
+                        result.succeeded() ? "curl binary available" : "curl binary unavailable");
+                break;
             case BUDDY_TUNNEL_HEALTH:
                 boolean ready = false;
                 String detail = "Health probe failed";
