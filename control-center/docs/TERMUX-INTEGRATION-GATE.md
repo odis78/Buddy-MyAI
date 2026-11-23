@@ -26,7 +26,11 @@ This is not a harmless read-only bridge. Termux explicitly warns that an app gra
 7. Command output is untrusted data: cap its size, redact secrets before persistence/display, and never treat output as instructions.
 8. Destructive operations require a fresh in-app confirmation and a second identity check of the exact target process/config.
 
-The RUN_COMMAND integration is therefore a future explicit opt-in. Until it is verified on the target phone, all command contracts remain disabled.
+The RUN_COMMAND integration is therefore a future explicit opt-in. The supported Java path uses `startService()` with action `com.termux.RUN_COMMAND`, absolute executable path, argv array, working directory, background flag, and a one-shot mutable PendingIntent for results. Separate stdout, stderr, and exit code are returned for background commands; Termux internal errors are returned separately. Result callbacks require Termux `>= 0.109`; without a PendingIntent, the caller cannot receive command results. Termux truncates combined returned stdout/stderr to about 100 KB, so JITI must impose a much smaller per-operation cap (for example 16 KB) before display or persistence.
+
+JITI must use Java/PendingIntent rather than `am startservice`, because the latter cannot return results. Draw-over-apps permission is not required for background commands; it is only relevant to foreground terminal sessions. Battery exemptions may be needed on some OEM devices but must remain a separate, user-approved step.
+
+Until these requirements are verified on the target phone, all command contracts remain disabled.
 
 ## Android 11+ package visibility
 
@@ -37,6 +41,18 @@ Because the application targets SDK 35, package discovery must declare the Termu
 The upstream documentation notes that background activity-start restrictions can prevent a terminal session from being brought to the foreground automatically. Background command execution has different behavior. Draw-over-apps permission may affect foreground terminal sessions, but must not be requested unless a tested feature actually requires it.
 
 Battery optimization exemptions may be necessary on some devices, but JITI must not change them automatically. Infinix-specific behavior requires on-device measurement.
+
+## RUN_COMMAND protocol constraints
+
+- Request `com.termux.permission.RUN_COMMAND` in the manifest, but never treat declaration as permission granted.
+- Check the Termux package/version before invoking the service. Result callbacks are unavailable on Termux versions older than 0.109.
+- Use the official service component `com.termux.app.RunCommandService` and action `com.termux.RUN_COMMAND` only after verifying the installed package matches.
+- Pass an absolute executable path and a separate argument array. Do not assemble a shell command string from user/model input.
+- Use background execution for non-interactive probes; use a PendingIntent to receive result bundle, exit code, and internal Termux errors.
+- Bound output well below Termux's 100 KB transport limit and redact before any persistence.
+- The Termux docs explicitly warn that the combination of external-apps enabled and RUN_COMMAND permission grants command execution in Termux context; do not expose a generic command console.
+
+Official contract: https://github.com/termux/termux-app/wiki/RUN_COMMAND-Intent
 
 ## Required target-device proof
 
