@@ -22,8 +22,9 @@
 - Termux RUN_COMMAND adapter exists for a fixed allowlist of read-only checks: identity, Tunnel Client version, curl version, Buddy tunnel health, unauthenticated local MCP challenge, and process-name inventory.
 - The adapter uses Java PendingIntent result callbacks, output redaction/capping, a timeout, and requires Termux >= 0.109 plus the explicit Android permission.
 - No changes to Termux external-app policy.
-- No foreground service.
-- No automatic retries executing commands.
+- User-started foreground monitor is implemented with Android 14 `specialUse` service type, persistent notification, notification stop action, sticky restart behavior, and a 60-second read-only Buddy health/MCP-listener poll.
+- The monitor records state changes in a bounded SQLite event journal (2,000 rows maximum).
+- No automatic retries executing state-changing commands.
 - No configuration editing.
 - No credential retrieval or storage.
 - No live MCP calls from the app.
