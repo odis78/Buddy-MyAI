@@ -197,7 +197,7 @@ public final class MainActivity extends Activity {
             if (isFinishing() || isDestroyed()) return;
             appendCommandResult(output, operation, result);
             if (operation == TermuxOperation.IDENTITY && result.internalError != -1) {
-                output.append("\\nRemaining probes skipped: Termux rejected RUN_COMMAND before execution.");
+                output.append("\nRemaining probes skipped: Termux rejected RUN_COMMAND before execution.");
                 button.setEnabled(true);
                 return;
             }
