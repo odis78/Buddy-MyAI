@@ -408,7 +408,8 @@ public final class MainActivity extends Activity {
         long age = Math.max(0, System.currentTimeMillis() - snapshot.checkedAtEpochMillis);
         long staleAfter = ("buddy-tunnel".equals(componentId) || "buddy-mcp".equals(componentId)
                 || "tunnel-client".equals(componentId) || "termux".equals(componentId)
-                || "termux-run-command".equals(componentId) || "jiti-monitor-service".equals(componentId))
+                || "termux-run-command".equals(componentId) || "jiti-monitor-service".equals(componentId)
+                || "jiti-control-center".equals(componentId))
                 ? 120000L : 24 * 60 * 60 * 1000L;
         boolean stale = age > staleAfter;
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
