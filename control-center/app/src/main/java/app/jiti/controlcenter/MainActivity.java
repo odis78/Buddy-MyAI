@@ -13,6 +13,8 @@ import android.widget.TextView;
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
 import app.jiti.controlcenter.core.EvidenceStatus;
+import app.jiti.controlcenter.core.ToolCatalog;
+import app.jiti.controlcenter.core.ToolSpec;
 
 public final class MainActivity extends Activity {
     private static final int BG = 0xFF10151D;
@@ -59,6 +61,23 @@ public final class MainActivity extends Activity {
             }
             addComponentCard(page, item);
         }
+
+        addSection(page, "Каталог MCP-функций (" + ToolCatalog.baseCount() + " базовых + " + ToolCatalog.optionalCount() + " браузерных)");
+        addCard(page, text("Аудит исходников Buddy 2.3.17-JITI.1: 44 базовых инструмента и ещё 8 инструментов фонового браузера. BrowserTools.list() подключается только при включённой настройке Buddy; её текущее состояние приложение пока не читает.", 12, MUTED, false), 8);
+        String currentToolGroup = "";
+        StringBuilder toolNames = new StringBuilder();
+        for (ToolSpec tool : ToolCatalog.all()) {
+            if (!tool.group.equals(currentToolGroup)) {
+                if (toolNames.length() > 0) addCard(page, text(toolNames.toString(), 12, FG, false), 6);
+                currentToolGroup = tool.group;
+                toolNames = new StringBuilder(currentToolGroup).append(":\\n");
+            }
+            if (toolNames.charAt(toolNames.length() - 1) != '\\n') toolNames.append(", ");
+            toolNames.append(tool.name);
+            if (tool.risk == ToolSpec.Risk.PRIVILEGED) toolNames.append(" [PRIVILEGED]");
+            else if (tool.risk == ToolSpec.Risk.SENSITIVE_READ) toolNames.append(" [SENSITIVE]");
+        }
+        if (toolNames.length() > 0) addCard(page, text(toolNames.toString(), 12, FG, false), 6);
 
         addSection(page, "Диагностика");
         addCard(page, text("Live-проверка ещё не выполнялась. Историческое состояние не выдаётся за текущее. Следующий технический этап: read-only Termux integration и MCP health probes.", 13, MUTED, false), 8);
