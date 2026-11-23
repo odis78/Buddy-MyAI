@@ -262,6 +262,12 @@ public final class MainActivity extends Activity {
     }
 
     private void performBuddyStart() {
+        if (!commandGate.mayExecute("buddy.start", true, true, true)) {
+            buddyControlStatusView.setText("CommandGate заблокировал запуск: отсутствует подтверждение или проверка контракта/цели.");
+            logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy start rejected by CommandGate");
+            refreshTermuxControls();
+            return;
+        }
         String error = TermuxCommandClient.startBuddyTunnel(this);
         if (!error.isEmpty()) {
             buddyControlStatusView.setText(error);
@@ -361,7 +367,13 @@ public final class MainActivity extends Activity {
     }
 
     private void performBuddyStop(Runnable afterStopped) {
-        buddyControlStatusView.setText("Проверка PID identity и отправка SIGTERM…");
+        if (!commandGate.mayExecute("buddy.stop", true, true, true)) {
+            buddyControlStatusView.setText("CommandGate заблокировал остановку: отсутствует подтверждение или проверка PID identity.");
+            logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy stop rejected by CommandGate");
+            refreshTermuxControls();
+            return;
+        }
+        buddyControlStatusView.setText("Повторная проверка PID identity и отправка SIGTERM…");
         buddyStopButton.setEnabled(false);
         TermuxCommandClient.runBuddyStop(this, result -> {
             JSONObject report = null;
