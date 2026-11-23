@@ -47,7 +47,7 @@ public final class MainActivity extends Activity {
 
         page.addView(text("JITI CONTROL CENTER", 22, FG, true));
         addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
-        addCard(page, text("РЕЖИМ АУДИТА. Сейчас приложение показывает исторические доказательства и реестр зависимостей. Live-проверки и команды управления будут включены только после подтверждения безопасного Termux-адаптера.", 13, AMBER, true), 12);
+        addCard(page, text("РЕЖИМ АУДИТА. Доступны фиксированные read-only проверки через Termux RUN_COMMAND после явной настройки разрешения. Запуск, остановка и перезапуск инфраструктуры пока заблокированы до проверки контрактов и тестов на устройстве.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
@@ -89,7 +89,7 @@ public final class MainActivity extends Activity {
         if (toolNames.length() > 0) addCard(page, text(toolNames.toString(), 12, FG, false), 6);
 
         addSection(page, "Диагностика");
-        addCard(page, text("Live-проверка ещё не выполнялась. Историческое состояние не выдаётся за текущее. Следующий технический этап: read-only Termux integration и MCP health probes.", 13, MUTED, false), 8);
+        addCard(page, text("Текущая live-проверка запускается вручную в блоке Termux выше. MCP probe пока проверяет только локальный listener и 401 challenge; authenticated initialize ещё не реализован.", 13, MUTED, false), 8);
         setContentView(scroll);
     }
 
