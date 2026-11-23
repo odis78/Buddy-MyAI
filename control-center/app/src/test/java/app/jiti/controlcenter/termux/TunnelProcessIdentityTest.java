@@ -22,6 +22,12 @@ public class TunnelProcessIdentityTest {
         assertFalse(TunnelProcessIdentity.matchesBuddy(BIN, wrongConfig, HOME));
     }
 
+    @Test public void AndroidTermuxDataPathAliasesAreNormalized() {
+        String appInfoHome = "/data/user/0/com.termux/files/home";
+        String cmdline = String.join(String.valueOf((char) 0), BIN, "run", "--config", CONFIG);
+        assertTrue(TunnelProcessIdentity.matchesBuddyConfig(cmdline, appInfoHome));
+    }
+
     @Test public void configEqualsFormIsSupported() {
         String cmdline = String.join(String.valueOf((char) 0), BIN, "run", "--config=" + CONFIG);
         assertTrue(TunnelProcessIdentity.matchesBuddyConfig(cmdline, HOME));
