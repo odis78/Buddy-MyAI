@@ -109,46 +109,54 @@ public final class MainActivity extends Activity {
     }
 
 
+
     private void addTermuxSection(LinearLayout page) {
         addSection(page, "Подключение Termux");
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
         String status = state.installed
                 ? "Termux " + state.versionName + " • " + state.message
                 : state.message;
-        addCard(page, text(status + "\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
+        addCard(page, text(status + "\\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
                 state.canInvoke() ? GREEN : AMBER, true), 8);
 
-        LinearLayout actions = new LinearLayout(this);
+        TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
         Button check = button("Безопасная проверка Termux");
         check.setEnabled(state.canInvoke());
-        TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
         check.setOnClickListener(v -> runTermuxDiagnostics(check, output));
-        Button startMonitor = button("Запустить мониторинг");
-        startMonitor.setEnabled(state.canInvoke());
-        startMonitor.setOnClickListener(v -> requestNotificationAndStart());
-        Button stopMonitor = button("Остановить мониторинг");
-        stopMonitor.setEnabled(MonitorService.running);
-        stopMonitor.setOnClickListener(v -> {
-            MonitorService.stop(this);
-            stopMonitor.setEnabled(false);
-        });
-        actions.addView(startMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        actions.addView(stopMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
         Button settings = button("Настройки JITI");
         settings.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.parse("package:" + getPackageName()));
             startActivity(intent);
         });
-        actions.addView(check, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        actions.addView(settings, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
+        LinearLayout row1 = new LinearLayout(this);
+        row1.addView(check, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row1.addView(settings, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
+        Button startMonitor = button("Запустить мониторинг");
+        startMonitor.setEnabled(state.canInvoke() && !MonitorService.running);
+        startMonitor.setOnClickListener(v -> requestNotificationAndStart());
+        Button stopMonitor = button("Остановить мониторинг");
+        stopMonitor.setEnabled(MonitorService.running);
+        stopMonitor.setOnClickListener(v -> {
+            MonitorService.stop(this);
+            stopMonitor.setEnabled(false);
+            startMonitor.setEnabled(true);
+        });
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.addView(startMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        row2.addView(stopMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.addView(actions);
+        card.addView(row1);
+        addTop(card, row2, 6);
         addTop(card, output, 8);
         addCard(page, card, 8);
     }
-
 
     private void runTermuxDiagnostics(Button button, TextView output) {
         button.setEnabled(false);
