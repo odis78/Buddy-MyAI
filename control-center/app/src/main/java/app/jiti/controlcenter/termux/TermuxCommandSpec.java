@@ -26,6 +26,7 @@ def emit(value):
     print(json.dumps(value, separators=(",", ":")))
 
 def write_status(value):
+    value["timestamp"] = int(time.time())
     os.umask(0o077)
     temp = STATUS_FILE + ".tmp"
     os.makedirs(os.path.dirname(STATUS_FILE), exist_ok=True)
@@ -201,6 +202,7 @@ def identity(pid):
 
 def write_status(value):
     try:
+        value["timestamp"] = int(time.time())
         os.umask(0o077)
         temp = STATUS_FILE + ".tmp"
         with open(temp, "w", encoding="utf-8") as handle:
