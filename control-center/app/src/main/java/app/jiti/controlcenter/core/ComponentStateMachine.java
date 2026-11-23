@@ -16,7 +16,7 @@ public final class ComponentStateMachine {
                 ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.STARTING, ComponentStatus.AVAILABLE, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.NOT_READY,
                 ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.AVAILABLE, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.AVAILABLE, ComponentStatus.CHECKING, ComponentStatus.PID_PRESENT, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.PID_PRESENT, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.STOPPED, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.PID_PRESENT, ComponentStatus.READY, ComponentStatus.STOPPED,
                 ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
