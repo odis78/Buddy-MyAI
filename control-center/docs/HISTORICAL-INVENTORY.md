@@ -22,7 +22,8 @@ Evidence:
 
 Buddy MCP:
 - Local endpoint: `http://127.0.0.1:8766/mcp`.
-- Bearer authentication required.
+- The MCP server is not a separate Termux process: `BuddyService` (the Android AccessibilityService) constructs and starts `McpServer` with the Buddy token. `McpServer` binds to `127.0.0.1:8766`; `BuddyService.onDestroy()` stops it. The server requires `Authorization: Bearer <token>`.
+- This establishes the dependency edge `Buddy app → BuddyService/AccessibilityService → Buddy MCP listener → Buddy tunnel`.
 - The token is supplied from environment/configuration and must never be printed or committed.
 - Health URL observed in the runbook: `http://127.0.0.1:39073`. The Tunnel Client health URL is dynamic and must be read from its URL file, not hard-coded.
 
@@ -64,7 +65,7 @@ The exact historical OpenAI Tunnel IDs and health URLs for these three profiles 
 
 Confirmed as part of the 22-Nov working ecosystem:
 - Buddy MCP server on port 8766.
-- Buddy tool catalog: project history records 52 tools; a later client discovery returned 44. Exact tool inventory and reason for the discrepancy remain to be reconciled.
+- Buddy tool catalog: source audit reconciles 44 base tools (31 core + 13 phone) plus 8 optional background-browser tools. The browser tools are included only when the Buddy browser setting is enabled; its source default is false.
 - REA MCP server/tool inventory: latest saved direct inventory was 207/207 tools and 6/6 prompts. Do not report 208 unless a fresh inventory proves it.
 - REA-Termux-Bridge 0.1.3 is a distinct MCP bridge process.
 - DroidMCP-Filesystem is a distinct read-only filesystem MCP runtime.
