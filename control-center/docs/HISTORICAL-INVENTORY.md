@@ -69,6 +69,7 @@ Confirmed as part of the 22-Nov working ecosystem:
 - REA-Termux-Bridge 0.1.3 is a distinct MCP bridge process.
 - DroidMCP-Filesystem is a distinct read-only filesystem MCP runtime.
 - REA-Termux-Android is a distinct REA MCP runtime.
+- Android package recorded in the runbook: `app.buddy.myai.test`.
 - Android-side Buddy app and its AccessibilityService are dependencies of phone operations. Their exact live process/service state at the historical checkpoint requires device evidence.
 - Shizuku was installed and running in prior Android checks, but whether it is a hard dependency for the Buddy MCP path is not established.
 - ADB / Android shell access is a capability path, not automatically a separate tunnel.
