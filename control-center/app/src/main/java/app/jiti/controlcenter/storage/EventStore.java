@@ -63,6 +63,14 @@ public final class EventStore extends SQLiteOpenHelper {
         return events;
     }
 
+    public synchronized int countType(String eventType) {
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM " + TABLE + " WHERE event_type=?",
+                new String[]{eventType})) {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        }
+    }
+
     public synchronized int count(String componentId, String eventType) {
         try (Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM " + TABLE + " WHERE component_id=? AND event_type=?",
