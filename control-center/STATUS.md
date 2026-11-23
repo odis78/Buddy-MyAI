@@ -14,7 +14,7 @@
 - Added credential redaction utility.
 - Added PID/process identity guard against stale or mismatched PID files.
 - Reworked dashboard to render the registry and historical evidence separately from live status.
-- Added JVM unit tests for dependency planning/cycles, retry policy, circuit breaker, state transitions, secret redaction, process identity, tool catalog, Termux command allowlisting, version gates, and result redaction.
+- Added JVM unit tests for dependency planning/cycles and scoped restart plans, retry policy, circuit breaker, state transitions, secret redaction, process identity, tool catalog, Termux command allowlisting, version gates, and result redaction.
 - CI now runs unit tests before APK assembly.
 
 ## Explicitly not complete
