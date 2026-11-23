@@ -371,7 +371,7 @@ public final class MainActivity extends Activity {
             case PROCESS_LIST:
                 boolean tunnel = result.stdout.toLowerCase(java.util.Locale.ROOT).contains("tunnel-client");
                 ComponentStatus processState = !result.succeeded() ? ComponentStatus.UNAVAILABLE
-                        : tunnel ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
+                        : tunnel ? ComponentStatus.PID_PRESENT : ComponentStatus.STOPPED;
                 saveProbeSnapshot("tunnel-client", processState,
                         "Process-name check only; PID identity not verified");
                 break;
@@ -417,6 +417,7 @@ public final class MainActivity extends Activity {
         switch (status) {
             case CHECKING: return "ПРОВЕРКА";
             case AVAILABLE: return "ДОСТУПЕН";
+            case PID_PRESENT: return "PID ЕСТЬ, IDENTITY НЕ ПРОВЕРЕН";
             case RUNNING: return "РАБОТАЕТ";
             case READY: return "ГОТОВ";
             case STARTING: return "ЗАПУСК";
