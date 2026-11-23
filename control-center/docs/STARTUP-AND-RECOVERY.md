@@ -10,19 +10,25 @@ This is the initial graph to validate against the 22-Nov runtime evidence. Dashe
 
 ```text
 Android OS
- ├─ JITI Control Center foreground service
- ├─ Termux app/runtime
- │   ├─ Tunnel Client v0.0.19
- │   │   ├─ Buddy-MyAI tunnel profile
- │   │   │   └─ Buddy MCP transport → 127.0.0.1:8766/mcp
- │   │   ├─ REA-Termux-Bridge 0.1.3 profile
- │   │   ├─ DroidMCP-Filesystem profile
- │   │   └─ REA-Termux-Android profile
- │   └─ REA / Bridge runtime processes (exact process ownership to verify)
- ├─ Buddy-MyAI Android app
- │   ├─ AccessibilityService
- │   └─ Buddy MCP listener on 127.0.0.1:8766
- └─ Optional/conditional dependencies: Shizuku, ADB, Termux:API, Termux:Boot
+ ├─ JITI Control Center (future foreground controller)
+ ├─ Termux
+ │   └─ Tunnel Client v0.0.19
+ │       ├─ Buddy profile → remote OpenAI tunnel → authenticated HTTP MCP
+ │       │                                  └─ BuddyService listener 127.0.0.1:8766
+ │       ├─ REA-Termux-Bridge profile (launcher order 1/3)
+ │       ├─ DroidMCP-Filesystem profile (launcher order 2/3)
+ │       └─ REA-Termux-Android profile (launcher order 3/3)
+ ├─ Buddy Android app
+ │   ├─ BuddyService AccessibilityService
+ │   │   └─ local MCP server 127.0.0.1:8766
+ │   ├─ NotificationWatcher (optional permission)
+ │   ├─ Buddy Linux / proot (optional)
+ │   │   ├─ Claude Remote Session (optional, default off)
+ │   │   ├─ SSH server :8767 (optional, default off)
+ │   │   ├─ Codex Remote (optional, default off)
+ │   │   └─ Chromium background browser (optional, default off)
+ │   └─ Tailscale MCP listener :8766 (optional, paired VPN only)
+ └─ Optional/conditional: Shizuku, ADB, Termux:API, Termux:Boot
 ```
 
 ## 3. Startup phases
