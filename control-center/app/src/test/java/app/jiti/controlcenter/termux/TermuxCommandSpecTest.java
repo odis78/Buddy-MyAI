@@ -14,6 +14,15 @@ public class TermuxCommandSpecTest {
             assertTrue(spec.executable.startsWith("/"));
         }
     }
+    @Test public void envAuditPrintsOnlyKeyNamesFromKnownFiles() {
+        TermuxCommandSpec audit = TermuxCommandSpec.forOperation(TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
+                "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
+        assertTrue(audit.executable.endsWith("/bin/grep"));
+        assertTrue(audit.arguments.contains("(BUDDY_TOKEN|BUDDY_AUTH_HEADER|CONTROL_PLANE_API_KEY)"));
+        assertFalse(audit.arguments.stream().anyMatch(a -> a.contains("secret") || a.contains("Bearer")));
+        assertTrue(audit.isSafeFixedCommand());
+    }
+
     @Test public void BuddyHealthProbeUsesOnlyKnownLocalFiles() {
         TermuxCommandSpec health = TermuxCommandSpec.forOperation(TermuxOperation.BUDDY_TUNNEL_HEALTH,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
