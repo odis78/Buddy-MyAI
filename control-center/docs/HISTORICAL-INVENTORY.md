@@ -89,7 +89,9 @@ Stage 1:
 
 Stage 3:
 - Tunnel Client doctor could parse the YAML and profile.
-- Doctor failed because `CONTROL_PLANE_API_KEY` was missing from the current shell environment.
+- Doctor output explicitly confirms the YAML field is `api_key: env:CONTROL_PLANE_API_KEY`.
+- Doctor failed because `CONTROL_PLANE_API_KEY` was not exported in the current shell/process environment.
+- Stage 5 later confirmed a non-empty variable with that name exists inside each of two separate runtime.env files, but the files contain different values. This does not prove which key is correct for Buddy. The safe next step is to identify the intended Buddy env source and launch contract without printing either value.
 
 Stage 4:
 - `CONTROL_PLANE_API_KEY`: not set in current shell.
