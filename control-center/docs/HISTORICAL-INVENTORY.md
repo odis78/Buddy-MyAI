@@ -59,7 +59,7 @@ The 23-Nov script audit identifies the configuration paths:
 - REA Android: `$HOME/.config/rea-tunnel/profile/rea-android.yaml`.
 - REA env: `$HOME/.config/rea-tunnel/runtime.env`.
 
-The exact historical OpenAI Tunnel IDs and health URLs for these three profiles still need to be recovered from their configuration files / historical logs. Do not guess them. Stage 7 confirms the existing launcher sequence: Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android; its stop sequence is the reverse. This is a script-defined operational sequence, not proof that each profile is a hard dependency of the next.
+The exact historical OpenAI Tunnel IDs and health URLs for these three profiles still need to be recovered from their configuration files / historical logs. Do not guess them. Stage 7 confirms the existing `~/bin/tunnels` launcher contract: `start_all` starts Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android; `stop_all` stops in reverse; `restart` aborts if any stop fails before attempting a start; `status_all` checks all three; `logs` supports bridge/droidmcp/rea. Bridge uses `--config` plus `termux-bridge/runtime.env`; DroidMCP uses `--config` with no env file; REA Android uses `--profile-file` plus `rea-tunnel/runtime.env`. The stop helper waits 15 seconds and explicitly does not send SIGKILL. This is a script-defined operational sequence, not proof that each profile is a hard dependency of the next. Exact PID/health URL file paths and the full start_one/status_one implementation remain to be audited.
 
 ### 1.3 MCP servers, tools, and runtime services
 
