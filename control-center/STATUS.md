@@ -8,7 +8,7 @@
 - Isolated project branch; protected Buddy checkpoint and main branch remain untouched.
 - Historical inventory and dependency/recovery design documented from 22–23 November evidence.
 - Android project and first debug APK build pipeline established.
-- Added typed component registry with 35 evidence-labelled rows, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services, and dependency metadata.
+- Added typed component registry with 39 evidence-labelled rows, JITI controller/monitor, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services, and dependency metadata.
 - Added dependency-aware startup/shutdown planner and scoped downstream restart planning.
 - Added bounded retry/backoff and circuit-breaker decision policy.
 - Added credential redaction utility.
