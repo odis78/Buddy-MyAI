@@ -517,6 +517,18 @@ public final class MainActivity extends Activity {
         if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
+        boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
+        if (buddyStartButton != null) buddyStartButton.setEnabled(controlsReady);
+        if (buddyStopButton != null) buddyStopButton.setEnabled(controlsReady);
+        if (buddyRestartButton != null) buddyRestartButton.setEnabled(controlsReady);
+        if (buddyControlStatusView != null) {
+            String controlState = !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
+                    : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку и подтвердите allow-external-apps."
+                    : !MonitorService.running ? "Сначала запустите фоновый мониторинг."
+                    : "Контроль Buddy доступен. Каждый запуск/остановка требует подтверждения; PID проверяется по бинарнику и YAML.";
+            buddyControlStatusView.setText(controlState);
+            buddyControlStatusView.setTextColor(getColor(controlsReady ? GREEN : AMBER));
+        }
     }
 
     private void refreshLiveStatuses() {
