@@ -348,16 +348,23 @@ public final class MainActivity extends Activity {
                     ready = result.succeeded() && "ok".equals(report.optString("result"));
                     detail = summarizeHealth(result.stdout);
                 } catch (Exception ignored) { }
-                saveProbeSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY, detail);
+                ComponentStatus tunnelState = result.internalError != -1 || result.exitCode == 127
+                        ? ComponentStatus.UNAVAILABLE : ready ? ComponentStatus.READY : ComponentStatus.NOT_READY;
+                saveProbeSnapshot("buddy-tunnel", tunnelState, detail);
                 break;
             case BUDDY_MCP_LISTENER_CHALLENGE:
                 boolean listener = result.succeeded() && "401".equals(result.stdout.trim());
-                saveProbeSnapshot("buddy-mcp", listener ? ComponentStatus.RUNNING : ComponentStatus.NOT_READY,
+                ComponentStatus mcpState = listener ? ComponentStatus.RUNNING
+                        : (result.internalError != -1 || result.exitCode == 127) ? ComponentStatus.UNAVAILABLE
+                        : "200".equals(result.stdout.trim()) ? ComponentStatus.ERROR : ComponentStatus.NOT_READY;
+                saveProbeSnapshot("buddy-mcp", mcpState,
                         listener ? "HTTP 401: listener up; authentication not yet tested" : "MCP listener challenge unconfirmed");
                 break;
             case PROCESS_LIST:
                 boolean tunnel = result.stdout.toLowerCase(java.util.Locale.ROOT).contains("tunnel-client");
-                saveProbeSnapshot("tunnel-client", tunnel ? ComponentStatus.RUNNING : ComponentStatus.STOPPED,
+                ComponentStatus processState = !result.succeeded() ? ComponentStatus.UNAVAILABLE
+                        : tunnel ? ComponentStatus.RUNNING : ComponentStatus.STOPPED;
+                saveProbeSnapshot("tunnel-client", processState,
                         "Process-name check only; PID identity not verified");
                 break;
             default:
