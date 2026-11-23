@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
         }
 
         addSection(page, "Каталог MCP-функций (" + ToolCatalog.baseCount() + " базовых + " + ToolCatalog.optionalCount() + " браузерных)");
-        addCard(page, text("Аудит исходников Buddy 2.3.17-JITI.1: 44 базовых инструмента и ещё 8 инструментов фонового браузера. BrowserTools.list() подключается только при включённой настройке Buddy; её текущее состояние приложение пока не читает.", 12, MUTED, false), 8);
+        addCard(page, text("Аудит исходников Buddy 2.3.17-JITI.1: 44 базовых инструмента и ещё 8 инструментов фонового браузера. Все 44 базовых имени точно совпадают с текущим каталогом Buddy MCP; 8 браузерных инструментов в этом подключении не опубликованы. Текущую настройку Buddy приложение пока не читает.", 12, MUTED, false), 8);
         String currentToolGroup = "";
         StringBuilder toolNames = new StringBuilder();
         for (ToolSpec tool : ToolCatalog.all()) {
