@@ -442,7 +442,8 @@ public final class MainActivity extends Activity {
                 || "tunnel-client".equals(componentId) || "termux".equals(componentId)
                 || "termux-run-command".equals(componentId) || "jiti-monitor-service".equals(componentId)
                 || "jiti-control-center".equals(componentId))
-                ? 120000L : 24 * 60 * 60 * 1000L;
+                ? 120000L : ("buddy-mcp-auth".equals(componentId) || "buddy-tools".equals(componentId))
+                ? 600000L : 24 * 60 * 60 * 1000L;
         boolean stale = age > staleAfter;
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
         String detail = snapshot.detail == null ? "" : snapshot.detail;
