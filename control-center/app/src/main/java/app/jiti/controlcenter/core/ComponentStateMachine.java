@@ -9,17 +9,19 @@ public final class ComponentStateMachine {
             new EnumMap<>(ComponentStatus.class);
 
     static {
-        allow(ComponentStatus.UNKNOWN, ComponentStatus.CHECKING, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.STOPPED,
+        allow(ComponentStatus.UNKNOWN, ComponentStatus.CHECKING, ComponentStatus.AVAILABLE, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.CHECKING, ComponentStatus.AVAILABLE, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.STOPPED,
                 ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.STOPPED, ComponentStatus.CHECKING, ComponentStatus.STARTING,
                 ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.STARTING, ComponentStatus.RUNNING, ComponentStatus.NOT_READY,
+        allow(ComponentStatus.STARTING, ComponentStatus.AVAILABLE, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.NOT_READY,
                 ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.STOPPED,
+        allow(ComponentStatus.AVAILABLE, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.READY, ComponentStatus.STOPPED,
                 ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.READY, ComponentStatus.CHECKING, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
         allow(ComponentStatus.NOT_READY, ComponentStatus.CHECKING, ComponentStatus.STARTING,
-                ComponentStatus.RUNNING, ComponentStatus.ERROR, ComponentStatus.BLOCKED);
+                ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.ERROR, ComponentStatus.BLOCKED);
         allow(ComponentStatus.ERROR, ComponentStatus.CHECKING, ComponentStatus.STARTING,
                 ComponentStatus.STOPPED, ComponentStatus.BLOCKED, ComponentStatus.UNAVAILABLE);
         allow(ComponentStatus.UNAVAILABLE, ComponentStatus.CHECKING, ComponentStatus.BLOCKED);
