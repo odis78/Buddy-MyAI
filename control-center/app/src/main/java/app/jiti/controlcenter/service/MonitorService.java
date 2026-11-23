@@ -106,7 +106,9 @@ public final class MonitorService extends Service {
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
-            renewWakeLock();
+            boolean wakeLockActive = renewWakeLock();
+            if (!wakeLockActive) notificationText = "Monitor active; CPU wake lock unavailable";
+            updateNotification();
             return true;
         } catch (Exception e) {
             log("system", "FOREGROUND_START_FAILED", e.getClass().getSimpleName());
@@ -353,7 +355,9 @@ public final class MonitorService extends Service {
         return builder.setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentTitle("JITI Control Center")
                 .setContentText(notificationText)
-                .setSubText("CPU wake lock active • stop to release")
+                .setSubText(wakeLock != null && wakeLock.isHeld()
+                        ? "CPU wake lock active • stop to release"
+                        : "CPU wake lock unavailable; checks may be delayed")
                 .setContentIntent(content)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
@@ -375,7 +379,7 @@ public final class MonitorService extends Service {
         manager.createNotificationChannel(channel);
     }
 
-    private void renewWakeLock() {
+    private boolean renewWakeLock() {
         try {
             if (wakeLock == null) {
                 PowerManager power = getSystemService(PowerManager.class);
@@ -386,8 +390,10 @@ public final class MonitorService extends Service {
             }
             if (wakeLock.isHeld()) wakeLock.release();
             wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS);
+            return wakeLock.isHeld();
         } catch (Exception e) {
             log("system", "WAKE_LOCK_UNAVAILABLE", e.getClass().getSimpleName());
+            return false;
         }
     }
 
