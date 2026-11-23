@@ -44,7 +44,7 @@ Android OS
 
 The existing launcher script defines this observed sequence for the three REA profiles: REA-Termux-Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android; shutdown is reverse order. Preserve it as the operational baseline, but do not invent dependency edges between those three until health/consumer probes establish them.
 
-Buddy is a separate profile and has a separate known-good runbook. Its runtime environment source is `$HOME/.config/termux-bridge/runtime.env`, which supplies the `CONTROL_PLANE_API_KEY` reference and Buddy token/header variables. The 23-Nov Doctor failure occurred because the variable was not present in that command's shell; the 22-Nov successful control-plane poll proves the documented source worked at that checkpoint. Never substitute the different REA runtime.env value.
+Buddy is a separate profile and has a separate known-good runbook. `$HOME/.config/termux-bridge/runtime.env` is the documented source for `CONTROL_PLANE_API_KEY`; Stage 3 failed because it was not sourced into the Doctor process. Do not assume it also supplies `BUDDY_TOKEN` or `BUDDY_AUTH_HEADER`: Stage 5 found only the Control Plane key name in the inspected runtime.env files, while Stage 4 found `BUDDY_TOKEN` in the interactive shell. The origin and exact derivation of the MCP Authorization header remain to be audited without printing values. Never substitute the different REA runtime.env Control Plane key.
 
 ## 4. Restart policy
 
