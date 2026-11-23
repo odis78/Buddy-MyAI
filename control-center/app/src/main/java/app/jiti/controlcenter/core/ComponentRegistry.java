@@ -34,7 +34,7 @@ public final class ComponentRegistry {
         List<ComponentSpec> c = new ArrayList<>();
         c.add(spec("android", "Android OS", "Платформа", "Хост-система", EvidenceStatus.PRESENT_CONFIGURED, set(), false, null));
         c.add(spec("jiti-control-center", "JITI Control Center", "Android app", "Version 0.2.0-alpha; not yet device-installed/verified", EvidenceStatus.UNVERIFIED, set("android"), false, null));
-        c.add(spec("termux-run-command", "Termux RUN_COMMAND adapter", "Integration", "Fixed read-only argv operations; device permission and external-app policy not yet verified", EvidenceStatus.UNVERIFIED, set("jiti-control-center", "termux"), false, null));
+        c.add(spec("termux-run-command", "Termux RUN_COMMAND adapter", "Integration", "Fixed read-only argv operations; device permission and external-app policy not yet verified", EvidenceStatus.UNVERIFIED, set("jiti-control-center", "termux", "termux-curl"), false, null));
         c.add(spec("jiti-monitor-service", "JITI foreground monitor", "Android service", "specialUse foreground service; Buddy health poll every 60 seconds", EvidenceStatus.UNVERIFIED, set("jiti-control-center", "termux-run-command"), false, null));
         c.add(spec("jiti-event-store", "JITI SQLite event journal", "Local storage", "Bounded to 2,000 events; messages redacted before persistence", EvidenceStatus.UNVERIFIED, set("jiti-control-center"), false, null));
         c.add(spec("termux", "Termux", "Среда выполнения", "Внешний командный интерфейс ещё не проверен", EvidenceStatus.PRESENT_CONFIGURED, set("android"), false, null));
