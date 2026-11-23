@@ -206,6 +206,8 @@ else:
                         Arrays.asList("--version"));
             case CURL_VERSION:
                 return new TermuxCommandSpec(operation, prefix + "/bin/curl", Arrays.asList("--version"));
+            case PYTHON_VERSION:
+                return new TermuxCommandSpec(operation, prefix + "/bin/python", Arrays.asList("--version"));
             case BUDDY_ENV_SOURCE_AUDIT:
                 return new TermuxCommandSpec(operation, prefix + "/bin/grep",
                         Arrays.asList("-s", "-n", "-oE",
