@@ -17,7 +17,8 @@
 - Implemented fixed read-only Termux RUN_COMMAND bridge with version/permission gate, PendingIntent results, timeout, output redaction, and bounded output.
 - Added read-only Buddy tunnel health and local MCP authentication-challenge probes.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
-- Added bounded SQLite diagnostic event journal (maximum 2,000 events).
+- Added bounded SQLite diagnostic event journal (maximum 2,000 events) and persistent latest-state snapshots per component.
+- Dashboard now renders historical evidence and live state as separate labels, with per-component freshness windows and cumulative error/retry counters.
 - Added JVM unit tests for dependency planning/cycles and scoped restart plans, retry policy, circuit breaker, state transitions, secret redaction, process identity, tool catalog, Termux command allowlisting, version gates, and result redaction.
 - CI now runs unit tests before APK assembly.
 
