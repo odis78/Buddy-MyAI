@@ -28,7 +28,7 @@ jobs:
           import re
           from pathlib import Path
           source = Path("control-center/app/src/main/java/app/jiti/controlcenter/termux/TermuxCommandSpec.java").read_text()
-          match = re.search(r'BUDDY_MCP_AUTH_PROBE_SCRIPT = """\\n(.*?)\\n""";', source, re.S)
+          match = re.search(r'BUDDY_MCP_AUTH_PROBE_SCRIPT = """\n(.*?)\n""";', source, re.S)
           if not match:
               raise SystemExit("authenticated MCP probe text block not found")
           script = match.group(1).replace("\\\\", "\\")
