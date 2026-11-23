@@ -349,16 +349,23 @@ public final class MainActivity extends Activity {
                         result.succeeded() ? "curl binary available" : "curl binary unavailable");
                 break;
             case BUDDY_TUNNEL_HEALTH:
-                boolean ready = false;
                 String detail = "Health probe failed";
+                ComponentStatus pidState = ComponentStatus.ERROR;
                 try {
                     JSONObject report = new JSONObject(result.stdout);
-                    ready = result.succeeded() && "ok".equals(report.optString("result"));
                     detail = summarizeHealth(result.stdout);
-                } catch (Exception ignored) { }
+                    JSONObject process = report.optJSONObject("process");
+                    if (result.internalError != -1 || result.exitCode == 127) pidState = ComponentStatus.UNAVAILABLE;
+                    else if (process != null && process.optBoolean("running")) pidState = ComponentStatus.PID_PRESENT;
+                    else if (process != null) pidState = ComponentStatus.STOPPED;
+                } catch (Exception ignored) {
+                    if (result.internalError != -1 || result.exitCode == 127) pidState = ComponentStatus.UNAVAILABLE;
+                }
+                saveProbeSnapshot("tunnel-client", pidState, "PID presence only; executable/config identity not verified");
                 ComponentStatus tunnelState = result.internalError != -1 || result.exitCode == 127
-                        ? ComponentStatus.UNAVAILABLE : ready ? ComponentStatus.READY : ComponentStatus.NOT_READY;
-                saveProbeSnapshot("buddy-tunnel", tunnelState, detail);
+                        ? ComponentStatus.UNAVAILABLE : ComponentStatus.NOT_READY;
+                saveProbeSnapshot("buddy-tunnel", tunnelState,
+                        detail + "; authenticated readiness withheld until process identity verification");
                 break;
             case BUDDY_MCP_LISTENER_CHALLENGE:
                 boolean listener = result.succeeded() && "401".equals(result.stdout.trim());
@@ -369,11 +376,7 @@ public final class MainActivity extends Activity {
                         listener ? "HTTP 401: listener up; authentication not yet tested" : "MCP listener challenge unconfirmed");
                 break;
             case PROCESS_LIST:
-                boolean tunnel = result.stdout.toLowerCase(java.util.Locale.ROOT).contains("tunnel-client");
-                ComponentStatus processState = !result.succeeded() ? ComponentStatus.UNAVAILABLE
-                        : tunnel ? ComponentStatus.PID_PRESENT : ComponentStatus.STOPPED;
-                saveProbeSnapshot("tunnel-client", processState,
-                        "Process-name check only; PID identity not verified");
+                // Aggregate inventory is shown in the preflight output only; it is not profile identity evidence.
                 break;
             default:
                 break;
