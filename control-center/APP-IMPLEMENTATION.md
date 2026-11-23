@@ -4,7 +4,7 @@
 
 - Standalone Android application namespace/application ID: `app.jiti.controlcenter`.
 - Independent Gradle project under `control-center/`.
-- Registry-backed dashboard with 40 distinct infrastructure, controller, remote-tunnel, MCP-server, tool-catalog, optional-package, optional-service, and capability rows.
+- Registry-backed dashboard with 42 distinct infrastructure, controller, remote-tunnel, MCP-server, tool-catalog, optional-package, optional-service, and capability rows.
 - Historical evidence is displayed separately from live runtime status.
 - Dependency metadata is stored independently from UI grouping.
 - Pure-Java dependency planner generates forward startup and reverse shutdown order.
