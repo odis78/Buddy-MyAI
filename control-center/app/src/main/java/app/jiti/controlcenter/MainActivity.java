@@ -3,6 +3,9 @@ package app.jiti.controlcenter;
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.content.Intent;
+import android.net.Uri;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +18,9 @@ import app.jiti.controlcenter.core.ComponentSpec;
 import app.jiti.controlcenter.core.EvidenceStatus;
 import app.jiti.controlcenter.core.ToolCatalog;
 import app.jiti.controlcenter.core.ToolSpec;
+import app.jiti.controlcenter.termux.TermuxCommandClient;
+import app.jiti.controlcenter.termux.TermuxCommandResult;
+import app.jiti.controlcenter.termux.TermuxOperation;
 
 public final class MainActivity extends Activity {
     private static final int BG = 0xFF10151D;
@@ -52,6 +58,8 @@ public final class MainActivity extends Activity {
         }
         addCard(page, controls, 8);
 
+        addTermuxSection(page);
+
         addSection(page, "Реестр компонентов (" + registry.all().size() + ")");
         String currentGroup = "";
         for (ComponentSpec item : registry.all()) {
@@ -82,6 +90,76 @@ public final class MainActivity extends Activity {
         addSection(page, "Диагностика");
         addCard(page, text("Live-проверка ещё не выполнялась. Историческое состояние не выдаётся за текущее. Следующий технический этап: read-only Termux integration и MCP health probes.", 13, MUTED, false), 8);
         setContentView(scroll);
+    }
+
+
+    private void addTermuxSection(LinearLayout page) {
+        addSection(page, "Подключение Termux");
+        TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
+        String status = state.installed
+                ? "Termux " + state.versionName + " • " + state.message
+                : state.message;
+        addCard(page, text(status + "\\nДля запуска требуется RUN_COMMAND permission и настройка allow-external-apps=true в Termux. JITI не меняет эти настройки автоматически.", 12,
+                state.canInvoke() ? GREEN : AMBER, true), 8);
+
+        LinearLayout actions = new LinearLayout(this);
+        Button check = button("Безопасная проверка Termux");
+        check.setEnabled(state.canInvoke());
+        TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
+        check.setOnClickListener(v -> runTermuxDiagnostics(check, output));
+        Button settings = button("Настройки JITI");
+        settings.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        });
+        actions.addView(check, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        actions.addView(settings, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.addView(actions);
+        addTop(card, output, 8);
+        addCard(page, card, 8);
+    }
+
+    private void runTermuxDiagnostics(Button button, TextView output) {
+        button.setEnabled(false);
+        output.setText("Проверка 1/3: Termux identity…");
+        TermuxCommandClient.run(this, TermuxOperation.IDENTITY, identity -> {
+            appendCommandResult(output, "IDENTITY", identity, false);
+            output.append("\\nПроверка 2/3: Tunnel Client version…");
+            TermuxCommandClient.run(this, TermuxOperation.TUNNEL_CLIENT_VERSION, version -> {
+                appendCommandResult(output, "TUNNEL CLIENT", version, false);
+                output.append("\\nПроверка 3/3: process inventory…");
+                TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, processes -> {
+                    appendCommandResult(output, "PROCESSES", processes, true);
+                    output.append("\\nRead-only preflight завершён. Это ещё не подтверждает health/readiness туннелей.");
+                    button.setEnabled(true);
+                });
+            });
+        });
+    }
+
+    private void appendCommandResult(TextView output, String label, TermuxCommandResult result, boolean filterProcesses) {
+        output.append("\\n\\n[" + label + "] exit=" + result.exitCode
+                + " termuxErr=" + result.internalError);
+        if (!result.internalErrorMessage.isEmpty()) output.append("\\n" + result.internalErrorMessage);
+        String body = filterProcesses ? relevantProcesses(result.stdout) : result.stdout;
+        if (!body.isEmpty()) output.append("\\n" + body.trim());
+        if (!result.stderr.isEmpty()) output.append("\\nSTDERR: " + result.stderr.trim());
+        if (result.truncated) output.append("\\n[OUTPUT TRUNCATED]");
+    }
+
+    private String relevantProcesses(String source) {
+        StringBuilder result = new StringBuilder();
+        for (String line : source.split("\\n")) {
+            String lower = line.toLowerCase(java.util.Locale.ROOT);
+            if (lower.contains("tunnel-client") || lower.contains("termux") || lower.contains("buddy") || lower.contains("rea")) {
+                if (result.length() > 0) result.append('\\n');
+                result.append(line);
+            }
+        }
+        return result.length() == 0 ? "No matching Termux/Buddy/REA/Tunnel Client process names in ps -A output." : result.toString();
     }
 
     private void addComponentCard(LinearLayout parent, ComponentSpec item) {
