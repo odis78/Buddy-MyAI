@@ -1,6 +1,7 @@
 package app.jiti.controlcenter;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -255,6 +256,13 @@ public final class MainActivity extends Activity {
         if (android.os.Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
+            return;
+        }
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null || !manager.areNotificationsEnabled()) {
+            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            startActivity(intent);
             return;
         }
         MonitorService.start(this);
