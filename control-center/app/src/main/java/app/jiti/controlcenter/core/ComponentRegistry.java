@@ -38,6 +38,7 @@ public final class ComponentRegistry {
         c.add(spec("jiti-monitor-service", "JITI foreground monitor", "Android service", "specialUse foreground service; Buddy health poll every 60 seconds", EvidenceStatus.UNVERIFIED, set("jiti-control-center", "termux-run-command"), false, null));
         c.add(spec("jiti-event-store", "JITI SQLite event journal", "Local storage", "Bounded to 2,000 events; messages redacted before persistence", EvidenceStatus.UNVERIFIED, set("jiti-control-center"), false, null));
         c.add(spec("termux", "Termux", "Среда выполнения", "Внешний командный интерфейс ещё не проверен", EvidenceStatus.PRESENT_CONFIGURED, set("android"), false, null));
+        c.add(spec("termux-curl", "Termux curl", "Optional package", "Used only for local MCP listener challenge; presence checked by --version", EvidenceStatus.UNVERIFIED, set("termux"), false, null));
         c.add(spec("tunnel-client", "Tunnel Client v0.0.19", "Runtime", "ARM64 executable; launch contract requires per-profile verification", EvidenceStatus.PRESENT_CONFIGURED, set("termux"), false, null));
         c.add(spec("control-plane", "OpenAI Control Plane", "Network dependency", "Poll/auth must be checked without exposing secrets", EvidenceStatus.CONFIRMED_WORKING, set(), false, null));
         c.add(spec("remote-tunnel-buddy", "OpenAI remote tunnel: Buddy-MyAI", "Remote tunnel resource", "Known ID: tunnel_6b02e7e420948191a1829df4a5373d20", EvidenceStatus.CONFIRMED_WORKING, set("control-plane"), false, null));
