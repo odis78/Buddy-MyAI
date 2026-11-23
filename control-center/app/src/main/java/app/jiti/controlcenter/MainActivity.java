@@ -1,6 +1,8 @@
 package app.jiti.controlcenter;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.content.Intent;
@@ -22,6 +24,11 @@ import app.jiti.controlcenter.core.ToolSpec;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
 import app.jiti.controlcenter.termux.TermuxOperation;
+import app.jiti.controlcenter.service.MonitorService;
+import app.jiti.controlcenter.storage.EventStore;
+import app.jiti.controlcenter.core.DiagnosticEvent;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public final class MainActivity extends Activity {
     private static final int BG = 0xFF10151D;
@@ -31,9 +38,13 @@ public final class MainActivity extends Activity {
     private static final int AMBER = 0xFFFFC46B;
     private static final int GREEN = 0xFF7DD3A7;
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
+    private EventStore eventStore;
+    private TextView eventLogView;
+    private static final int REQUEST_NOTIFICATIONS = 4201;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        eventStore = new EventStore(this);
         render();
     }
 
@@ -90,6 +101,10 @@ public final class MainActivity extends Activity {
 
         addSection(page, "Диагностика");
         addCard(page, text("Текущая live-проверка запускается вручную в блоке Termux выше. MCP probe пока проверяет только локальный listener и 401 challenge; authenticated initialize ещё не реализован.", 13, MUTED, false), 8);
+
+        addSection(page, "Журнал событий");
+        eventLogView = text(buildEventLog(), 11, MUTED, false);
+        addCard(page, eventLogView, 8);
         setContentView(scroll);
     }
 
@@ -108,6 +123,17 @@ public final class MainActivity extends Activity {
         check.setEnabled(state.canInvoke());
         TextView output = text("Проверка ещё не запускалась.", 11, MUTED, false);
         check.setOnClickListener(v -> runTermuxDiagnostics(check, output));
+        Button startMonitor = button("Запустить мониторинг");
+        startMonitor.setEnabled(state.canInvoke());
+        startMonitor.setOnClickListener(v -> requestNotificationAndStart());
+        Button stopMonitor = button("Остановить мониторинг");
+        stopMonitor.setEnabled(MonitorService.running);
+        stopMonitor.setOnClickListener(v -> {
+            MonitorService.stop(this);
+            stopMonitor.setEnabled(false);
+        });
+        actions.addView(startMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        actions.addView(stopMonitor, new LinearLayout.LayoutParams(0, dp(44), 1f));
         Button settings = button("Настройки JITI");
         settings.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -179,6 +205,12 @@ public final class MainActivity extends Activity {
         if (!body.isEmpty()) output.append("\n" + body.trim());
         if (!result.stderr.isEmpty()) output.append("\nSTDERR: " + result.stderr.trim());
         if (result.truncated) output.append("\n[OUTPUT TRUNCATED]");
+        if (eventStore != null) {
+            String message = "operation=" + operation.name() + " exit=" + result.exitCode + " termuxErr=" + result.internalError;
+            eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "termux",
+                    result.succeeded() ? "PROBE_OK" : "PROBE_FAILED", message));
+            refreshEventLog();
+        }
     }
 
     private String summarizeHealth(String json) {
@@ -208,6 +240,58 @@ public final class MainActivity extends Activity {
             }
         }
         return result.length() == 0 ? "No matching Termux/Buddy/REA/Tunnel Client process names in ps -A output." : result.toString();
+    }
+
+
+    private void requestNotificationAndStart() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
+            return;
+        }
+        MonitorService.start(this);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATIONS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                MonitorService.start(this);
+            } else if (eventStore != null) {
+                eventStore.append(new DiagnosticEvent(System.currentTimeMillis(), "system",
+                        "NOTIFICATION_PERMISSION_DENIED", "Foreground monitoring was not started"));
+                refreshEventLog();
+            }
+        }
+    }
+
+    private String buildEventLog() {
+        if (eventStore == null) return "Журнал пока пуст.";
+        java.util.List<DiagnosticEvent> events = eventStore.recent(20);
+        if (events.isEmpty()) return "Журнал пока пуст.";
+        SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
+        StringBuilder value = new StringBuilder();
+        for (DiagnosticEvent event : events) {
+            value.append(format.format(new Date(event.timestampEpochMillis)))
+                    .append("  ").append(event.componentId).append(" / ")
+                    .append(event.eventType).append("  ")
+                    .append(event.message).append("\n");
+        }
+        return value.toString();
+    }
+
+    private void refreshEventLog() {
+        if (eventLogView != null) eventLogView.setText(buildEventLog());
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        refreshEventLog();
+    }
+
+    @Override protected void onDestroy() {
+        if (eventStore != null) eventStore.close();
+        super.onDestroy();
     }
 
     private void addComponentCard(LinearLayout parent, ComponentSpec item) {
