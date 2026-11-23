@@ -97,7 +97,7 @@ Stage 3:
 - Tunnel Client doctor could parse the YAML and profile.
 - Doctor output explicitly confirms the YAML field is `api_key: env:CONTROL_PLANE_API_KEY`.
 - Doctor failed because `CONTROL_PLANE_API_KEY` was not exported in the current shell/process environment.
-- Stage 5 later confirmed a non-empty variable with that name exists inside each of two separate runtime.env files, but the files contain different values. This does not prove which key is correct for Buddy. The safe next step is to identify the intended Buddy env source and launch contract without printing either value.
+- The runbook's Buddy launch section explicitly identifies `$HOME/.config/termux-bridge/runtime.env` as the environment source. Stage 5 confirms this file contains a non-empty `CONTROL_PLANE_API_KEY` and is mode 600. The Doctor command simply ran without sourcing that file. The separate `$HOME/.config/rea-tunnel/runtime.env` contains a different value and must not be substituted into Buddy.
 
 Stage 4:
 - `CONTROL_PLANE_API_KEY`: not set in current shell.
