@@ -35,7 +35,7 @@ public final class ComponentRegistry {
         c.add(spec("android", "Android OS", "Платформа", "Хост-система", EvidenceStatus.PRESENT_CONFIGURED, set(), false, null));
         c.add(spec("termux", "Termux", "Среда выполнения", "Внешний командный интерфейс ещё не проверен", EvidenceStatus.PRESENT_CONFIGURED, set("android"), false, null));
         c.add(spec("tunnel-client", "Tunnel Client v0.0.19", "Runtime", "ARM64 executable; launch contract требует проверки", EvidenceStatus.PRESENT_CONFIGURED, set("termux"), false, null));
-        c.add(spec("buddy-app", "Buddy-MyAI Android app", "Android", "Версия и package state требуют live-проверки", EvidenceStatus.CONFIRMED_WORKING, set("android"), false, null));
+        c.add(spec("buddy-app", "Buddy-MyAI Android app", "Android", "Package: app.buddy.myai.test; version/state требуют live-проверки", EvidenceStatus.CONFIRMED_WORKING, set("android"), false, null));
         c.add(spec("buddy-accessibility", "Buddy AccessibilityService", "Android service", "Нужна проверка enabled/running", EvidenceStatus.CONFIRMED_WORKING, set("buddy-app"), false, null));
         c.add(spec("buddy-mcp", "Buddy MCP", "MCP server", "HTTP MCP endpoint; Bearer token не логировать", EvidenceStatus.CONFIRMED_WORKING, set("buddy-app"), false, "http://127.0.0.1:8766/mcp"));
         c.add(spec("buddy-tunnel", "Buddy-MyAI tunnel", "Tunnel Client profile", "Dynamic health URL хранится в health.url", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client", "buddy-mcp"), false, null));
