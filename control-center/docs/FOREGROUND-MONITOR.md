@@ -10,6 +10,7 @@
 - Stop: in-app stop button or persistent notification action.
 - Restart mode: `START_STICKY` as a best-effort recovery hint.
 - Poll interval: 60 seconds.
+- A bounded 10-minute `PARTIAL_WAKE_LOCK` is renewed during monitoring so Handler-based polling can run while the screen is off. It is released on stop/destroy and naturally expires if the monitor cannot renew it. This increases battery use; the notification states that the CPU wake lock is active.
 - Current probes: Buddy tunnel health/readyz/Control Plane poll and unauthenticated local MCP challenge. When health fails, collect a bounded process-name snapshot.
 - Event journal: SQLite, 2,000 most recent events maximum, messages redacted before persistence.
 
@@ -30,7 +31,7 @@ JITI can keep an ongoing foreground service while Android permits it and can req
 - the device reboots before the user reopens/starts monitoring;
 - the OS terminates the service for resource or policy reasons.
 
-There is no hidden restart loop and no attempt to bypass Android controls. No boot receiver is enabled. Battery optimization exemptions remain a separate, user-controlled setup step.
+There is no hidden restart loop and no attempt to bypass Android controls. The partial wake lock is a transparent battery tradeoff, not a guarantee against OEM process killing. No boot receiver is enabled. Battery optimization exemptions remain a separate, user-controlled setup step.
 
 ## Target-device acceptance matrix
 
