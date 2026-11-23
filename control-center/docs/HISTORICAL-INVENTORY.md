@@ -109,8 +109,8 @@ Stage 5:
 
 Stage 7:
 - Buddy YAML contains configured non-empty Control Plane base URL, tunnel ID, and api_key field.
-- The precise representation/meaning of api_key was not conclusively established by the safe structural inspection.
-- Therefore the discrepancy between YAML and Doctor's missing environment variable remains open. Do not assume the YAML field is an env reference or a literal until the file is safely inspected with secret redaction and CLI behavior is verified.
+- Stage 7's structural inspection initially recorded only that the field was non-empty. The subsequent Stage 3 Doctor output resolves the representation: it is `env:CONTROL_PLANE_API_KEY`.
+- The remaining discrepancy is environmental: the variable was absent in the shell that ran Doctor, although it exists in two separate protected runtime.env files. The intended Buddy launch source still must be established; do not substitute either file blindly.
 
 ### 2.2 All tunnel processes stopped after Termux reopen
 
