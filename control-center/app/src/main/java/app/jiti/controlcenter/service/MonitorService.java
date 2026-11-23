@@ -17,15 +17,14 @@ import android.os.PowerManager;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 import app.jiti.controlcenter.MainActivity;
 import app.jiti.controlcenter.core.DiagnosticEvent;
 import app.jiti.controlcenter.core.ComponentStatus;
 import app.jiti.controlcenter.core.RuntimeSnapshot;
-import app.jiti.controlcenter.core.ToolCatalog;
-import app.jiti.controlcenter.core.ToolSpec;
+import app.jiti.controlcenter.core.ToolCatalogAudit;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
@@ -290,37 +289,23 @@ public final class MonitorService extends Service {
 
         if (result.succeeded() && "authenticated_ready".equals(state) && report != null) {
             JSONArray tools = report.optJSONArray("tools");
-            Set<String> liveNames = new LinkedHashSet<>();
+            List<String> liveNames = new ArrayList<>();
             if (tools != null) {
                 for (int i = 0; i < tools.length(); i++) {
                     String name = tools.optString(i, "");
                     if (!name.isEmpty()) liveNames.add(name);
                 }
             }
-            Set<String> expectedBase = new HashSet<>();
-            Set<String> expectedOptional = new HashSet<>();
-            for (ToolSpec spec : ToolCatalog.all()) {
-                (spec.optionalFeature ? expectedOptional : expectedBase).add(spec.name);
-            }
-            Set<String> missingBase = new LinkedHashSet<>(expectedBase);
-            missingBase.removeAll(liveNames);
-            Set<String> missingOptional = new LinkedHashSet<>(expectedOptional);
-            missingOptional.removeAll(liveNames);
-            Set<String> extra = new LinkedHashSet<>(liveNames);
-            extra.removeAll(expectedBase);
-            extra.removeAll(expectedOptional);
-            String detail = "Authenticated tools/list: live=" + report.optInt("tool_count", liveNames.size())
-                    + ", base expected=" + expectedBase.size() + ", missing base=" + missingBase
-                    + ", optional missing=" + missingOptional + ", extra=" + extra
-                    + ", pages=" + report.optInt("page_count", 1)
-                    + ", auth source name=" + report.optString("auth_source", "unknown");
+            ToolCatalogAudit audit = ToolCatalogAudit.analyze(liveNames,
+                    report.optInt("tool_count", liveNames.size()), report.optInt("page_count", 1));
+            String detail = audit.summary(report.optString("auth_source", "unknown"));
             saveSnapshot("buddy-mcp", ComponentStatus.READY, "Authenticated MCP initialize succeeded", 0);
             saveSnapshot("buddy-mcp-auth", ComponentStatus.READY,
                     "Authenticated initialize and tools/list succeeded; " + detail, 0);
-            saveSnapshot("buddy-tools", missingBase.isEmpty() ? ComponentStatus.READY : ComponentStatus.NOT_READY,
+            saveSnapshot("buddy-tools", audit.baseCatalogReady() ? ComponentStatus.READY : ComponentStatus.NOT_READY,
                     detail, 0);
             log("buddy-mcp-auth", "AUTHENTICATED_READY", detail);
-            notificationText = "Buddy MCP authenticated • " + liveNames.size() + " tools";
+            notificationText = "Buddy MCP authenticated • " + audit.reportedCount + " tools";
             updateNotification();
             inFlight = false;
             scheduleNext();
