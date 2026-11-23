@@ -10,14 +10,15 @@ public final class ComponentStateMachine {
 
     static {
         allow(ComponentStatus.UNKNOWN, ComponentStatus.CHECKING, ComponentStatus.AVAILABLE, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.CHECKING, ComponentStatus.AVAILABLE, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.STOPPED,
+        allow(ComponentStatus.CHECKING, ComponentStatus.AVAILABLE, ComponentStatus.PID_PRESENT, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.STOPPED,
                 ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.STOPPED, ComponentStatus.CHECKING, ComponentStatus.STARTING,
                 ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.STARTING, ComponentStatus.AVAILABLE, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.NOT_READY,
                 ComponentStatus.ERROR, ComponentStatus.STOPPED, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.AVAILABLE, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
-        allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.READY, ComponentStatus.STOPPED,
+        allow(ComponentStatus.PID_PRESENT, ComponentStatus.CHECKING, ComponentStatus.RUNNING, ComponentStatus.READY, ComponentStatus.STOPPED, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
+        allow(ComponentStatus.RUNNING, ComponentStatus.CHECKING, ComponentStatus.PID_PRESENT, ComponentStatus.READY, ComponentStatus.STOPPED,
                 ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.BLOCKED);
         allow(ComponentStatus.READY, ComponentStatus.CHECKING, ComponentStatus.NOT_READY, ComponentStatus.ERROR, ComponentStatus.UNAVAILABLE, ComponentStatus.STOPPED, ComponentStatus.BLOCKED);
         allow(ComponentStatus.NOT_READY, ComponentStatus.CHECKING, ComponentStatus.STARTING,
