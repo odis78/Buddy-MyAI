@@ -44,10 +44,14 @@ public final class ComponentRegistry {
         c.add(spec("buddy-browser", "Buddy background browser", "Optional feature", "8 browser tools appear only when Buddy browser setting is enabled", EvidenceStatus.UNVERIFIED, set("buddy-accessibility", "buddy-linux"), false, null));
         c.add(spec("buddy-notifications", "Buddy NotificationWatcher", "Optional Android service", "Notification access is a separate user-granted capability", EvidenceStatus.UNVERIFIED, set("buddy-app"), false, null));
         c.add(spec("rea-bridge", "REA-Termux-Bridge 0.1.3", "Tunnel Client profile", "Separate profile; launch order/ID unresolved", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
-        c.add(spec("droidmcp", "DroidMCP-Filesystem", "Tunnel Client profile", "Read-only filesystem profile", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
+        c.add(spec("droidmcp-server", "DroidMCP-Filesystem MCP server", "MCP server", "Read-only filesystem server; exact endpoint/process identity still to verify", EvidenceStatus.CONFIRMED_WORKING, set("termux"), false, null));
+        c.add(spec("droidmcp", "DroidMCP-Filesystem", "Tunnel Client profile", "Separate tunnel profile; observed stopped on 23-Nov", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
+        c.add(spec("droidmcp-tools", "DroidMCP-Filesystem tool catalog", "MCP catalog", "Exact tool list not yet reconciled", EvidenceStatus.UNVERIFIED, set("droidmcp-server"), false, null));
         c.add(spec("rea-android", "REA-Termux-Android", "Tunnel Client profile", "Separate REA Android profile", EvidenceStatus.OBSERVED_STOPPED, set("termux", "tunnel-client"), false, null));
-        c.add(spec("rea-mcp", "REA MCP", "MCP server", "Historical inventory: 207 tools / 6 prompts", EvidenceStatus.CONFIRMED_WORKING, set("termux"), false, null));
-        c.add(spec("bridge-mcp", "Bridge MCP", "MCP server", "Distinct Bridge runtime; endpoint unresolved", EvidenceStatus.CONFIRMED_WORKING, set("termux"), false, null));
+        c.add(spec("rea-mcp", "REA MCP", "MCP server", "Local REA MCP runtime; endpoint/process identity needs live verification", EvidenceStatus.CONFIRMED_WORKING, set("termux"), false, null));
+        c.add(spec("rea-tools", "REA MCP tool catalog", "MCP catalog", "Latest saved inventory: 207/207 tools and 6/6 prompts; exact names pending import", EvidenceStatus.CONFIRMED_WORKING, set("rea-mcp"), false, null));
+        c.add(spec("bridge-mcp", "Bridge MCP", "MCP server", "Distinct Bridge runtime; endpoint/process identity needs live verification", EvidenceStatus.CONFIRMED_WORKING, set("termux"), false, null));
+        c.add(spec("bridge-tools", "Bridge MCP tool catalog", "MCP catalog", "Exact tool list not yet reconciled", EvidenceStatus.UNVERIFIED, set("bridge-mcp"), false, null));
         c.add(spec("control-plane", "OpenAI Control Plane", "Network dependency", "Poll/auth must be checked without exposing key", EvidenceStatus.CONFIRMED_WORKING, set(), false, null));
         c.add(spec("shizuku", "Shizuku", "Optional Android service", "Optionality/dependency not proven", EvidenceStatus.UNVERIFIED, set("android"), false, null));
         c.add(spec("adb", "ADB / Android shell", "Optional capability", "Not assumed to be a separate tunnel", EvidenceStatus.UNVERIFIED, set("android"), false, null));
