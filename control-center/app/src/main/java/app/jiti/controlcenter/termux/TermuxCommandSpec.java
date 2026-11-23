@@ -72,7 +72,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, new_url):
         return None
 
-opener = urllib.request.build_opener(NoRedirect)
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
 
 def send(payload, session_id=None, protocol=None, method="POST"):
     headers = {
