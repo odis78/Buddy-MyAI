@@ -53,7 +53,7 @@ All state-changing operations require an explicit in-app confirmation. No blind 
 
 ## Android background requirement
 
-The control app is intended to stay active as a foreground service with a persistent notification until the user stops it. Android 14 and Infinix power management can still terminate or restrict apps. The app cannot honestly guarantee survival after force-stop, reboot restrictions, OEM task killing, or Termux being force-stopped.
+The control app is intended to stay active as a foreground service with a persistent notification until the user stops it. Android 14 and Infinix power management can still terminate or restrict apps. The monitor uses a renewable partial CPU wake lock while active so 60-second checks can run with the screen off. This increases battery use; the persistent notification reports whether the wake lock is actually held, and stopping the monitor releases it. The app cannot honestly guarantee survival after force-stop, reboot restrictions, OEM task killing, or Termux being force-stopped.
 
 A critical feasibility spike must prove how the control app can safely invoke Termux commands using Termux's supported external-command interface, and what survives when the Termux UI is closed versus when the Termux process is killed. Do not claim independence from Termux until this is demonstrated on the target phone.
 
