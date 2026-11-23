@@ -28,6 +28,21 @@ public class DependencyPlannerTest {
                 new LinkedHashSet<>(Arrays.asList("missing")));
     }
 
+    @Test public void restartPlanIncludesOnlyRootAndDownstreamDependants() {
+        ComponentRegistry registry = ComponentRegistry.historicalBaseline();
+        DependencyPlanner.RestartPlan plan = DependencyPlanner.restartPlan(registry,
+                new LinkedHashSet<>(Collections.singletonList("buddy-mcp")));
+        assertTrue(plan.affectedComponents.contains("buddy-mcp"));
+        assertTrue(plan.affectedComponents.contains("buddy-tunnel"));
+        assertTrue(plan.affectedComponents.contains("chatgpt-connector-buddy"));
+        assertTrue(plan.affectedComponents.contains("e2e-buddy"));
+        assertFalse(plan.affectedComponents.contains("buddy-accessibility"));
+        assertFalse(plan.affectedComponents.contains("buddy-app"));
+        assertFalse(plan.affectedComponents.contains("termux"));
+        assertTrue(plan.stopOrder.indexOf("e2e-buddy") < plan.stopOrder.indexOf("buddy-tunnel"));
+        assertTrue(plan.startOrder.indexOf("buddy-mcp") < plan.startOrder.indexOf("buddy-tunnel"));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void dependencyCycleRejected() {
         ComponentSpec a = new ComponentSpec("a", "A", "test", "", EvidenceStatus.UNVERIFIED,
