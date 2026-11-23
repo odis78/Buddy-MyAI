@@ -100,6 +100,8 @@ public final class MonitorService extends Service {
     private void pollOnce() {
         if (!monitoring) return;
         renewWakeLock();
+        saveSnapshot("jiti-monitor-service", ComponentStatus.RUNNING, "Foreground monitor active", 0);
+        saveSnapshot("jiti-control-center", ComponentStatus.RUNNING, "Monitor process active", 0);
         NotificationManager notifications = getSystemService(NotificationManager.class);
         if (notifications == null || !notifications.areNotificationsEnabled()
                 || (Build.VERSION.SDK_INT >= 33
@@ -129,8 +131,6 @@ public final class MonitorService extends Service {
             lastGateState = "";
         }
         saveSnapshot("termux-run-command", ComponentStatus.AVAILABLE, "RUN_COMMAND permission and version gate passed", 0);
-        saveSnapshot("jiti-monitor-service", ComponentStatus.RUNNING, "Foreground monitor active", 0);
-        saveSnapshot("jiti-control-center", ComponentStatus.RUNNING, "Monitor process active", 0);
         inFlight = true;
         TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
