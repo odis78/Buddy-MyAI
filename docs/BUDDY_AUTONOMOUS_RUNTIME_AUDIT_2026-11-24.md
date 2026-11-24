@@ -251,3 +251,45 @@ Release keystore создаётся один раз только после ут
 ### Последствие для реализации
 
 Не переносить текущий `Helper` в роль supervisor простым переименованием. Разработать отдельные классы, например `RuntimeSupervisor`, `RuntimeOrchestrator`, `RuntimeComponent` и `RuntimeHealthProbe`, с узким интерфейсом запуска поверх `Linux.builder()`. Существующий Helper, MCP server, Android Keystore secrets и Alpine installer должны остаться без регрессий. Добавить тесты отдельно для новой подсистемы, не меняя поведение текущих агентских процессов.
+
+
+## 14. Findings from the separate GT Control Center checkpoint (reference only)
+
+Reviewed the independent Control Center source checkpoint at commit `e4db9f24ceed4ac68c4bc93216b78383f305e568`, especially:
+- `control-center/docs/TUNNEL-CLIENT-0.0.19-ANALYSIS.md`;
+- `control-center/docs/STARTUP-AND-RECOVERY.md`;
+- `control-center/docs/TERMUX-INTEGRATION-GATE.md`;
+- `control-center/docs/FOREGROUND-MONITOR.md`;
+- `control-center/docs/HISTORICAL-INVENTORY.md`.
+
+Control Center remains a separate installed app and is not merged into Buddy. Its verified source and tests are used only as evidence and design references.
+
+### Dependency order recovered from the existing operational scripts
+
+The documented graph separates Buddy from the three REA helper profiles:
+
+1. Buddy Android app and its `BuddyService` start the local MCP listener at `127.0.0.1:8766`.
+2. The Buddy Tunnel Client profile connects to that authenticated local MCP endpoint. It must not start before the local listener is ready.
+3. The three REA helper profiles have a script-defined order: REA-Termux-Bridge 0.1.3 → DroidMCP-Filesystem → REA-Termux-Android. Wait for readiness after each start. Shutdown is reverse order.
+
+The three REA profiles are an operational sequence, but the docs explicitly warn not to invent hard dependency edges between them without downstream consumer/health evidence. The Buddy profile is independent of the three-profile REA group. A future RuntimeManifest must preserve these groups and distinguish proven dependencies from ordering constraints.
+
+### Critical Tunnel Client v0.0.19 compatibility finding
+
+The native `runtimes connect` profile generator for HTTP targets writes a `server_urls` entry but omits `extra_headers` and `discovery_extra_headers`. Buddy MCP requires a Bearer Authorization header. Therefore, a blind migration of Buddy to `runtimes connect` would generate an incomplete profile and break authenticated MCP forwarding.
+
+Do not use the `runtimes connect` generator for the Buddy profile unless a reviewed method preserves the header references without materializing the token. Do not replace existing YAML profiles as a bulk conversion. This is a known compatibility blocker, not a theoretical concern.
+
+The native runtime manager's process identity model (PID + process start time + executable identity, plus profile/config identity) is valuable. A bare PID or stale PID file must never mean RUNNING. The new Buddy supervisor should adopt stronger identity checks, but must not assume existing Termux profiles are native managed aliases.
+
+### Existing Termux command bridge is not the target architecture
+
+The Control Center uses Termux RUN_COMMAND as a user-opt-in, fixed-operation interface. Termux explicitly warns that external-app command permission can allow command execution in Termux context. The new Buddy runtime must not depend on this mechanism: it is a migration source and fallback diagnostic only, not the end-state runtime. Do not request/enable Termux external-app execution or edit Termux properties as part of this project.
+
+### Foreground lifecycle reference
+
+The Control Center's monitoring design uses a user-started foreground service with `specialUse`, declared subtype and persistent notification, plus bounded wake-lock behavior. This is useful design evidence, not proof that the same configuration will be compliant or stable in Buddy. Buddy targetSdk is 36; the final service declaration and start policy must be checked against current Android FGS rules and tested on Infinix Android 14. No absolute always-on guarantee is permitted.
+
+### Reuse boundaries
+
+Reuse the ideas and test cases for DependencyPlanner, ComponentStateMachine, ProcessIdentity, RecoveryPolicy, CircuitBreaker and SecretRedactor. Do not copy the Control Center Android application module, its Termux-specific UI, or its RUN_COMMAND implementation into Buddy. Adapt the pure lifecycle logic to Buddy's existing Java 8 and PRoot process APIs, with tests in Buddy's own app module.
