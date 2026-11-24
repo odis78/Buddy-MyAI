@@ -10,7 +10,7 @@ public class RuntimeProfileWriterTest {
     private static final String TUNNEL = "tunnel_6b02e7e420948191a1829df4a5373d20";
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
-        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"));
+        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
@@ -32,12 +32,12 @@ public class RuntimeProfileWriterTest {
             while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
             bytes = out.toByteArray();
         }
-        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime")));
+        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so")));
     }
 
     @Test public void rejectsMalformedTunnelId() {
         try {
-            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
+            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
             fail("invalid tunnel id accepted");
         } catch (IllegalArgumentException expected) { }
     }
@@ -47,7 +47,7 @@ public class RuntimeProfileWriterTest {
         File target = new File(dir, "buddy-myai.yaml");
         try {
             Files.write(target.toPath(), "old".getBytes(StandardCharsets.UTF_8));
-            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"));
+            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"), new File(dir, "libcloudflared.so"));
             String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
             assertTrue(yaml.contains(TUNNEL));
             assertTrue(yaml.contains("discovery_extra_headers"));
