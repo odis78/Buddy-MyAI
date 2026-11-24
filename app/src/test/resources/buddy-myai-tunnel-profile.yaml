@@ -3,6 +3,8 @@ control_plane:
   base_url: "https://api.openai.com"
   tunnel_id: "tunnel_6b02e7e420948191a1829df4a5373d20"
   api_key: "file:/tmp/buddy-runtime/control-plane-api-key"
+cloudflared:
+  path: "/tmp/buddy-runtime/libcloudflared.so"
 health:
   listen_addr: "127.0.0.1:0"
   url_file: "/tmp/buddy-runtime/health.url"
