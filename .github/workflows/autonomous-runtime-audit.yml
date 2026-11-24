@@ -152,14 +152,7 @@ jobs:
               cd /root/rea
               npm install --omit=dev --no-audit --no-fund
               node scripts/rea.mjs mcp doctor --format json > /work/dist/rea-mcp-doctor.json
-              node -e "
-                const fs = require('fs');
-                const r = JSON.parse(fs.readFileSync('/work/dist/rea-mcp-doctor.json', 'utf8'));
-                if (!r.healthy) throw new Error('REA MCP doctor unhealthy');
-                if (r.inventory.tools.expected !== r.inventory.tools.observed) throw new Error('REA tool inventory mismatch');
-                if (r.inventory.prompts.expected !== r.inventory.prompts.observed) throw new Error('REA prompt inventory mismatch');
-                process.stdout.write(JSON.stringify({healthy:r.healthy,tools:r.inventory.tools,prompts:r.inventory.prompts,server:r.server})+'\\n');
-              "
+              node /work/scripts/verify_rea_mcp_doctor.mjs /work/dist/rea-mcp-doctor.json
               cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
               node --version
               npm --version
