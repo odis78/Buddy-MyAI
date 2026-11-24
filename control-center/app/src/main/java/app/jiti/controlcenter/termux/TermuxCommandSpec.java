@@ -709,6 +709,11 @@ else:
     public boolean isSafeFixedCommand() {
         if (executable == null || !executable.startsWith("/") || executable.contains("..")) return false;
         if (executable.endsWith("/sh") || executable.endsWith("/bash")) return false;
+        if (operation == TermuxOperation.MCP_ENDPOINT_AUDIT) {
+            return executable.endsWith("/bin/python") && arguments.size() == 2
+                    && "-c".equals(arguments.get(0))
+                    && MCP_ENDPOINT_AUDIT_SCRIPT.equals(arguments.get(1));
+        }
         if (operation == TermuxOperation.BUDDY_MCP_AUTH_PROBE) {
             return executable.endsWith("/bin/python") && arguments.size() == 3
                     && "-c".equals(arguments.get(0))
