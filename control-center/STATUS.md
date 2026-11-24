@@ -32,7 +32,7 @@
 - Dashboard now renders historical evidence and live state as separate labels, with per-component freshness windows and cumulative error/retry counters.
 - Added JVM unit tests for dependency planning/cycles and scoped restart plans, retry policy, circuit breaker, state transitions, secret redaction, process identity, tool catalog, Termux command allowlisting, version gates, and result redaction.
 - CI now runs unit tests before APK assembly.
-- Latest debug artifact: GitHub Actions run 45300593498, artifact 14878871490; APK 87,419 bytes; SHA-256 `76825bcf5a850bc7261ccb85fe53991c054182d718b848438e56648f7296fa06`. This is a CI debug build, not a device-accepted release.
+- Latest debug artifact: GitHub Actions run 45301611114, artifact 14879535971; APK 88,859 bytes; SHA-256 `adc58ca73c4aecd408997ac848745a429544d6db27478864abc12467bb0dcc44`. This is a CI debug build, not a device-accepted release.
 
 ## Explicitly not complete
 - Live Android/Termux process inspection has not yet been verified on the target device.
