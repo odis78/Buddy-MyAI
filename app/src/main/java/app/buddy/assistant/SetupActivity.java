@@ -599,6 +599,14 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                 getString(R.string.setup_outside_background_info), Prefs.outsideBackground(this),
                 on -> Prefs.setOutsideBackground(this, on))), topGap(12));
         addCard(mcp);
+        LinearLayout runtimeCard = card();
+        runtimeCard.setPaddingRelative(dp(this, 16), dp(this, 4), dp(this, 16), dp(this, 4));
+        runtimeCard.addView(navRow(R.drawable.ms_terminal,
+                getString(R.string.runtime_settings_title),
+                getString(R.string.runtime_settings_subtitle),
+                Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET),
+                RuntimeSettingsActivity.class), full());
+        addCard(runtimeCard);
         tailnetCard();
     }
 
