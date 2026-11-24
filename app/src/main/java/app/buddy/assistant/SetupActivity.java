@@ -518,7 +518,7 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
         String token = Prefs.token(this);
         String url = "http://127.0.0.1:" + McpServer.PORT + "/mcp";
         // The token is entered at a silent prompt, never embedded in a command or shell history.
-        String bootstrap = "mkdir -p ~/.config/buddy-mcp && chmod 700 ~/.config/buddy-mcp && "
+        String bootstrap = "umask 077 && [ ! -L ~/.config/buddy-mcp ] && mkdir -p ~/.config/buddy-mcp && chmod 700 ~/.config/buddy-mcp && [ ! -L ~/.config/buddy-mcp/token ] && "
                 + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && [[ \"$BUDDY_TOKEN\" =~ ^[0-9a-f]{48}$ ]] || { echo 'Invalid Buddy MCP token'; false; } && "
                 + "printf '%s' \"$BUDDY_TOKEN\" > ~/.config/buddy-mcp/token && chmod 600 ~/.config/buddy-mcp/token && ";
         // Preserve user shell settings; only remove/rewrite Buddy-owned marked blocks.
