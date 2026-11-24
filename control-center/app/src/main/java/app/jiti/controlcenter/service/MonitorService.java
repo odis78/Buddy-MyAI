@@ -204,7 +204,8 @@ public final class MonitorService extends Service {
         final boolean pidPresent = processRunning(result.stdout);
 
         if (!pidPresent || pid <= 0) {
-            ComponentStatus processState = pidPresent ? ComponentStatus.ERROR
+            ComponentStatus processState = hasProcessError(result.stdout) ? ComponentStatus.ERROR
+                    : pidPresent ? ComponentStatus.ERROR
                     : result.internalError != -1 || result.exitCode == 127
                     ? ComponentStatus.UNAVAILABLE : hasProcessReport(result.stdout)
                     ? ComponentStatus.STOPPED : ComponentStatus.ERROR;
@@ -418,6 +419,12 @@ public final class MonitorService extends Service {
                 next.run();
                 return;
             }
+            if (!process.optString("error", "").isEmpty()) {
+                recordProfileStatus(componentId, ComponentStatus.ERROR, process.optInt("pid", 0),
+                        "Tunnel PID file could not be read or parsed");
+                next.run();
+                return;
+            }
             if (!process.optBoolean("running")) {
                 recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0),
                         "Tunnel Client process is not running");
@@ -498,6 +505,14 @@ public final class MonitorService extends Service {
         } catch (Exception ignored) { }
         saveSnapshot(id, status, detail, pid);
         if (previous == null || previous.status != status) log(id, status.name(), detail);
+    }
+
+    private boolean hasProcessError(String json) {
+        try {
+            JSONObject report = new JSONObject(json);
+            JSONObject process = report.optJSONObject("process");
+            return process != null && !process.optString("error", "").isEmpty();
+        } catch (Exception ignored) { return false; }
     }
 
     private boolean hasProcessReport(String json) {
