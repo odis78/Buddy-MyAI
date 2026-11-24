@@ -134,8 +134,12 @@ public class TermuxCommandSpecTest {
         assertTrue(stop.isSafeFixedCommand());
         assertEquals("preflight", stopPreflight.arguments.get(2));
         assertTrue(preflight.arguments.get(1).contains(".config/termux-bridge/runtime.env"));
+        assertTrue(preflight.arguments.get(1).contains(".config/tunnel-client-buddy/buddy.token"));
         assertTrue(preflight.arguments.get(1).contains("CONTROL_PLANE_API_KEY"));
         assertTrue(preflight.arguments.get(1).contains("BUDDY_TOKEN"));
+        assertTrue(preflight.arguments.get(1).contains("buddy_token_file_symlink_not_allowed"));
+        assertTrue(preflight.arguments.get(1).contains("insecure_buddy_token_file_permissions"));
+        assertTrue(preflight.arguments.get(1).contains("auth_from_token_file"));
         assertTrue(stop.arguments.get(1).contains("signal.SIGTERM"));
         assertFalse(stop.arguments.get(1).contains("signal.SIGKILL"));
         assertTrue(stop.arguments.get(1).contains("pid_identity_mismatch"));
