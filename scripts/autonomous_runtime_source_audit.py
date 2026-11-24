@@ -30,6 +30,7 @@ runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWrit
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
+runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
 workflow = read(".github/workflows/build.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
@@ -83,6 +84,9 @@ secret_files_ok = all(term in runtime_launcher for term in [
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
 add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
     "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
+fifo_ok = "TestBuddyFileSecretReferenceReadsOneShotFIFO" in runtime_fifo_test and "syscall.Mkfifo" in runtime_fifo_test
+add("runtime_fifo_secret_handoff", "PASS" if fifo_ok else "FAIL",
+    "Pinned Tunnel Client file-reference resolver is regression-tested with one-shot FIFOs")
 supervisor_ok = all(term in runtime_supervisor for term in [
     "RuntimeProcessLauncher.startConfigured", "RuntimeHealthProbe.isReady", "tunnelProcess.isAlive", "destroyForcibly"
 ])
