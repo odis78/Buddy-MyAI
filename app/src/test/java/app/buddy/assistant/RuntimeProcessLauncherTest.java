@@ -2,31 +2,44 @@ package app.buddy.assistant;
 
 import org.junit.Test;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import static org.junit.Assert.*;
 
 public class RuntimeProcessLauncherTest {
-    @Test public void keepsCredentialsOutOfArgvAndProfile() throws Exception {
+    @Test public void credentialsStayOutOfArgvEnvironmentAndProfile() throws Exception {
         File dir = Files.createTempDirectory("buddy-launch-test").toFile();
         File binary = new File(dir, "libtunnel-client.so");
         File config = new File(dir, "buddy-myai.yaml");
+        String apiKey = "test-control-plane-secret";
+        String buddyToken = "test-buddy-token";
         try {
             Files.write(binary.toPath(), new byte[]{1});
+            RuntimeProcessLauncher.writeSecretFileAtomically(
+                    new File(dir, RuntimeProcessLauncher.API_KEY_FILE), apiKey);
+            RuntimeProcessLauncher.writeSecretFileAtomically(
+                    new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE), "Bearer " + buddyToken);
             RuntimeProfileWriter.writeBuddyProfile(config,
                     RuntimeProcessLauncher.DEFAULT_TUNNEL_ID, dir);
-            String apiKey = "test-control-plane-secret";
-            String buddyToken = "test-buddy-token";
-            ProcessBuilder builder = RuntimeProcessLauncher.createProcessBuilder(
-                    binary, config, dir, apiKey, buddyToken);
+            ProcessBuilder builder = RuntimeProcessLauncher.createProcessBuilder(binary, config, dir);
             assertEquals(binary.getAbsolutePath(), builder.command().get(0));
             assertFalse(builder.command().toString().contains(apiKey));
             assertFalse(builder.command().toString().contains(buddyToken));
-            String yaml = new String(Files.readAllBytes(config.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            assertFalse(builder.environment().containsKey("CONTROL_PLANE_API_KEY"));
+            assertFalse(builder.environment().containsKey("BUDDY_AUTH_HEADER"));
+            String yaml = new String(Files.readAllBytes(config.toPath()), StandardCharsets.UTF_8);
             assertFalse(yaml.contains(apiKey));
             assertFalse(yaml.contains(buddyToken));
-            assertEquals(apiKey, builder.environment().get("CONTROL_PLANE_API_KEY"));
-            assertEquals("Bearer " + buddyToken, builder.environment().get("BUDDY_AUTH_HEADER"));
+            assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.API_KEY_FILE).getAbsolutePath()));
+            assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).getAbsolutePath()));
+            assertEquals(apiKey, new String(Files.readAllBytes(
+                    new File(dir, RuntimeProcessLauncher.API_KEY_FILE).toPath()), StandardCharsets.UTF_8));
+            assertEquals("Bearer " + buddyToken, new String(Files.readAllBytes(
+                    new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).toPath()), StandardCharsets.UTF_8));
             assertEquals("/system/etc/security/cacerts", builder.environment().get("SSL_CERT_DIR"));
+            RuntimeProcessLauncher.cleanupSecretFiles(dir);
+            assertFalse(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).exists());
+            assertFalse(new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).exists());
         } finally {
             config.delete();
             new File(dir, "launcher.log").delete();
@@ -34,13 +47,12 @@ public class RuntimeProcessLauncherTest {
         }
     }
 
-    @Test public void rejectsMissingCredentialInputs() throws Exception {
+    @Test public void rejectsIncompleteLaunchInputs() throws Exception {
         File dir = Files.createTempDirectory("buddy-launch-test").toFile();
         try {
             try {
-                RuntimeProcessLauncher.createProcessBuilder(
-                        new File(dir, "binary"), new File(dir, "config"), dir, "", "token");
-                fail("missing API key accepted");
+                RuntimeProcessLauncher.createProcessBuilder(null, new File(dir, "config"), dir);
+                fail("missing binary accepted");
             } catch (IllegalArgumentException expected) { }
         } finally {
             dir.delete();
