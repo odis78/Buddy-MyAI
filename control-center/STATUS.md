@@ -16,6 +16,9 @@
 - Reworked dashboard to render the registry, all 52 Buddy source tools, and historical evidence separately from live status.
 - Implemented fixed Termux RUN_COMMAND bridge with version/permission gate, PendingIntent results, timeout, output redaction, and bounded output.
 - Added guarded Buddy-only start/stop/restart prototype using fixed Python scripts, preflight, exact PID/executable/config identity checks, explicit confirmation, and SIGTERM-only shutdown.
+- Hardened stop preflight to be genuinely read-only: it no longer writes launcher status for already-stopped, stale-PID, or identity-mismatch results; a JVM regression test protects this.
+- Corrected UI success handling so nonzero process exit codes cannot be mistaken for successful identity or stop operations.
+- Audited the installed Tunnel Client health command against upstream v0.0.19 source; `health --url-file --pid-file --require-control-plane-poll --json` matches the supported CLI flags.
 - Added read-only Buddy tunnel health and local MCP authentication-challenge probes.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
 - Added bounded SQLite diagnostic event journal (maximum 2,000 events) and persistent latest-state snapshots per component.
@@ -25,14 +28,14 @@
 
 ## Explicitly not complete
 - Live Android/Termux process inspection has not yet been verified on the target device.
-- Termux RUN_COMMAND adapter is implemented for fixed read-only probes, but target-device permission, external-app property, and lifecycle proof are still pending.
-- Authenticated HTTP MCP initialize/list-tools probes; current probe only verifies the local listener/auth challenge.
+- Termux RUN_COMMAND adapter and Buddy lifecycle prototype are implemented, but target-device permission, external-app property, callback, and lifecycle proof are still pending.
+- Authenticated HTTP MCP initialize and paginated tools/list probe is implemented, but has not yet been accepted on the target device.
 - Exact profile launch/stop contracts for all four tunnel-client instances.
 - Foreground monitor and bounded SQLite event journal are implemented, but Android 14/Infinix lifecycle and notification behavior are not yet device-tested.
 - Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. JVM unit tests and debug APK build now pass in GitHub Actions run 45293208411 (commit f410352a053618c5ef6edca3e63c0d20de9ca025).
+1. JVM unit tests and debug APK build passed in GitHub Actions run 45294973372 (commit 5ba45f6486c1774143f5796e1f016aedb343f614). A subsequent UI result-guard change is awaiting its own CI run.
 2. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, guarded Buddy start/stop in an explicitly approved test window, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
 3. Recover exact launch/stop and health-file contracts for Buddy, Bridge, DroidMCP, and REA Android profiles.
 4. Identify the correct Buddy token/header source using the names-only environment audit, then add authenticated MCP initialize and tools/list probes without exposing values.
