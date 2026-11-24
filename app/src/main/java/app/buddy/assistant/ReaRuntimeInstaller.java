@@ -5,7 +5,6 @@ import android.content.res.AssetManager;
 import android.os.StatFs;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,7 +58,8 @@ final class ReaRuntimeInstaller {
 
         File marker = new File(root, "root/.buddy-rea-runtime-version");
         try (FileOutputStream out = new FileOutputStream(marker, false)) {
-            out.write((VERSION + "\n" + NODE_VERSION + "\n" + PACKAGE_SHA256 + "\n")
+            out.write((VERSION + "\n" + NODE_VERSION + "\n" + PACKAGE_SHA256 + "\n"
+                    + BRIDGE_SHA256 + "\n" + DROIDMCP_SHA256 + "\n" + REA_SOURCE_COMMIT + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             out.getFD().sync();
         }
@@ -79,7 +79,7 @@ final class ReaRuntimeInstaller {
                     || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
                     || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
             String output = Linux.exec(context,
-                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
@@ -117,7 +117,8 @@ final class ReaRuntimeInstaller {
                 + "apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools "
                 + ">/tmp/buddy-apk-install.log 2>&1 || { tail -n 40 /tmp/buddy-apk-install.log; exit 1; }; "
                 + "node --version | grep -F '" + NODE_VERSION + "' >/dev/null; "
-                + "rm -rf /root/rea; mkdir -p /root/rea; "
+                + "rm -rf /root/rea /root/rea-source /root/bridge /root/droidmcp; "
+                + "mkdir -p /root/rea; "
                 + "tar -xzf /tmp/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1; "
                 + "cd /root/rea; "
                 + "npm install --omit=dev --no-audit --no-fund >/tmp/buddy-rea-npm.log 2>&1 "
@@ -131,6 +132,15 @@ final class ReaRuntimeInstaller {
                 + " || r.inventory.prompts.expected!==" + EXPECTED_PROMPTS
                 + " || r.inventory.prompts.observed!==" + EXPECTED_PROMPTS
                 + ") process.exit(2); console.log(\"REA_MCP_READY=207/207;6/6\");'; "
+                + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source "
+                + ">/tmp/buddy-rea-source.log 2>&1 || { tail -n 40 /tmp/buddy-rea-source.log; exit 1; }; "
+                + "test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
+                + "mkdir -p /root/bridge/server /root/droidmcp/server /system; "
+                + "cp /tmp/termux-bridge-0.1.3.mjs /root/bridge/server/index.mjs; "
+                + "cp /tmp/droidmcp-filesystem-0.4.0.mjs /root/droidmcp/server/index.mjs; "
+                + "node --check /root/bridge/server/index.mjs; "
+                + "node --check /root/droidmcp/server/index.mjs; "
+                + "printf '%s\\n' 'HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0'; "
                 + "node --version; npm --version; java -version; adb version";
     }
 
