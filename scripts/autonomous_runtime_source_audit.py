@@ -87,6 +87,8 @@ add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
     "Buddy profile points to the separately bundled, pinned cloudflared companion")
 rea_runtime_ok = (
     "nodejs-current" in rea_runtime_installer
+    and "openjdk21-jre-headless" in rea_runtime_installer
+    and "android-tools" in rea_runtime_installer
     and "rea-agents-6.5.0.tgz" in rea_runtime_installer
     and "mcp doctor --format json" in rea_runtime_installer
     and "EXPECTED_TOOLS = 207" in rea_runtime_installer
