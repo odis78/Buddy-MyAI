@@ -44,10 +44,10 @@ This is intentional. The RUN_COMMAND interface is powerful enough to execute arb
 3. Test Android 14 specialUse foreground start/stop, notification visibility, partial wake lock, task swipe, process death, force-stop, and OEM battery behavior.
 4. Recover exact profile metadata and start/stop contracts for all four Tunnel Client profiles without writing current configuration.
 5. Locate the Buddy token/header source by key names only; implement authenticated MCP initialize/tools/list only after the source is safely resolved.
-7. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
 6. Extend continuous background monitoring to Bridge, DroidMCP, and REA Android; current checks run only during user-started preflight.
-7. Implement guarded per-profile controls and bounded recovery only after those contracts pass.
-8. Run repeated device acceptance tests and publish a signed-off APK only when functional criteria pass.
+7. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
+8. Implement guarded per-profile controls and bounded recovery only after those contracts pass.
+9. Run repeated device acceptance tests and publish a signed-off APK only when functional criteria pass.
 
 ## Known design constraint
 
