@@ -79,6 +79,14 @@ final class RuntimeProcessLauncher {
         if (target == null || value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException("Secret file input is incomplete");
         }
+        writeSecretFileAtomically(target, value);
+        chmod(target, 0600, "Could not secure runtime credential file");
+    }
+
+    static void writeSecretFileAtomically(File target, String value) throws IOException {
+        if (target == null || value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Secret file input is incomplete");
+        }
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Secret directory is unavailable");
@@ -91,7 +99,6 @@ final class RuntimeProcessLauncher {
             }
             Files.move(staging.toPath(), target.toPath(),
                     StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            chmod(target, 0600, "Could not secure runtime credential file");
         } catch (Exception e) {
             throw new IOException("Could not securely write runtime credential file", e);
         } finally {
