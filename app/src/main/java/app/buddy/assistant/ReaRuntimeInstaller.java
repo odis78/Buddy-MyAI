@@ -101,7 +101,7 @@ final class ReaRuntimeInstaller {
     private static String buildInstallCommand() {
         return "set -eu; "
                 + "apk update >/tmp/buddy-apk-update.log 2>&1 || { tail -n 30 /tmp/buddy-apk-update.log; exit 1; }; "
-                + "apk add --no-cache nodejs-current npm python3 make g++ linux-headers git "
+                + "apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools "
                 + ">/tmp/buddy-apk-install.log 2>&1 || { tail -n 40 /tmp/buddy-apk-install.log; exit 1; }; "
                 + "node --version | grep -F '" + NODE_VERSION + "' >/dev/null; "
                 + "rm -rf /root/rea; mkdir -p /root/rea; "
@@ -118,7 +118,7 @@ final class ReaRuntimeInstaller {
                 + " || r.inventory.prompts.expected!==" + EXPECTED_PROMPTS
                 + " || r.inventory.prompts.observed!==" + EXPECTED_PROMPTS
                 + ") process.exit(2); console.log(\"REA_MCP_READY=207/207;6/6\");'; "
-                + "node --version; npm --version";
+                + "node --version; npm --version; java -version; adb version";
     }
 
     private static String tail(String value) {
