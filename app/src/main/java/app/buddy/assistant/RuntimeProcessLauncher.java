@@ -106,6 +106,11 @@ final class RuntimeProcessLauncher {
         }
     }
 
+    static void cleanupSecretsIfLoaded(Context context) {
+        File runtimeDir = new File(context.getFilesDir(), "runtime/tunnel-client");
+        if (RuntimeHealthProbe.isReady(new File(runtimeDir, "health.url"))) cleanupSecretFiles(runtimeDir);
+    }
+
     static void cleanupSecretFiles(File runtimeDir) {
         if (runtimeDir == null) return;
         new File(runtimeDir, API_KEY_FILE).delete();
