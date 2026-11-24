@@ -795,19 +795,20 @@ public final class MainActivity extends Activity {
 
         final int verifiedPid = pid;
         final boolean ready = endpointsReady;
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        final String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
         TermuxCommandClient.runProcessExecutable(this, verifiedPid, executable -> {
             if (isFinishing() || isDestroyed()) return;
-            if (!executable.succeeded() || !TunnelProfileIdentity.matchesExecutable(executable.stdout)) {
+            if (!executable.succeeded() || home.isEmpty()
+                    || !TunnelProfileIdentity.matchesExecutable(executable.stdout, home)) {
                 saveProfileSnapshot(componentId, ComponentStatus.PID_PRESENT, verifiedPid,
-                        "PID exists but Tunnel Client executable identity does not match");
+                        "PID exists but exact Tunnel Client executable identity does not match");
                 next.run();
                 return;
             }
             TermuxCommandClient.runProcessCmdline(this, verifiedPid, commandLine -> {
                 if (isFinishing() || isDestroyed()) return;
-                TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
-                String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
-                boolean matches = commandLine.succeeded() && !home.isEmpty()
+                boolean matches = commandLine.succeeded()
                         && TunnelProfileIdentity.matchesProfile(executable.stdout, commandLine.stdout,
                         home, profileConfigRelativePath(operation), profileConfigFlag(operation));
                 ComponentStatus status = !matches ? ComponentStatus.PID_PRESENT
