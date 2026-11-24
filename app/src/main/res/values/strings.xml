@@ -2386,6 +2386,8 @@
     <string name="runtime_status_not_configured">Not configured</string>
     <string name="runtime_status_saved">Credentials saved</string>
     <string name="runtime_status_detail">Status: %1$s</string>
+    <string name="runtime_rea_status_label">REA tools tunnel</string>
+    <string name="runtime_rea_status_detail">REA: %1$s</string>
     <string name="runtime_notification_title">Buddy runtime</string>
     <string name="runtime_notification_channel">Buddy runtime</string>
     <string name="runtime_notification_channel_description">Keeps Buddy's authenticated ChatGPT tunnel available.</string>
