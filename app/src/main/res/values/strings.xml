@@ -2391,6 +2391,9 @@
     <string name="runtime_notification_channel_description">Keeps Buddy's authenticated ChatGPT tunnel available.</string>
     <string name="runtime_notification_starting">Starting authenticated connection…</string>
     <string name="runtime_notification_ready">ChatGPT connection active</string>
+    <string name="runtime_notification_rea_installing">Buddy connected. %1$s</string>
+    <string name="runtime_notification_ready_with_rea">ChatGPT and REA tools active</string>
+    <string name="runtime_notification_rea_retry">Buddy is active. REA tools retry in %1$d s.</string>
     <string name="runtime_notification_retry">Connection not ready. Retrying in %1$d s.</string>
     <string name="runtime_notification_setup">Open Buddy settings to configure the tunnel API key.</string>
     <string name="runtime_notification_stop">Stop</string>
