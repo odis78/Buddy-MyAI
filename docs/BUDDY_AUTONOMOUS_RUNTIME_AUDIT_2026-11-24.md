@@ -316,3 +316,18 @@ The Control Center's monitoring design uses a user-started foreground service wi
 ### Reuse boundaries
 
 Reuse the ideas and test cases for DependencyPlanner, ComponentStateMachine, ProcessIdentity, RecoveryPolicy, CircuitBreaker and SecretRedactor. Do not copy the Control Center Android application module, its Termux-specific UI, or its RUN_COMMAND implementation into Buddy. Adapt the pure lifecycle logic to Buddy's existing Java 8 and PRoot process APIs, with tests in Buddy's own app module.
+
+
+## 14. Runtime payload and authenticated profile implementation (2026-11-24)
+
+The candidate branch now contains the first two production-side runtime building blocks:
+
+- `RuntimeArtifactInstaller` installs the pinned, statically linked Linux ARM64 Tunnel Client into Buddy's private Alpine rootfs. It verifies SHA-256 before atomically replacing the destination and sets executable mode only after verification.
+- `RuntimeProfileWriter` writes the Buddy profile without using the v0.0.19 connect-profile generator. The generated profile explicitly retains both `mcp.extra_headers.Authorization` and `mcp.discovery_extra_headers.Authorization`, each as a secret reference rather than a literal token.
+- A shared profile fixture is validated by the exact pinned Tunnel Client `pkg/runtimeconfig.ValidateFullProfileBytes` implementation in CI. The JVM test also asserts that the Java writer emits the same fixture byte-for-byte.
+- CI packages the runtime payload into the Android debug APK and verifies the embedded asset hash. A separate native ARM64 runner executes the binary version command before the Android packaging job proceeds.
+
+Pinned runtime binary SHA-256:
+`f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44`
+
+Important boundary: these additions do not yet start or supervise Tunnel Client, REA helper processes, or the Android MCP lifecycle. The persistent supervisor, secret-isolation design, foreground-service lifecycle, real PRoot/device smoke test, ChatGPT-originated end-to-end call, GT release package/signing, and update-over-update test remain mandatory gates. Do not describe this payload APK as the completed autonomous runtime or install it over the current Buddy.
