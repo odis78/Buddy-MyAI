@@ -39,7 +39,7 @@ public class TermuxCommandSpecTest {
         TermuxCommandSpec audit = TermuxCommandSpec.forOperation(TermuxOperation.TUNNELS_SCRIPT_AUDIT,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
         assertTrue(audit.executable.endsWith("/bin/sed"));
-        assertTrue(audit.arguments.contains("1,240p"));
+        assertTrue(audit.arguments.contains("1,360p"));
         assertTrue(audit.arguments.contains("/data/data/com.termux/files/home/bin/tunnels"));
         assertTrue(audit.isSafeFixedCommand());
     }
