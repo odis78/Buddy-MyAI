@@ -140,7 +140,7 @@ jobs:
           ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
           ! readelf -l dist/cloudflared | grep -q INTERP
           echo 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393  dist/tunnel-client-runtime' | sha256sum --check
-          sha256sum dist/cloudflared
+          echo '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7  dist/cloudflared' | sha256sum --check
           chmod 700 dist/tunnel-client-runtime dist/cloudflared
           test "$(dist/tunnel-client-runtime version)" = "0.0.19"
           dist/cloudflared --version | grep -F '2026.10.2'
@@ -241,7 +241,7 @@ jobs:
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
           echo "$BADGING" | grep -F "versionCode='216'"
           unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393'
-          unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum
+          test "$(unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum | cut -d ' ' -f1)" = '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7'
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
