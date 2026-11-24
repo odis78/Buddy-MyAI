@@ -75,12 +75,20 @@ jobs:
           path: dist/tunnel-client-runtime
 
   android-baseline-build:
-    name: Buddy Android baseline build
+    name: Buddy Android baseline build with pinned runtime payload
+    needs: tunnel-client-runtime
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: tunnel-client-v0.0.19-linux-arm64-runtime
+          path: app/src/main/assets/runtime
+      - name: Verify pinned runtime payload
+        run: |
+          echo 'f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44  app/src/main/assets/runtime/tunnel-client-runtime' | sha256sum --check
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
@@ -103,6 +111,7 @@ jobs:
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
           echo "$BADGING" | grep -F "versionCode='216'"
+          unzip -p "$APK" assets/runtime/tunnel-client-runtime | sha256sum | grep -F 'f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44'
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
