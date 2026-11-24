@@ -29,6 +29,15 @@ final class RuntimeBinaryLocator {
         return binary;
     }
 
+    static File locateProot(Context context) throws IOException {
+        File binary = new File(context.getApplicationInfo().nativeLibraryDir, "libproot.so");
+        File loader = new File(context.getApplicationInfo().nativeLibraryDir, "libproot-loader.so");
+        if (!binary.isFile() || !binary.canExecute() || !loader.isFile()) {
+            throw new IOException("Bundled PRoot runtime or loader is missing");
+        }
+        return binary;
+    }
+
     static File locateCloudflared(Context context) throws IOException {
         File binary = new File(context.getApplicationInfo().nativeLibraryDir, CLOUDFLARED_LIBRARY_NAME);
         if (!binary.isFile() || !binary.canExecute()) {
