@@ -322,12 +322,13 @@ Reuse the ideas and test cases for DependencyPlanner, ComponentStateMachine, Pro
 
 The candidate branch now contains the first two production-side runtime building blocks:
 
-- `RuntimeArtifactInstaller` installs the pinned, statically linked Linux ARM64 Tunnel Client into Buddy's private Alpine rootfs. It verifies SHA-256 before atomically replacing the destination and sets executable mode only after verification.
-- `RuntimeProfileWriter` writes the Buddy profile without using the v0.0.19 connect-profile generator. The generated profile explicitly retains both `mcp.extra_headers.Authorization` and `mcp.discovery_extra_headers.Authorization`, each as a secret reference rather than a literal token.
+- `RuntimeBinaryLocator` locates the pinned, statically linked Linux ARM64 Tunnel Client from Android's extracted `nativeLibraryDir` and verifies SHA-256 before launch. This avoids relying on executing a file copied into ordinary app-private storage.
+- `RuntimeProfileWriter` writes the Buddy profile into app-private runtime storage without using the v0.0.19 connect-profile generator. The generated profile explicitly retains both `mcp.extra_headers.Authorization` and `mcp.discovery_extra_headers.Authorization`, each as a secret reference rather than a literal token.
 - A shared profile fixture is validated by the exact pinned Tunnel Client `pkg/runtimeconfig.ValidateFullProfileBytes` implementation in CI. The JVM test also asserts that the Java writer emits the same fixture byte-for-byte.
-- CI packages the runtime payload into the Android debug APK and verifies the embedded asset hash. A separate native ARM64 runner executes the binary version command before the Android packaging job proceeds.
+- CI packages the runtime payload as `lib/arm64-v8a/libtunnel-client.so` so Android extracts it to `nativeLibraryDir`, then verifies the APK-embedded hash. A separate native ARM64 runner executes the binary version command before the Android packaging job proceeds.
+- The pinned Tunnel Client source is patched to set Linux `PR_SET_DUMPABLE=0` before reading credentials. A Go regression test confirms that a same-UID process cannot read its `/proc/<pid>/environ`; this keeps the launch environment from being exposed to Buddy's sibling agent processes.
 
 Pinned runtime binary SHA-256:
 `35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39`
 
-Important boundary: these additions do not yet start or supervise Tunnel Client, REA helper processes, or the Android MCP lifecycle. The persistent supervisor, secret-isolation design, foreground-service lifecycle, real PRoot/device smoke test, ChatGPT-originated end-to-end call, GT release package/signing, and update-over-update test remain mandatory gates. Do not describe this payload APK as the completed autonomous runtime or install it over the current Buddy.
+Important boundary: these additions do not yet start or supervise Tunnel Client, REA helper processes, or the Android MCP lifecycle. The persistent supervisor, foreground-service lifecycle, real Android-device execution test, ChatGPT-originated end-to-end call, GT release package/signing, and update-over-update test remain mandatory gates. The process-environment isolation patch is source-tested on Linux, but Android-specific procfs behavior still requires device validation. Do not describe this payload APK as the completed autonomous runtime or install it over the current Buddy.
