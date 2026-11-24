@@ -3,6 +3,8 @@ package app.buddy.assistant;
 import android.content.Context;
 import android.system.Os;
 import android.system.OsConstants;
+import android.os.Build;
+import android.os.Environment;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -93,8 +95,11 @@ final class RuntimeProcessLauncher {
     static Process startDroidMcpConfigured(Context context) throws Exception {
         Context app = context.getApplicationContext();
         Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
-        guestEnvironment.put("DROIDMCP_ROOT", "/root/rea-source");
-        java.util.List<String> command = Linux.commandAt(app, "/root/rea-source", guestEnvironment,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            throw new IllegalStateException("Grant all-files access to enable the read-only DroidMCP filesystem tunnel");
+        }
+        guestEnvironment.put("DROIDMCP_ROOT", "/storage/emulated/0");
+        java.util.List<String> command = Linux.commandAtWithStorage(app, "/storage/emulated/0", guestEnvironment,
                 "/usr/bin/node", "/root/droidmcp/server/index.mjs");
         return startStdioConfigured(app, "droidmcp-tunnel", DROIDMCP_TUNNEL_ID, command);
     }
