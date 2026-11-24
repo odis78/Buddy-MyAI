@@ -41,7 +41,7 @@
 - Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. JVM unit tests, isolated embedded-script safety harness, and debug APK build passed in GitHub Actions run 45298167747 (commit 6e2c538032fe54076fd1df3fde2cf83c3be66f97).
+1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45298486523 (commit 0909757de9857dbfaeb75f82a470d0e0e5f2eff5).
 2. Resolve the Buddy MCP credential source using names-only diagnostics; until then, Buddy launch must remain blocked.
 3. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, guarded Buddy start/stop in an explicitly approved test window, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
 4. Recover and validate exact stop contracts for Buddy, Bridge, DroidMCP, and REA Android profiles without changing live configuration.
