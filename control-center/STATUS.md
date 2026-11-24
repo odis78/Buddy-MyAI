@@ -2,7 +2,7 @@
 
 **Branch:** `project/jiti-control-center`  
 **Protected base:** `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`  
-**Current milestone:** M2, read-only Termux bridge and foreground monitor implementation.
+**Current milestone:** M2 plus guarded Buddy lifecycle prototype; target-device acceptance remains pending.
 
 ## Completed
 - Isolated project branch; protected Buddy checkpoint and main branch remain untouched.
@@ -14,7 +14,8 @@
 - Added credential redaction utility.
 - Added PID/process identity guard against stale or mismatched PID files.
 - Reworked dashboard to render the registry, all 52 Buddy source tools, and historical evidence separately from live status.
-- Implemented fixed read-only Termux RUN_COMMAND bridge with version/permission gate, PendingIntent results, timeout, output redaction, and bounded output.
+- Implemented fixed Termux RUN_COMMAND bridge with version/permission gate, PendingIntent results, timeout, output redaction, and bounded output.
+- Added guarded Buddy-only start/stop/restart prototype using fixed Python scripts, preflight, exact PID/executable/config identity checks, explicit confirmation, and SIGTERM-only shutdown.
 - Added read-only Buddy tunnel health and local MCP authentication-challenge probes.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
 - Added bounded SQLite diagnostic event journal (maximum 2,000 events) and persistent latest-state snapshots per component.
@@ -28,11 +29,11 @@
 - Authenticated HTTP MCP initialize/list-tools probes; current probe only verifies the local listener/auth challenge.
 - Exact profile launch/stop contracts for all four tunnel-client instances.
 - Foreground monitor and bounded SQLite event journal are implemented, but Android 14/Infinix lifecycle and notification behavior are not yet device-tested.
-- State-changing runtime actions and recovery executor remain disabled; no on-device acceptance tests have passed yet.
+- Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. Pass the expanded JVM unit-test and APK build workflow.
-2. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
+1. JVM unit tests and debug APK build now pass in GitHub Actions run 45293208411 (commit f410352a053618c5ef6edca3e63c0d20de9ca025).
+2. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, guarded Buddy start/stop in an explicitly approved test window, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
 3. Recover exact launch/stop and health-file contracts for Buddy, Bridge, DroidMCP, and REA Android profiles.
 4. Identify the correct Buddy token/header source using the names-only environment audit, then add authenticated MCP initialize and tools/list probes without exposing values.
 5. Add read-only health and MCP probes for the three REA profiles.
