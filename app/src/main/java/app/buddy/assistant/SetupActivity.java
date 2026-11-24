@@ -538,13 +538,42 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                     + " && sed -i '/\"phone\"[[:space:]]*:/,/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/ s/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/\"type\": \"remote\",\\n            \"oauth\": false/' \"$cfg\""
                     + " && opencode mcp list";
         } else if ("agy".equals(mcpAgent)) {
-            cmd = bootstrap + cleanup + "agy mcp add --header \"Authorization: Bearer $BUDDY_TOKEN\" phone " + url
-                    + " && unset BUDDY_TOKEN";
+            cmd = bootstrap + cleanup
+                    + "{ BUDDY_MCP_URL=" + url + " python3 - <<'BUDDY_MCP_PY'\\n"
+                    + "import json, os, pathlib, re, tempfile\\n"
+                    + "path = pathlib.Path.home() / '.gemini' / 'config' / 'mcp_config.json'\\n"
+                    + "path.parent.mkdir(parents=True, exist_ok=True)\\n"
+                    + "token = (pathlib.Path.home() / '.config' / 'buddy-mcp' / 'token').read_text(encoding='ascii').strip()\\n"
+                    + "if not re.fullmatch(r'[0-9a-f]{48}', token): raise SystemExit('Invalid Buddy MCP token; config unchanged')\\n"
+                    + "if path.exists():\\n"
+                    + "    try: data = json.loads(path.read_text(encoding='utf-8'))\\n"
+                    + "    except Exception as exc: raise SystemExit('Existing Antigravity MCP config is not valid JSON; left unchanged: ' + str(exc))\\n"
+                    + "else: data = {}\\n"
+                    + "if not isinstance(data, dict): raise SystemExit('Antigravity MCP config root must be a JSON object')\\n"
+                    + "servers = data.setdefault('mcpServers', {})\\n"
+                    + "if not isinstance(servers, dict): raise SystemExit('mcpServers must be a JSON object')\\n"
+                    + "servers['phone'] = {'serverUrl': os.environ['BUDDY_MCP_URL'], 'headers': {'Authorization': 'Bearer ' + token}, 'timeoutSeconds': 600}\\n"
+                    + "fd, tmp = tempfile.mkstemp(prefix='.mcp_config.', dir=str(path.parent))\\n"
+                    + "try:\\n"
+                    + "    os.fchmod(fd, 0o600)\\n"
+                    + "    with os.fdopen(fd, 'w', encoding='utf-8') as out:\\n"
+                    + "        json.dump(data, out, ensure_ascii=False, indent=2); out.write('\\\\n'); out.flush(); os.fsync(out.fileno())\\n"
+                    + "    os.replace(tmp, path); os.chmod(path, 0o600)\\n"
+                    + "except BaseException:\\n"
+                    + "    try: os.close(fd)\\n"
+                    + "    except OSError: pass\\n"
+                    + "    try: os.unlink(tmp)\\n"
+                    + "    except OSError: pass\\n"
+                    + "    raise\\n"
+                    + "print('Antigravity MCP config updated:', path)\\n"
+                    + "BUDDY_MCP_PY\\n} && unset BUDDY_TOKEN";
         } else if ("grok".equals(mcpAgent)) {
-            cmd = bootstrap + cleanup + "grok mcp add --transport http phone " + url
-                    + " --header \"Authorization: Bearer $BUDDY_TOKEN\""
-                    + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.grok/config.toml"
-                    + " && unset BUDDY_TOKEN";
+            cmd = bootstrap + cleanup
+                    + "printf '%s\\\\n' '# >>> Buddy MCP managed >>>' 'export BUDDY_TOKEN=\\\"$(cat ~/.config/buddy-mcp/token)\\\"' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && "
+                    + "grok mcp add --transport http phone " + url
+                    + " --header 'Authorization: Bearer ${BUDDY_TOKEN}'"
+                    + " && sed -i '/^\\\\[mcp_servers\\\\.phone\\\\]$/a tool_timeout_sec = 600' ~/.grok/config.toml"
+                    + " && grok mcp doctor phone";
         } else {
             cmd = bootstrap + cleanup + "{ claude mcp remove -s user phone >/dev/null 2>&1 || true; } && "
                     + "claude mcp add-json -s user phone \"$(printf '{\"type\":\"http\",\"url\":\"" + url
