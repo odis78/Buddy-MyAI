@@ -136,7 +136,7 @@ final class ReaRuntimeInstaller {
                 + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source "
                 + ">/tmp/buddy-rea-source.log 2>&1 || { tail -n 40 /tmp/buddy-rea-source.log; exit 1; }; "
                 + "test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
-                + "mkdir -p /root/bridge/server /root/droidmcp/server /system; "
+                + "mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext; "
                 + "cp /tmp/termux-bridge-0.1.3.mjs /root/bridge/server/index.mjs; "
                 + "cp /tmp/droidmcp-filesystem-0.4.0.mjs /root/droidmcp/server/index.mjs; "
                 + "node --check /root/bridge/server/index.mjs; "
