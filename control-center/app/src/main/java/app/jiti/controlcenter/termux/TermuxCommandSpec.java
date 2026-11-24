@@ -569,6 +569,9 @@ else:
             case TUNNELS_SCRIPT_AUDIT:
                 return new TermuxCommandSpec(operation, prefix + "/bin/sed",
                         Arrays.asList("-n", "1,360p", home + "/bin/tunnels"));
+            case TUNNELS_SCRIPT_SHA256:
+                return new TermuxCommandSpec(operation, prefix + "/bin/sha256sum",
+                        Arrays.asList(home + "/bin/tunnels"));
             case BUDDY_LAUNCH_STATUS:
                 return new TermuxCommandSpec(operation, prefix + "/bin/cat",
                         Arrays.asList(home + "/.config/tunnel-client-buddy/jiti-launcher.status"));
