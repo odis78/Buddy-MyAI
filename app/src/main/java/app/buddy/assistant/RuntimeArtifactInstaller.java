@@ -18,7 +18,7 @@ import java.security.MessageDigest;
  */
 final class RuntimeArtifactInstaller {
     static final String ASSET_PATH = "runtime/tunnel-client-runtime";
-    static final String EXPECTED_SHA256 = "f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44";
+    static final String EXPECTED_SHA256 = "35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39";
 
     private RuntimeArtifactInstaller() { }
 
