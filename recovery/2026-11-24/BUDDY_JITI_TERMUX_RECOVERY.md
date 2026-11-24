@@ -233,3 +233,16 @@ These are reference points from the preceding project checkpoints. They are not 
 - MyAI package: `com.dmitry.myai.infinix`.
 - Do not modify Control APK 102 or unrelated Android apps while recovering Buddy.
 - Do not infer the currently installed JITI versionCode from the build artifact; the package version was not independently queried after installation.
+
+
+## 10. External diagnostic report archive
+
+A redacted diagnostic report reconstructed from the actual output pasted in this conversation was also committed to the dedicated report repository:
+
+- Repository: `odis78/REA-Termux-Reports`
+- File: `recovery/2026-11-24/BUDDY_JITI_REA_DIAGNOSTIC_2026-11-24.md`
+- Commit: `fd8493b4170f1dc5bf9817e32cde423ee1c6dcea`
+- URL: https://github.com/odis78/REA-Termux-Reports/blob/main/recovery/2026-11-24/BUDDY_JITI_REA_DIAGNOSTIC_2026-11-24.md
+- The report was fetched back from GitHub and checked for obvious bearer/API-key patterns; none were present.
+
+**Important provenance boundary:** this is a GitHub-side report assembled from conversation-visible diagnostic output. It was not created by the Termux uploader, was not written to `~/rea-report-uploader/inbox`, and does not prove that `~/bin/rea-report-upload` executed. The phone-shell and REA bridge sessions terminated during the attempt to inspect the local uploader. The local inbox copy, local archive, and uploader invocation remain pending. Do not mark those steps complete until verified directly on the device.
