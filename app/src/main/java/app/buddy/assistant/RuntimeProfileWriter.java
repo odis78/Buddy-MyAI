@@ -48,7 +48,7 @@ final class RuntimeProfileWriter {
                 + "  extra_headers:\n"
                 + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-auth-header") + "\"\n"
                 + "  discovery_extra_headers:\n"
-                + "    Authorization: \"" + AUTH_HEADER_REFERENCE + "\"\n";
+                + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-auth-header") + "\"\n";
     }
 
     static void writeBuddyProfile(File target, String tunnelId, File runtimeDir) throws IOException {
