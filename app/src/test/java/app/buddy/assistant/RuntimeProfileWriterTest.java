@@ -12,9 +12,9 @@ public class RuntimeProfileWriterTest {
     @Test public void profilePreservesBothBearerHeaderMaps() {
         String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
-        assertTrue(yaml.contains("api_key: \"env:CONTROL_PLANE_API_KEY\""));
-        assertTrue(yaml.contains("extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
-        assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
+        assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
+        assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
+        assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
         assertTrue(yaml.contains("url_file: \"/tmp/buddy-runtime/health.url\""));
         assertFalse(yaml.contains("Bearer "));
         assertFalse(yaml.contains("api_key: \"sk-"));
