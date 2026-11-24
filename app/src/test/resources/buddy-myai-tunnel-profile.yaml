@@ -5,13 +5,13 @@ control_plane:
   api_key: "env:CONTROL_PLANE_API_KEY"
 health:
   listen_addr: "127.0.0.1:0"
-  url_file: "/root/.config/tunnel-client/health.url"
+  url_file: "/tmp/buddy-runtime/health.url"
 process:
-  pid_file: "/root/.config/tunnel-client/tunnel-client.pid"
+  pid_file: "/tmp/buddy-runtime/tunnel-client.pid"
 log:
   level: info
   format: json
-  file: "/root/.config/tunnel-client/tunnel-client.log"
+  file: "/tmp/buddy-runtime/tunnel-client.log"
 mcp:
   server_urls:
     - channel: main
