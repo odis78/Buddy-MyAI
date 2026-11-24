@@ -337,6 +337,9 @@ Still mandatory: real Android-device execution and reboot tests, ChatGPT-origina
 
 
 ## 15. REA helper runtime (2026-11-24)
+- The helper group starts in the preserved order: **Bridge 0.1.3 → DroidMCP filesystem 0.4.0 → REA 6.5.0**. Each has its own Tunnel Client profile, health URL, PID file, and restart state. A failure in one helper does not stop the primary Buddy tunnel.
+- The bundled Bridge 0.1.3 server is copied from the user's existing plugin source. Only its fixed launch target is adapted from the Infinix package to the new GT package `app.buddy.myai.gt`; its explicit confirmation gate for allowlisted commands is retained.
+- The bundled DroidMCP filesystem server is read-only and exposes five bounded tools. It rejects path traversal, sensitive filenames, and symlinks; it has no write, delete, move, or copy operation.
 
 - The Buddy app now has a first-run installer for the pinned `rea-agents@6.5.0` npm package inside its own Alpine 3.24 rootfs. It installs Alpine's Node 26 runtime, verifies the package archive, installs production dependencies, and runs the REA MCP doctor before the helper tunnel can start.
 - The REA server is launched as a stdio child through the app's bundled PRoot executable. It does not require Termux.
