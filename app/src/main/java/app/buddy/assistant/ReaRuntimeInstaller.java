@@ -19,6 +19,11 @@ final class ReaRuntimeInstaller {
     static final int EXPECTED_PROMPTS = 6;
     static final String PACKAGE_ASSET = "runtime/rea-agents-6.5.0.tgz";
     static final String PACKAGE_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000";
+    static final String BRIDGE_ASSET = "runtime/termux-bridge-0.1.3.mjs";
+    static final String BRIDGE_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000";
+    static final String DROIDMCP_ASSET = "runtime/droidmcp-filesystem-0.4.0.mjs";
+    static final String DROIDMCP_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000";
+    static final String REA_SOURCE_COMMIT = "3b79af28e80785afce9f5998d8f03289402a1847";
 
     interface ProgressListener {
         void onProgress(String message);
@@ -39,7 +44,11 @@ final class ReaRuntimeInstaller {
 
         if (progress != null) progress.onProgress("Preparing Alpine Node.js 26 runtime");
         File packageFile = new File(root, "tmp/rea-agents-6.5.0.tgz");
-        copyVerifiedPackage(app.getAssets(), packageFile);
+        File bridgeFile = new File(root, "tmp/termux-bridge-0.1.3.mjs");
+        File droidFile = new File(root, "tmp/droidmcp-filesystem-0.4.0.mjs");
+        copyVerifiedAsset(app.getAssets(), PACKAGE_ASSET, packageFile, PACKAGE_SHA256);
+        copyVerifiedAsset(app.getAssets(), BRIDGE_ASSET, bridgeFile, BRIDGE_SHA256);
+        copyVerifiedAsset(app.getAssets(), DROIDMCP_ASSET, droidFile, DROIDMCP_SHA256);
 
         if (progress != null) progress.onProgress("Installing REA 6.5.0 and its dependencies");
         String command = buildInstallCommand();
@@ -55,6 +64,8 @@ final class ReaRuntimeInstaller {
             out.getFD().sync();
         }
         packageFile.delete();
+        bridgeFile.delete();
+        droidFile.delete();
     }
 
     static boolean isReady(Context context) {
@@ -65,9 +76,10 @@ final class ReaRuntimeInstaller {
             String value = new String(java.nio.file.Files.readAllBytes(marker.toPath()),
                     java.nio.charset.StandardCharsets.UTF_8);
             if (!value.contains(VERSION) || !value.contains(NODE_VERSION)
-                    || !value.contains(PACKAGE_SHA256)) return false;
+                    || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
+                    || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
             String output = Linux.exec(context,
-                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
@@ -75,13 +87,14 @@ final class ReaRuntimeInstaller {
         }
     }
 
-    private static void copyVerifiedPackage(AssetManager assets, File target) throws Exception {
+    private static void copyVerifiedAsset(AssetManager assets, String assetName, File target,
+                                          String expectedSha256) throws Exception {
         File parent = target.getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
-            throw new IOException("REA package staging directory is unavailable");
+            throw new IOException("Runtime asset staging directory is unavailable");
         }
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (InputStream in = assets.open(PACKAGE_ASSET);
+        try (InputStream in = assets.open(assetName);
              FileOutputStream out = new FileOutputStream(target, false)) {
             byte[] buffer = new byte[65536];
             int count;
@@ -92,9 +105,9 @@ final class ReaRuntimeInstaller {
             out.getFD().sync();
         }
         String actual = hex(digest.digest());
-        if (!PACKAGE_SHA256.equals(actual)) {
+        if (!expectedSha256.equals(actual)) {
             target.delete();
-            throw new IOException("Bundled REA package failed SHA-256 verification");
+            throw new IOException("Bundled runtime asset failed SHA-256 verification: " + assetName);
         }
     }
 
