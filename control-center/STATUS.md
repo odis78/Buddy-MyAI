@@ -35,17 +35,19 @@
 - Termux RUN_COMMAND adapter and Buddy lifecycle prototype are implemented, but target-device permission, external-app property, callback, and lifecycle proof are still pending.
 - Buddy launch preflight currently fails closed unless `CONTROL_PLANE_API_KEY` and `BUDDY_TOKEN` or `BUDDY_AUTH_HEADER` are present in the fixed mode-600 `runtime.env`. Historical Stage 5 found only `CONTROL_PLANE_API_KEY` in that file; `BUDDY_TOKEN` was observed in the interactive shell. Its safe source remains unresolved. JITI does not source shell startup files or substitute the separate REA key.
 - Authenticated HTTP MCP initialize and paginated tools/list probe is implemented, but has not yet been accepted on the target device.
-- Exact profile launch/stop contracts for all four tunnel-client instances.
+- The three REA profiles are currently checked only during the user-started diagnostics sequence; continuous background polling still covers Buddy only.
+- Exact profile stop contracts for all four tunnel-client instances.
 - Foreground monitor and bounded SQLite event journal are implemented, but Android 14/Infinix lifecycle and notification behavior are not yet device-tested.
 - Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. JVM unit tests, isolated embedded-script safety harness, and debug APK build passed in GitHub Actions run 45296930671 (commit f2ad89e83d85e67f44ddb5473f3f88598397f594).
+1. JVM unit tests, isolated embedded-script safety harness, and debug APK build passed in GitHub Actions run 45298167747 (commit 6e2c538032fe54076fd1df3fde2cf83c3be66f97).
 2. Resolve the Buddy MCP credential source using names-only diagnostics; until then, Buddy launch must remain blocked.
 3. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, guarded Buddy start/stop in an explicitly approved test window, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
-4. Recover exact launch/stop and health-file contracts for Buddy, Bridge, DroidMCP, and REA Android profiles.
-5. Add read-only health and MCP probes for the three REA profiles.
-6. Only after these pass, add guarded per-profile start/stop/restart and bounded recovery.
+4. Recover and validate exact stop contracts for Buddy, Bridge, DroidMCP, and REA Android profiles without changing live configuration.
+5. Extend the foreground monitor to poll all four tunnel profiles with per-profile identity checks and freshness tracking.
+6. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
+7. Only after these pass, add guarded per-profile start/stop/restart and bounded recovery.
 
 ## Safety and acceptance boundary
 The target remains a fully working utility, not a visual shell. Completion requires real live status, verified dependency-aware controls, bounded safe recovery, foreground/lifecycle tests on Infinix X678B, and repeated test/fix cycles. CI success alone is not completion.
