@@ -522,7 +522,7 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                 + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && "
                 + "printf '%s' \"$BUDDY_TOKEN\" > ~/.config/buddy-mcp/token && chmod 600 ~/.config/buddy-mcp/token && ";
         // Preserve user shell settings; only remove/rewrite Buddy-owned marked blocks.
-        String cleanup = "awk '$0 == \\\"# >>> Buddy MCP managed >>>\\\" { inside=1; block=$0 ORS; next } inside { block=block $0 ORS; if ($0 == \\\"# <<< Buddy MCP managed <<<\\\") { inside=0; block=\\\"\\\" } next } { print } END { if (inside) printf \\\"%s\\\", block }' ~/.bashrc > ~/.bashrc.buddy-mcp-tmp && cat ~/.bashrc.buddy-mcp-tmp > ~/.bashrc && rm ~/.bashrc.buddy-mcp-tmp && ";
+        String cleanup = "awk '$0 == \"# >>> Buddy MCP managed >>>\" { inside=1; block=$0 ORS; next } inside { block=block $0 ORS; if ($0 == \"# <<< Buddy MCP managed <<<\") { inside=0; block=\"\" } next } { print } END { if (inside) printf \"%s\", block }' ~/.bashrc > ~/.bashrc.buddy-mcp-tmp && cat ~/.bashrc.buddy-mcp-tmp > ~/.bashrc && rm ~/.bashrc.buddy-mcp-tmp && ";
         final String cmd;
         if ("codex".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
