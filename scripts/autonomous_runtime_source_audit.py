@@ -31,6 +31,9 @@ profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
 runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
+cloudflared_hardening = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux.go")
+cloudflared_hardening_test = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux_test.go")
+cloudflared_patch = read("scripts/patch_cloudflared_module.py")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
 workflow = read(".github/workflows/build.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
@@ -72,8 +75,8 @@ add("local_mcp_server", "PASS" if "PORT = 8766" in mcp and "127.0.0.1" in mcp el
     "Buddy local MCP endpoint source markers")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
-add("runtime_artifact_integrity", "PASS" if "EXPECTED_SHA256" in runtime_binary and "nativeLibraryDir" in runtime_binary and "MessageDigest" in runtime_binary else "FAIL",
-    "Pinned Linux ARM64 runtime is located in Android nativeLibraryDir and SHA-256 verified before launch")
+add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "EXPECTED_CLOUDFLARED_SHA256", "nativeLibraryDir", "locateCloudflared", "MessageDigest"]) else "FAIL",
+    "Pinned Tunnel Client and cloudflared Linux ARM64 executables are located in nativeLibraryDir and SHA-256 verified")
 profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
     "extra_headers:", "discovery_extra_headers:", "file:"
 ])
@@ -112,6 +115,14 @@ hardening_ok = (
 )
 add("tunnel_runtime_procfs_hardening", "PASS" if hardening_ok else "FAIL",
     "Pinned Tunnel Client build is patched to deny same-UID procfs access to its environment, with a regression test")
+cloudflared_hardening_ok = (
+    "PR_SET_DUMPABLE" in cloudflared_hardening
+    and "hardenCloudflaredProcess" in cloudflared_hardening
+    and "hardenCloudflaredProcess()" in cloudflared_patch
+    and "TestCloudflaredHidesEnvironmentFromSameUidProcess" in cloudflared_hardening_test
+)
+add("cloudflared_token_procfs_hardening", "PASS" if cloudflared_hardening_ok else "FAIL",
+    "Pinned cloudflared companion hardens the managed-token process and has a same-UID procfs regression test")
 test_dirs = [ROOT / "app/src/test", ROOT / "app/src/androidTest"]
 has_tests = any(p.exists() for p in test_dirs)
 add("app_java_test_coverage", "PASS" if has_tests else "WARN",
