@@ -135,3 +135,14 @@ At capture time, REA and its three helper tunnels were healthy, Buddy Tunnel had
 JADX HTTP/PID failure is recorded as a separate issue; it did not prevent the confirmed REA or Buddy MCP checks.
 
 This is a conversation-derived diagnostic capture committed alongside the recovery runbook. It is not yet the automatic Termux inbox report and does not claim that `rea-report-upload` ran.
+
+
+## 6. Follow-up stability check
+
+A second read-only Buddy MCP call `device_status` succeeded at 2026-11-24 12:24 (Europe/Moscow), several minutes after the first successful call:
+- Battery: 91%, not charging.
+- Network: Wi-Fi (VPN).
+- Storage: 29.5 GB free of 241.8 GB.
+- Ringer: silent.
+
+This confirms that authenticated Buddy MCP remained callable across the observation interval. Local `healthz/readyz` were directly checked at the earlier timestamp; this follow-up was an end-to-end MCP call.
