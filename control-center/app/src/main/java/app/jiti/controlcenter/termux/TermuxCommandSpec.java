@@ -282,12 +282,34 @@ finish({"result": "stop_timeout", "pid": pid, "signal": "SIGTERM"}, 2)
 """;
     private static final String BUDDY_MCP_AUTH_PROBE_SCRIPT = """
 import json
+import os
 import sys
 import urllib.request
 import urllib.error
 
+HOME = os.path.expanduser("~")
+BINARY_SUFFIX = "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
+CONFIG = HOME + "/.config/tunnel-client-buddy/buddy-myai.yaml"
+
 def emit(value):
     print(json.dumps(value, separators=(",", ":")))
+
+def normalize(path):
+    return path.replace("/data/user/0/com.termux", "/data/data/com.termux")
+
+def process_identity(pid):
+    try:
+        executable = os.readlink("/proc/%d/exe" % pid)
+        raw = open("/proc/%d/cmdline" % pid, "rb").read()
+    except Exception:
+        return False
+    args = [item.decode("utf-8", "replace") for item in raw.split(b"\\0") if item]
+    expected = normalize(CONFIG)
+    config_ok = any(args[i] == "--config" and i + 1 < len(args)
+                    and normalize(args[i + 1]) == expected for i in range(len(args)))
+    config_ok = config_ok or any(arg.startswith("--config=")
+                                 and normalize(arg.split("=", 1)[1]) == expected for arg in args)
+    return executable.endswith(BINARY_SUFFIX) and config_ok
 
 def decode_message(body):
     text = body.decode("utf-8", "replace").strip()
@@ -309,9 +331,22 @@ try:
     pid = int(sys.argv[1])
     if pid <= 0:
         raise ValueError()
+except Exception:
+    emit({"result": "invalid_pid"})
+    sys.exit(0)
+
+if not process_identity(pid):
+    emit({"result": "pid_identity_mismatch"})
+    sys.exit(0)
+
+try:
     raw_env = open("/proc/%d/environ" % pid, "rb").read()
 except Exception as exc:
     emit({"result": "process_env_unavailable", "reason": type(exc).__name__})
+    sys.exit(0)
+
+if not process_identity(pid):
+    emit({"result": "pid_identity_changed"})
     sys.exit(0)
 
 env = {}
