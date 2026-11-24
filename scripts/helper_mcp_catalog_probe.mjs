@@ -26,7 +26,7 @@ async function inspect(name, scriptPath, envName, expectedTools, invoke) {
     const tools = result.tools ?? [];
     if (tools.length !== expectedTools) throw new Error(name + " expected " + expectedTools + " tools, got " + tools.length);
     const sample = await invoke(client);
-    return { name, version: result.serverInfo?.version ?? null, tools: tools.length, catalogBytes: Buffer.byteLength(JSON.stringify(tools)), sampleOk: Boolean(sample) };
+    return { name, version: client.getServerVersion()?.version ?? null, tools: tools.length, catalogBytes: Buffer.byteLength(JSON.stringify(tools)), sampleOk: Boolean(sample) };
   } finally {
     await client.close();
   }
