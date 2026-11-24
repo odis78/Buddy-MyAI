@@ -33,4 +33,12 @@ for name in ("dumpable_linux.go", "dumpable_other.go", "dumpable_linux_test.go")
     if dst.exists() and dst.read_text(encoding="utf-8") != content:
         raise SystemExit("refusing to overwrite unexpected source: " + str(dst))
     dst.write_text(content, encoding="utf-8")
+fifo_test = Path(__file__).resolve().parent / "tunnel-client-runtime" / "file_reference_fifo_test.go"
+fifo_target = root / "pkg/runtimeconfig" / "buddy_file_reference_fifo_test.go"
+if not fifo_test.is_file():
+    raise SystemExit("missing FIFO reference test")
+fifo_content = fifo_test.read_text(encoding="utf-8")
+if fifo_target.exists() and fifo_target.read_text(encoding="utf-8") != fifo_content:
+    raise SystemExit("refusing to overwrite unexpected FIFO test")
+fifo_target.write_text(fifo_content, encoding="utf-8")
 print("Applied PR_SET_DUMPABLE hardening patch")
