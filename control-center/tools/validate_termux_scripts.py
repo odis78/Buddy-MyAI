@@ -194,9 +194,9 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     # current Python interpreter placed at the exact expected executable path.
     # Its argv includes the exact Buddy config argument, so it is a safe fixture.
     helper_source = (
-        "#include <unistd.h>\\n"
+        "#include <unistd.h>\n"
         "int main(int argc, char **argv) { (void)argc; (void)argv; "
-        "for (;;) sleep(1); return 0; }\\n"
+        "for (;;) sleep(1); return 0; }\n"
     )
     compiled = subprocess.run(
         ["cc", "-x", "c", "-o", str(binary), "-"],
