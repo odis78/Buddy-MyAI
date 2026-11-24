@@ -67,7 +67,7 @@ final class ReaRuntimeInstaller {
             if (!value.contains(VERSION) || !value.contains(NODE_VERSION)
                     || !value.contains(PACKAGE_SHA256)) return false;
             String output = Linux.exec(context,
-                    "node --version && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
