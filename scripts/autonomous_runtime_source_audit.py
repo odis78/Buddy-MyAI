@@ -94,6 +94,9 @@ rea_runtime_ok = (
     and "openjdk21-jre-headless" in rea_runtime_installer
     and "android-tools" in rea_runtime_installer
     and "rea-agents-6.5.0.tgz" in rea_runtime_installer
+    and "termux-bridge-0.1.3.mjs" in rea_runtime_installer
+    and "droidmcp-filesystem-0.4.0.mjs" in rea_runtime_installer
+    and "git clone --depth 1 --branch rea-agents-6.5.0" in rea_runtime_installer
     and "mcp doctor --format json" in rea_runtime_installer
     and "EXPECTED_TOOLS = 207" in rea_runtime_installer
     and "REA_MCP_INPUT_SCHEMA_PROFILE" in rea_runtime_installer
