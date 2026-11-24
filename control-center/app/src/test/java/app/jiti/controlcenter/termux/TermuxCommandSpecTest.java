@@ -157,7 +157,8 @@ public class TermuxCommandSpecTest {
                 "/data/data/com.termux/files/usr", 1234);
         assertTrue(probe.executable.endsWith("/bin/python"));
         assertTrue(probe.arguments.get(1).contains("/proc/%d/environ"));
-        assertTrue(probe.arguments.get(1).contains("BINARY_SUFFIX"));
+        assertTrue(probe.arguments.get(1).contains("BINARY = HOME +"));
+        assertTrue(probe.arguments.get(1).contains("normalize(executable) == normalize(BINARY)"));
         assertTrue(probe.arguments.get(1).contains("def process_identity(pid):"));
         assertTrue(probe.arguments.get(1).contains("pid_identity_mismatch"));
         assertTrue(probe.arguments.get(1).contains("BUDDY_AUTH_HEADER"));
