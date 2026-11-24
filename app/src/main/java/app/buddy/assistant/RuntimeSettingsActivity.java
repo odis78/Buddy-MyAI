@@ -209,5 +209,9 @@ public final class RuntimeSettingsActivity extends Screen {
         String reaDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_detail", "");
         reaStatus.setText(getString(R.string.runtime_rea_status_detail,
                 reaDetail.isEmpty() ? reaState : reaState + " · " + reaDetail));
+        if (grantStorageAccess != null) {
+            boolean needsAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager();
+            grantStorageAccess.setVisibility(needsAccess ? View.VISIBLE : View.GONE);
+        }
     }
 }
