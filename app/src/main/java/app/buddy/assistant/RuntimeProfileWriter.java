@@ -16,12 +16,15 @@ final class RuntimeProfileWriter {
 
     private RuntimeProfileWriter() { }
 
-    static String renderBuddyProfile(String tunnelId, File runtimeDir) {
+    static String renderBuddyProfile(String tunnelId, File runtimeDir, File cloudflaredBinary) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
             throw new IllegalArgumentException("Invalid Buddy tunnel id");
         }
         if (runtimeDir == null || !runtimeDir.isAbsolute()) {
             throw new IllegalArgumentException("Absolute runtime directory is required");
+        }
+        if (cloudflaredBinary == null || !cloudflaredBinary.isAbsolute()) {
+            throw new IllegalArgumentException("Absolute cloudflared binary path is required");
         }
         String dir = runtimeDir.getAbsolutePath();
         if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
@@ -51,9 +54,9 @@ final class RuntimeProfileWriter {
                 + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-discovery-auth-header") + "\"\n";
     }
 
-    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir) throws IOException {
+    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir, File cloudflaredBinary) throws IOException {
         if (target == null) throw new IllegalArgumentException("Profile target is required");
-        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir, cloudflaredBinary).getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Tunnel Client profile directory is unavailable");
