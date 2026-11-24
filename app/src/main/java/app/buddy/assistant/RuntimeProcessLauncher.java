@@ -48,12 +48,13 @@ final class RuntimeProcessLauncher {
             createSecretFifo(apiKeyFifo);
             createSecretFifo(authHeaderFifo);
             createSecretFifo(discoveryHeaderFifo);
+            File binary = RuntimeBinaryLocator.locate(app);
+            File cloudflared = RuntimeBinaryLocator.locateCloudflared(app);
             File config = new File(runtimeDir, "buddy-myai.yaml");
-            RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir);
+            RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir, cloudflared);
             chmod(config, 0600, "Buddy runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
-            File binary = RuntimeBinaryLocator.locate(app);
             process = createProcessBuilder(binary, config, runtimeDir).start();
             handoffSecrets(process, apiKeyFifo, apiKey, authHeaderFifo,
                     "Bearer " + buddyToken, discoveryHeaderFifo, "Bearer " + buddyToken);
