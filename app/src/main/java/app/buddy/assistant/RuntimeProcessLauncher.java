@@ -46,6 +46,8 @@ final class RuntimeProcessLauncher {
             File config = new File(runtimeDir, "buddy-myai.yaml");
             RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir);
             chmod(config, 0600, "Buddy runtime profile permissions could not be secured");
+            ensureSecureFile(new File(runtimeDir, "launcher.log"));
+            ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
             File binary = RuntimeBinaryLocator.locate(app);
             return createProcessBuilder(binary, config, runtimeDir).start();
         } catch (Exception e) {
@@ -117,6 +119,13 @@ final class RuntimeProcessLauncher {
         new File(runtimeDir, AUTH_HEADER_FILE).delete();
         new File(runtimeDir, API_KEY_FILE + ".installing").delete();
         new File(runtimeDir, AUTH_HEADER_FILE + ".installing").delete();
+    }
+
+    private static void ensureSecureFile(File file) throws IOException {
+        if (!file.exists()) {
+            try (FileOutputStream ignored = new FileOutputStream(file, true)) { }
+        }
+        chmod(file, 0600, "Runtime log permissions could not be secured");
     }
 
     private static void chmod(File file, int mode, String message) throws IOException {
