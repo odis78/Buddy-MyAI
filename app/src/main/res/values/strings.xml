@@ -2392,6 +2392,8 @@
     <string name="runtime_droid_status_detail">DroidMCP: %1$s</string>
     <string name="runtime_rea_status_label">REA tools tunnel</string>
     <string name="runtime_rea_status_detail">REA: %1$s</string>
+    <string name="runtime_grant_file_access">Grant shared-storage access for read-only DroidMCP</string>
+    <string name="runtime_file_access_settings_unavailable">Android storage access settings could not be opened.</string>
     <string name="runtime_notification_title">Buddy runtime</string>
     <string name="runtime_notification_channel">Buddy runtime</string>
     <string name="runtime_notification_channel_description">Keeps Buddy's authenticated ChatGPT tunnel available.</string>
