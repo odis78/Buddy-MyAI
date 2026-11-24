@@ -1,6 +1,11 @@
 package app.buddy.assistant;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -26,6 +31,7 @@ public final class RuntimeSettingsActivity extends Screen {
     private TextView bridgeStatus;
     private TextView droidStatus;
     private TextView reaStatus;
+    private Button grantStorageAccess;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -87,6 +93,10 @@ public final class RuntimeSettingsActivity extends Screen {
         stateCard.addView(reaStatus, topGap(4));
         body.addView(stateCard, topGap(18));
 
+        grantStorageAccess = button(this, getString(R.string.runtime_grant_file_access), true);
+        body.addView(grantStorageAccess, topGap(12));
+        grantStorageAccess.setOnClickListener(v -> openAllFilesAccessSettings());
+
         Button start = button(this, getString(R.string.runtime_start), true);
         body.addView(start, topGap(14));
         start.setOnClickListener(v -> {
@@ -133,6 +143,21 @@ public final class RuntimeSettingsActivity extends Screen {
                 : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         edit.setTextIsSelectable(false);
         return edit;
+    }
+
+    private void openAllFilesAccessSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception ignored) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            } catch (Exception e) {
+                Toast.makeText(this, R.string.runtime_file_access_settings_unavailable, Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     private boolean saveSettings() {
