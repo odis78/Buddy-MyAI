@@ -155,7 +155,7 @@ jobs:
             -v "$PWD:/work" -w /work \
             alpine:3.24.2 sh -c '
               set -eu
-              apk add --no-cache nodejs-current npm python3 make g++ linux-headers git >/dev/null
+              apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools >/dev/null
               mkdir -p /tmp/rea-package /root/rea
               npm pack rea-agents@6.5.0 --pack-destination /tmp/rea-package >/dev/null
               tar -xzf /tmp/rea-package/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1
@@ -169,6 +169,8 @@ jobs:
               node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
               node --version
               npm --version
+              java -version
+              adb version
               apk info -v nodejs-current
             '
           sha256sum dist/rea-agents-6.5.0.tgz dist/rea-mcp-doctor.json dist/rea-mcp-tools-probe.json
