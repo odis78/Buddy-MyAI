@@ -23,6 +23,7 @@
 - Hardened stop preflight to be genuinely read-only: it no longer writes launcher status for already-stopped, stale-PID, or identity-mismatch results; a JVM regression test protects this.
 - Corrected UI success handling so nonzero process exit codes cannot be mistaken for successful identity or stop operations.
 - Audited the installed Tunnel Client health command against upstream v0.0.19 source; `health --url-file --pid-file --require-control-plane-poll --json` matches the supported CLI flags.
+- Added a read-only source audit and SHA-256 pin check for the existing `~/bin/tunnels` manager. It is never invoked or modified by diagnostics.
 - Added read-only health probes for Buddy, REA-Termux-Bridge, DroidMCP-Filesystem, and REA-Termux-Android. Each profile is checked against its known PID/health URL, Tunnel Client executable, and exact `--config` or `--profile-file` argument.
 - Extended the foreground monitor to poll all four tunnel profiles sequentially after the Buddy MCP check; per-profile snapshots are persisted, and repeated identical failures no longer inflate error counters.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
