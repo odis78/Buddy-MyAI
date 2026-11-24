@@ -18,6 +18,8 @@ final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
     static final String DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
     static final String REA_TUNNEL_ID = "tunnel_6b0070cbe1508191b1b1463fa6ffeaa2";
+    static final String BRIDGE_TUNNEL_ID = "tunnel_6ae28b8f01788191b42901f090964502";
+    static final String DROIDMCP_TUNNEL_ID = "tunnel_6af1637e86788191aa429d5518d41938";
     static final String API_KEY_FILE = "control-plane-api-key";
     static final String AUTH_HEADER_FILE = "buddy-auth-header";
     static final String DISCOVERY_AUTH_HEADER_FILE = "buddy-discovery-auth-header";
@@ -70,15 +72,44 @@ final class RuntimeProcessLauncher {
 
     static Process startReaConfigured(Context context) throws Exception {
         Context app = context.getApplicationContext();
+        Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+        guestEnvironment.put("REA_MCP_INPUT_SCHEMA_PROFILE", "compact");
+        guestEnvironment.put("REA_MCP_OUTPUT_SCHEMA_PROFILE", "off");
+        guestEnvironment.put("REA_MCP_MAX_RESPONSE_BYTES", "10485760");
+        java.util.List<String> command = Linux.commandAt(app, "/root/rea-source", guestEnvironment,
+                "/usr/bin/node", "/root/rea/scripts/rea.mjs", "mcp");
+        return startStdioConfigured(app, "rea-tunnel", REA_TUNNEL_ID, command);
+    }
+
+    static Process startBridgeConfigured(Context context) throws Exception {
+        Context app = context.getApplicationContext();
+        Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+        guestEnvironment.put("TERMUX_BRIDGE_REA_ROOT", "/root/rea-source");
+        java.util.List<String> command = Linux.commandAtWithSystem(app, "/root/rea-source", guestEnvironment,
+                "/usr/bin/node", "/root/bridge/server/index.mjs");
+        return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, command);
+    }
+
+    static Process startDroidMcpConfigured(Context context) throws Exception {
+        Context app = context.getApplicationContext();
+        Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+        guestEnvironment.put("DROIDMCP_ROOT", "/root/rea-source");
+        java.util.List<String> command = Linux.commandAt(app, "/root/rea-source", guestEnvironment,
+                "/usr/bin/node", "/root/droidmcp/server/index.mjs");
+        return startStdioConfigured(app, "droidmcp-tunnel", DROIDMCP_TUNNEL_ID, command);
+    }
+
+    private static Process startStdioConfigured(Context app, String runtimeName, String tunnelId,
+                                                java.util.List<String> command) throws Exception {
         String apiKey = Secrets.get(app, API_KEY_SECRET);
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Buddy Tunnel Client API key is not configured");
         }
-        File runtimeDir = new File(app.getFilesDir(), "runtime/rea-tunnel");
+        File runtimeDir = new File(app.getFilesDir(), "runtime/" + runtimeName);
         if (!runtimeDir.isDirectory() && !runtimeDir.mkdirs()) {
-            throw new IOException("REA runtime directory could not be created");
+            throw new IOException("stdio MCP runtime directory could not be created");
         }
-        chmod(runtimeDir, 0700, "REA runtime directory permissions could not be secured");
+        chmod(runtimeDir, 0700, "stdio MCP runtime directory permissions could not be secured");
         File apiKeyFifo = new File(runtimeDir, API_KEY_FILE);
         Process process = null;
         try {
@@ -86,15 +117,9 @@ final class RuntimeProcessLauncher {
             File binary = RuntimeBinaryLocator.locate(app);
             File cloudflared = RuntimeBinaryLocator.locateCloudflared(app);
             RuntimeBinaryLocator.locateProot(app);
-            java.util.Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
-            guestEnvironment.put("REA_MCP_INPUT_SCHEMA_PROFILE", "compact");
-            guestEnvironment.put("REA_MCP_OUTPUT_SCHEMA_PROFILE", "off");
-            guestEnvironment.put("REA_MCP_MAX_RESPONSE_BYTES", "10485760");
-            java.util.List<String> command = Linux.commandAt(app, "/root/rea", guestEnvironment,
-                    "/usr/bin/node", "/root/rea/scripts/rea.mjs", "mcp");
-            File config = new File(runtimeDir, "rea-mcp.yaml");
-            RuntimeProfileWriter.writeReaProfile(config, REA_TUNNEL_ID, runtimeDir, cloudflared, command);
-            chmod(config, 0600, "REA runtime profile permissions could not be secured");
+            File config = new File(runtimeDir, "stdio-mcp.yaml");
+            RuntimeProfileWriter.writeStdioProfile(config, tunnelId, runtimeDir, cloudflared, command);
+            chmod(config, 0600, "stdio MCP runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
             process = createProcessBuilder(binary, config, runtimeDir).start();
