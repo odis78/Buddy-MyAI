@@ -1115,6 +1115,12 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
         View sk = skillsRow();
         sk.setPaddingRelative(dp(this, 16), dp(this, 10), dp(this, 16), dp(this, 10));
         ex.addView(sk, full());
+        ex.addView(divider(), lineParams());
+        View runtime = navRow(R.drawable.ms_terminal,
+                getString(R.string.runtime_settings_title),
+                getString(R.string.runtime_settings_subtitle), false, RuntimeSettingsActivity.class);
+        runtime.setPaddingRelative(dp(this, 16), dp(this, 10), dp(this, 16), dp(this, 10));
+        ex.addView(runtime, full());
         addCard(ex);
     }
 
