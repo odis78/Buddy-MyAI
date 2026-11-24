@@ -26,6 +26,24 @@ public class RuntimeDependencyPlannerTest {
                 Arrays.asList(buddy.get(0).id, buddy.get(1).id));
     }
 
+    @Test public void groupsInOrderRejectsNullBeforeComparatorDereference() {
+        try {
+            RuntimeDependencyPlanner.groupsInOrder(Arrays.asList(
+                    spec("valid", "group", 1), null));
+            fail("null component accepted");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Null component", expected.getMessage());
+        }
+    }
+
+    @Test public void groupsInOrderIsStableAndDeduplicatesGroups() {
+        List<RuntimeComponentSpec> input = Arrays.asList(
+                spec("rea_android", "rea", 30),
+                spec("buddy_mcp", "buddy", 0),
+                spec("rea_bridge", "rea", 10));
+        assertEquals(Arrays.asList("buddy", "rea"), RuntimeDependencyPlanner.groupsInOrder(input));
+    }
+
     @Test public void rejectsMissingDependency() {
         try {
             RuntimeDependencyPlanner.planGroup(Collections.singletonList(spec("tunnel", "buddy", 1, "mcp")), "buddy");
