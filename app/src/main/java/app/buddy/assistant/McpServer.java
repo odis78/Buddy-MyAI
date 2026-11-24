@@ -163,24 +163,32 @@ final class McpServer {
 
     void stop() {
         running = false;
-        try {
-            if (socket != null) socket.close();
-            if (tailnetSocket != null) tailnetSocket.close();
-        } catch (IOException ignored) {
+        ServerSocket local = socket;
+        if (local != null) {
+            try {
+                local.close();
+            } catch (IOException ignored) {
+            }
+        }
+        ServerSocket remote = tailnetSocket;
+        if (remote != null) {
+            try {
+                remote.close();
+            } catch (IOException ignored) {
+            }
         }
         pool.shutdownNow();
     }
 
     private void acceptLoop() {
         while (running) {
-            try {
-                ServerSocket ss = new ServerSocket();
+            try (ServerSocket ss = new ServerSocket()) {
                 ss.setReuseAddress(true);
                 ss.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT));
                 socket = ss;
                 while (running) {
                     final Socket s = ss.accept();
-                    pool.execute(() -> handle(s));
+                    dispatch(s, false);
                 }
             } catch (IOException e) {
                 if (!running) return;
@@ -190,7 +198,21 @@ final class McpServer {
                 } catch (InterruptedException ie) {
                     return;
                 }
+            } finally {
+                socket = null;
             }
+        }
+    }
+
+    private void dispatch(Socket s, boolean remote) {
+        try {
+            pool.execute(() -> handle(s, remote));
+        } catch (java.util.concurrent.RejectedExecutionException stopped) {
+            try {
+                s.close();
+            } catch (IOException ignored) {
+            }
+            if (running) throw stopped;
         }
     }
 
@@ -217,12 +239,13 @@ final class McpServer {
                 while (running && at.equals(Tailnet.address(BuddyApp.context()))) {
                     try {
                         final Socket s = ss.accept();
-                        pool.execute(() -> handle(s, true));
+                        dispatch(s, true);
                     } catch (java.net.SocketTimeoutException again) {
                         // look at the address and the switch again
                     }
                 }
             } catch (IOException e) {
+                if (!running) return;
                 Log.w(TAG, "tailnet listener", e);
                 pause(5000);
             } finally {
