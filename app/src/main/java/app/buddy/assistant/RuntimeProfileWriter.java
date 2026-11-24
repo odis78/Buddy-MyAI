@@ -9,7 +9,7 @@ import java.nio.file.StandardCopyOption;
 
 /**
  * Writes Buddy's Tunnel Client profile directly instead of using the v0.0.19 connect-profile generator.
- * Both authenticated MCP header maps are explicit and credentials remain environment references.
+ * Both authenticated MCP header maps are explicit and credentials remain app-private file references.
  */
 final class RuntimeProfileWriter {
     static final String MCP_URL = "http://127.0.0.1:8766/mcp";
