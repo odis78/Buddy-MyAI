@@ -652,7 +652,7 @@ public final class MainActivity extends Activity {
                 boolean managerHashMatches = result.succeeded()
                         && result.stdout.startsWith(EXPECTED_TUNNELS_SCRIPT_SHA256);
                 saveProbeSnapshot("tunnels-manager", !result.succeeded() ? ComponentStatus.UNAVAILABLE
-                                : managerHashMatches ? ComponentStatus.READY : ComponentStatus.NOT_READY,
+                                : managerHashMatches ? ComponentStatus.AVAILABLE : ComponentStatus.NOT_READY,
                         managerHashMatches ? "Existing tunnel manager matches the reviewed historical SHA-256"
                                 : "Existing tunnel manager hash differs from reviewed source or file is unavailable");
                 break;
