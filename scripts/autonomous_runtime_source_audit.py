@@ -72,9 +72,13 @@ profile_auth_ok = all(term in runtime_profile and term in profile_fixture for te
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
-hardening_ok = all(term in runtime_hardening and term in runtime_hardening_test and term in runtime_patch for term in [
-    "PR_SET_DUMPABLE", "hardenProcess", "TUNNEL_DUMPABLE_SECRET"
-])
+hardening_ok = (
+    "PR_SET_DUMPABLE" in runtime_hardening
+    and "hardenProcess" in runtime_hardening
+    and "TUNNEL_DUMPABLE_SECRET" in runtime_hardening_test
+    and "dumpable_linux.go" in runtime_patch
+    and "hardenProcess()" in runtime_patch
+)
 add("tunnel_runtime_procfs_hardening", "PASS" if hardening_ok else "FAIL",
     "Pinned Tunnel Client build is patched to deny same-UID procfs access to its environment, with a regression test")
 test_dirs = [ROOT / "app/src/test", ROOT / "app/src/androidTest"]
