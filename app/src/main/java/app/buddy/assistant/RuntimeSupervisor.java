@@ -11,15 +11,29 @@ final class RuntimeSupervisor {
     private static final long POLL_INTERVAL_MS = 500;
     private static final long STOP_TIMEOUT_MS = 5000;
 
+    interface Starter { Process start() throws Exception; }
+
     private final Context app;
     private final RuntimeStateMachine machine = new RuntimeStateMachine();
+    private final Starter starter;
+    private final boolean requireBuddyMcp;
     private Process tunnelProcess;
     private File runtimeDir;
     private String lastError = "";
 
     RuntimeSupervisor(Context context) {
+        this(context, new File(context.getApplicationContext().getFilesDir(), "runtime/tunnel-client"),
+                () -> RuntimeProcessLauncher.startConfigured(context.getApplicationContext()), true);
+    }
+
+    RuntimeSupervisor(Context context, File runtimeDirectory, Starter processStarter, boolean requiresBuddyMcp) {
         this.app = context.getApplicationContext();
-        this.runtimeDir = new File(app.getFilesDir(), "runtime/tunnel-client");
+        if (runtimeDirectory == null || processStarter == null) {
+            throw new IllegalArgumentException("Runtime supervisor inputs are incomplete");
+        }
+        this.runtimeDir = runtimeDirectory;
+        this.starter = processStarter;
+        this.requireBuddyMcp = requiresBuddyMcp;
     }
 
     synchronized boolean start() throws Exception {
@@ -40,14 +54,14 @@ final class RuntimeSupervisor {
         }
 
         machine.transition(RuntimeStateMachine.State.STARTING);
-        if (!RuntimeHealthProbe.isBuddyMcpAvailable()) {
+        if (requireBuddyMcp && !RuntimeHealthProbe.isBuddyMcpAvailable()) {
             lastError = "Buddy MCP listener on 127.0.0.1:8766 is not active";
             machine.transition(RuntimeStateMachine.State.UNHEALTHY);
             stopInternal();
             return false;
         }
         try {
-            tunnelProcess = RuntimeProcessLauncher.startConfigured(app);
+            tunnelProcess = starter.start();
             long deadline = System.currentTimeMillis() + START_TIMEOUT_MS;
             while (System.currentTimeMillis() < deadline) {
                 if (tunnelProcess == null || !tunnelProcess.isAlive()) break;
@@ -76,7 +90,7 @@ final class RuntimeSupervisor {
 
     synchronized boolean isReady() {
         boolean ready = tunnelProcess != null && tunnelProcess.isAlive()
-                && RuntimeHealthProbe.isBuddyMcpAvailable()
+                && (!requireBuddyMcp || RuntimeHealthProbe.isBuddyMcpAvailable())
                 && RuntimeHealthProbe.isReady(new File(runtimeDir, "health.url"));
         if (!ready && machine.state() == RuntimeStateMachine.State.READY) {
             machine.transition(RuntimeStateMachine.State.UNHEALTHY);
