@@ -15,10 +15,12 @@ public class RuntimeProcessLauncherTest {
         String buddyToken = "test-buddy-token";
         try {
             Files.write(binary.toPath(), new byte[]{1});
-            RuntimeProcessLauncher.writeSecretFileAtomically(
-                    new File(dir, RuntimeProcessLauncher.API_KEY_FILE), apiKey);
-            RuntimeProcessLauncher.writeSecretFileAtomically(
-                    new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE), "Bearer " + buddyToken);
+            Files.write(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).toPath(),
+                    apiKey.getBytes(StandardCharsets.UTF_8));
+            Files.write(new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).toPath(),
+                    ("Bearer " + buddyToken).getBytes(StandardCharsets.UTF_8));
+            Files.write(new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).toPath(),
+                    ("Bearer " + buddyToken).getBytes(StandardCharsets.UTF_8));
             RuntimeProfileWriter.writeBuddyProfile(config,
                     RuntimeProcessLauncher.DEFAULT_TUNNEL_ID, dir);
             ProcessBuilder builder = RuntimeProcessLauncher.createProcessBuilder(binary, config, dir);
@@ -32,14 +34,12 @@ public class RuntimeProcessLauncherTest {
             assertFalse(yaml.contains(buddyToken));
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.API_KEY_FILE).getAbsolutePath()));
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).getAbsolutePath()));
-            assertEquals(apiKey, new String(Files.readAllBytes(
-                    new File(dir, RuntimeProcessLauncher.API_KEY_FILE).toPath()), StandardCharsets.UTF_8));
-            assertEquals("Bearer " + buddyToken, new String(Files.readAllBytes(
-                    new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).toPath()), StandardCharsets.UTF_8));
+            assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).getAbsolutePath()));
             assertEquals("/system/etc/security/cacerts", builder.environment().get("SSL_CERT_DIR"));
             RuntimeProcessLauncher.cleanupSecretFiles(dir);
             assertFalse(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).exists());
             assertFalse(new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).exists());
+            assertFalse(new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).exists());
         } finally {
             config.delete();
             new File(dir, "launcher.log").delete();
