@@ -8,7 +8,7 @@ const MAX_READ_BYTES = 256 * 1024;
 const MAX_SEARCH_FILE_BYTES = 512 * 1024;
 const MAX_RESULTS = 100;
 const MAX_TREE_ENTRIES = 500;
-const SENSITIVE = /(^|\/)(\.env([^/]*)?|id_rsa|id_ed25519|credentials?(\.json)?|secrets?)(\/|$)/i;
+const SENSITIVE = /(^|\/)(\.env([^/]*)?|\.npmrc|\.netrc|\.git-credentials|id_rsa|id_ed25519|[^/]+\.(pem|key|p12|pfx)|credentials?([^/]*)?|secrets?([^/]*)?|runtime\.env|[^/]*token[^/]*)(\/|$)/i;
 const SKIP_DIRS = new Set([".git", "node_modules", ".cache", ".npm", ".ssh"]);
 
 function withinRoot(candidate) {
