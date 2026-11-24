@@ -3,12 +3,12 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 const serverScript = process.argv[2];
 if (!serverScript) throw new Error("REA MCP entrypoint path is required");
-const env = {
-  ...process.env,
+const env = Object.fromEntries(Object.entries(process.env).filter(([, value]) => typeof value === "string"));
+Object.assign(env, {
   REA_MCP_INPUT_SCHEMA_PROFILE: "compact",
   REA_MCP_OUTPUT_SCHEMA_PROFILE: "off",
   REA_MCP_MAX_RESPONSE_BYTES: "10485760",
-};
+});
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [serverScript, "mcp"],
