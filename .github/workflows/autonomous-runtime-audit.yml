@@ -46,6 +46,27 @@ jobs:
           repository: openai/tunnel-client
           ref: 01d67bb4da0d8359b808b4761f8db171ab682cd7
           path: tunnel-client
+      - name: Validate Buddy profile against pinned Tunnel Client schema
+        run: |
+          cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
+          cat > tunnel-client/pkg/runtimeconfig/buddy_profile_validation_test.go <<'EOF'
+          package runtimeconfig
+
+          import (
+            "os"
+            "testing"
+          )
+
+          func TestBuddyGeneratedProfileAcceptedByPinnedRuntime(t *testing.T) {
+            data, err := os.ReadFile("../../buddy-profile-validation.yaml")
+            if err != nil {
+              t.Fatalf("read Buddy profile fixture: %v", err)
+            }
+            if err := ValidateFullProfileBytes("buddy-profile-validation.yaml", data); err != nil {
+              t.Fatalf("pinned Tunnel Client rejected Buddy profile: %v", err)
+            }
+          }
+          EOF
       - name: Run upstream runtime-focused Go tests
         run: |
           docker run --rm \
