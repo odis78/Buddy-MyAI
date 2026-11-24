@@ -142,7 +142,8 @@ jobs:
           echo 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393  dist/tunnel-client-runtime' | sha256sum --check
           echo '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7  dist/cloudflared' | sha256sum --check
           chmod 700 dist/tunnel-client-runtime dist/cloudflared
-          dist/tunnel-client-runtime --version | grep -E '^0\\.0\\.19([[:space:]]|$)'
+          dist/tunnel-client-runtime --version | tee /tmp/tunnel-client-runtime-version.txt
+          grep -F '0.0.19' /tmp/tunnel-client-runtime-version.txt
           dist/cloudflared --version | grep -F '2026.10.2'
 
   rea-mcp-alpine-arm64-smoke:
