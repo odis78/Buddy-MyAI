@@ -181,6 +181,7 @@ public final class MonitorService extends Service {
     }
 
     private void onHealthResult(TermuxCommandResult result) {
+        if (!monitoring) { inFlight = false; return; }
         boolean healthEndpointsReady = false;
         String summary = "health command exit=" + result.exitCode + " termuxErr=" + result.internalError;
         try {
@@ -214,17 +215,19 @@ public final class MonitorService extends Service {
             return;
         }
 
+        TermuxCommandClient.InstallState currentInstall = TermuxCommandClient.inspect(this);
+        String home = currentInstall.dataDir == null ? "" : currentInstall.dataDir + "/files/home";
         TermuxCommandClient.runProcessExecutable(this, pid, executable -> {
-            boolean executableMatches = executable.succeeded()
-                    && TunnelProcessIdentity.matchesExecutable(executable.stdout);
+            if (!monitoring) { inFlight = false; return; }
+            boolean executableMatches = executable.succeeded() && !home.isEmpty()
+                    && TunnelProcessIdentity.matchesExecutable(executable.stdout, home);
             if (!executableMatches) {
                 completeHealthCheck(endpointsReady, false, ComponentStatus.PID_PRESENT, pid,
                         healthSummary + "; PID exists but executable identity did not match");
                 return;
             }
             TermuxCommandClient.runProcessCmdline(this, pid, commandLine -> {
-                TermuxCommandClient.InstallState currentInstall = TermuxCommandClient.inspect(this);
-                String home = currentInstall.dataDir == null ? "" : currentInstall.dataDir + "/files/home";
+                if (!monitoring) { inFlight = false; return; }
                 boolean configMatches = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProcessIdentity.matchesBuddyConfig(commandLine.stdout, home);
                 completeHealthCheck(endpointsReady, configMatches,
@@ -238,6 +241,7 @@ public final class MonitorService extends Service {
 
     private void completeHealthCheck(boolean endpointsReady, boolean identityVerified,
                                      ComponentStatus processStatus, int pid, String detail) {
+        if (!monitoring) { inFlight = false; return; }
         saveSnapshot("tunnel-client", processStatus, detail, pid);
         boolean ready = endpointsReady && identityVerified;
         saveSnapshot("buddy-tunnel", ready ? ComponentStatus.READY : ComponentStatus.NOT_READY,
@@ -260,6 +264,7 @@ public final class MonitorService extends Service {
     }
 
     private void onMcpChallenge(TermuxCommandResult result) {
+        if (!monitoring) { inFlight = false; return; }
         String code = result.stdout == null ? "" : result.stdout.trim();
         String state;
         if (result.succeeded() && "401".equals(code)) state = "LISTENER_UP_AUTH_REQUIRED";
@@ -300,6 +305,7 @@ public final class MonitorService extends Service {
     }
 
     private void onAuthenticatedMcpResult(TermuxCommandResult result) {
+        if (!monitoring) { inFlight = false; return; }
         if (result.internalError == -1 && result.exitCode != 127) {
             saveSnapshot("termux-python", ComponentStatus.AVAILABLE, "Python authenticated probe executed", 0);
         } else if (result.internalError == -1 && result.exitCode == 127) {
@@ -374,6 +380,7 @@ public final class MonitorService extends Service {
     }
 
     private void onProcessSnapshot(TermuxCommandResult result) {
+        if (!monitoring) { inFlight = false; return; }
         String text = result.stdout == null ? "" : result.stdout.toLowerCase(java.util.Locale.ROOT);
         boolean tunnelSeen = text.contains("tunnel-client");
         log("buddy-tunnel", "PROCESS_SNAPSHOT",
@@ -403,7 +410,7 @@ public final class MonitorService extends Service {
 
     private void checkAuxiliaryProfileIdentity(TermuxOperation operation, TermuxCommandResult health,
                                                Runnable next) {
-        if (!monitoring) return;
+        if (!monitoring) { inFlight = false; return; }
         String componentId = profileComponentId(operation);
         JSONObject report;
         JSONObject process;
@@ -450,6 +457,7 @@ public final class MonitorService extends Service {
         final int targetPid = pid;
         final boolean ready = endpointsReady;
         TermuxCommandClient.runProcessExecutable(this, targetPid, executable -> {
+            if (!monitoring) { inFlight = false; return; }
             if (!monitoring) return;
             if (!executable.succeeded() || !TunnelProfileIdentity.matchesExecutable(executable.stdout)) {
                 recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid,
@@ -458,6 +466,7 @@ public final class MonitorService extends Service {
                 return;
             }
             TermuxCommandClient.runProcessCmdline(this, targetPid, commandLine -> {
+                if (!monitoring) { inFlight = false; return; }
                 if (!monitoring) return;
                 TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
                 String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
@@ -663,6 +672,8 @@ public final class MonitorService extends Service {
     private void stopMonitoring() {
         monitoring = false;
         running = false;
+        inFlight = false;
+        pollRequested = false;
         handler.removeCallbacks(poll);
         releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");

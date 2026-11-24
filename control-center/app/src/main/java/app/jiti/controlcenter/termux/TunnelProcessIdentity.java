@@ -3,11 +3,16 @@ package app.jiti.controlcenter.termux;
 public final class TunnelProcessIdentity {
     private TunnelProcessIdentity() {}
 
-    public static boolean matchesExecutable(String executablePath) {
-        if (executablePath == null) return false;
+    private static final String BINARY_SUFFIX =
+            "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64";
+
+    public static boolean matchesExecutable(String executablePath, String termuxHome) {
+        if (executablePath == null || termuxHome == null || !termuxHome.startsWith("/")
+                || termuxHome.contains("..")) return false;
         String path = executablePath.trim();
         if (path.endsWith(" (deleted)")) return false;
-        return path.endsWith("/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64");
+        String expected = normalizeTermuxPath(termuxHome + BINARY_SUFFIX);
+        return normalizeTermuxPath(path).equals(expected);
     }
 
     public static boolean matchesBuddyConfig(String nulSeparatedCommandLine, String termuxHome) {
@@ -29,6 +34,7 @@ public final class TunnelProcessIdentity {
     }
 
     public static boolean matchesBuddy(String executablePath, String nulSeparatedCommandLine, String termuxHome) {
-        return matchesExecutable(executablePath) && matchesBuddyConfig(nulSeparatedCommandLine, termuxHome);
+        return matchesExecutable(executablePath, termuxHome)
+                && matchesBuddyConfig(nulSeparatedCommandLine, termuxHome);
     }
 }

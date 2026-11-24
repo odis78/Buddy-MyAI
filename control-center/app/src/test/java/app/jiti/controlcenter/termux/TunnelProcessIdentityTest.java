@@ -9,9 +9,11 @@ public class TunnelProcessIdentityTest {
     private static final String CONFIG = HOME + "/.config/tunnel-client-buddy/buddy-myai.yaml";
 
     @Test public void exactExecutablePathIsRequired() {
-        assertTrue(TunnelProcessIdentity.matchesExecutable(BIN));
-        assertFalse(TunnelProcessIdentity.matchesExecutable("/system/bin/sh"));
-        assertFalse(TunnelProcessIdentity.matchesExecutable(BIN + " (deleted)"));
+        assertTrue(TunnelProcessIdentity.matchesExecutable(BIN, HOME));
+        assertFalse(TunnelProcessIdentity.matchesExecutable("/system/bin/sh", HOME));
+        assertFalse(TunnelProcessIdentity.matchesExecutable(BIN + " (deleted)", HOME));
+        assertFalse(TunnelProcessIdentity.matchesExecutable(
+                "/tmp/attacker/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64", HOME));
     }
 
     @Test public void exactBuddyConfigArgumentIsRequired() {

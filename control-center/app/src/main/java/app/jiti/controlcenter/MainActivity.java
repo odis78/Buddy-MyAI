@@ -62,6 +62,7 @@ public final class MainActivity extends Activity {
     private TextView buddyControlStatusView;
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
+    private boolean diagnosticsInFlight;
     private final android.os.Handler uiRefreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable uiRefreshRunnable = new Runnable() {
         @Override public void run() {
@@ -411,7 +412,9 @@ public final class MainActivity extends Activity {
     }
 
     private void runTermuxDiagnostics(Button button, TextView output) {
-        button.setEnabled(false);
+        if (diagnosticsInFlight) return;
+        diagnosticsInFlight = true;
+        refreshTermuxControls();
         output.setText("Read-only preflight запущен…");
         runTermuxStep(button, output, 0);
     }
@@ -435,17 +438,22 @@ public final class MainActivity extends Activity {
         };
         if (index >= operations.length) {
             output.append("\n\nRead-only preflight завершён. MCP 401 подтверждает только доступность listener и требование авторизации, но не успешную аутентификацию.");
-            button.setEnabled(true);
+            diagnosticsInFlight = false;
+            refreshTermuxControls();
             return;
         }
         TermuxOperation operation = operations[index];
         output.append("\n\n[" + operationLabel(operation) + "] running…");
         TermuxCommandClient.run(this, operation, result -> {
-            if (isFinishing() || isDestroyed()) return;
+            if (isFinishing() || isDestroyed()) {
+                diagnosticsInFlight = false;
+                return;
+            }
             appendCommandResult(output, operation, result);
             if (operation == TermuxOperation.IDENTITY && !result.succeeded()) {
                 output.append("\nRemaining probes skipped: RUN_COMMAND did not return a successful result.");
-                button.setEnabled(true);
+                diagnosticsInFlight = false;
+                refreshTermuxControls();
                 return;
             }
             if (isReaProfileHealthOperation(operation)) {
@@ -912,9 +920,9 @@ public final class MainActivity extends Activity {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
                     + "\n" + termuxPolicyText()
                     + "\nМониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
-            termuxStatusView.setTextColor(getColor(termuxBridgeVerified() ? GREEN : AMBER));
+            termuxStatusView.setTextColor(termuxBridgeVerified() ? GREEN : AMBER);
         }
-        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke());
+        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke() && !diagnosticsInFlight);
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
         boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
@@ -927,7 +935,7 @@ public final class MainActivity extends Activity {
                     : !MonitorService.running ? "Сначала запустите фоновый мониторинг."
                     : "Контроль Buddy доступен. Каждый запуск/остановка требует подтверждения; PID проверяется по бинарнику и YAML.";
             buddyControlStatusView.setText(controlState);
-            buddyControlStatusView.setTextColor(getColor(controlsReady ? GREEN : AMBER));
+            buddyControlStatusView.setTextColor(controlsReady ? GREEN : AMBER);
         }
     }
 

@@ -43,7 +43,9 @@ public class TunnelProfileIdentityTest {
                 "/.config/bridge/profile.yaml", "--config"));
         assertFalse(TunnelProfileIdentity.matchesProfile("/system/bin/sh", cmdline, HOME,
                 "/.config/other/profile.yaml", "--config"));
-        assertFalse(TunnelProfileIdentity.matchesExecutable(EXE + " (deleted)"));
+        assertFalse(TunnelProfileIdentity.matchesExecutable(EXE + " (deleted)", HOME));
+        assertFalse(TunnelProfileIdentity.matchesExecutable(
+                "/tmp/attacker/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64", HOME));
         String doctor = cmd(EXE, "doctor", "--config", HOME + "/.config/other/profile.yaml");
         assertFalse(TunnelProfileIdentity.matchesProfile(EXE, doctor, HOME,
                 "/.config/other/profile.yaml", "--config"));

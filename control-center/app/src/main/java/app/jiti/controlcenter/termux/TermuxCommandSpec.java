@@ -20,7 +20,6 @@ PID_FILE = HOME + "/.config/tunnel-client-buddy/buddy-myai.pid"
 HEALTH_URL_FILE = HOME + "/.config/tunnel-client-buddy/health.url"
 LOG_FILE = HOME + "/.config/tunnel-client-buddy/tunnel-client.log"
 STATUS_FILE = HOME + "/.config/tunnel-client-buddy/jiti-launcher.status"
-BINARY_SUFFIX = "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 EXPECTED_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20"
 
 def emit(value):
@@ -56,7 +55,7 @@ def process_identity(pid):
             config_ok = True
         if arg.startswith("--config=") and normalize(arg.split("=", 1)[1]) == expected:
             config_ok = True
-    executable_ok = executable.endswith(BINARY_SUFFIX)
+    executable_ok = normalize(executable) == normalize(BINARY)
     return executable_ok and config_ok, "identity_match" if executable_ok and config_ok else "identity_mismatch"
 
 def load_environment():
@@ -197,7 +196,7 @@ import time
 HOME = os.path.expanduser("~")
 PID_FILE = HOME + "/.config/tunnel-client-buddy/buddy-myai.pid"
 CONFIG = HOME + "/.config/tunnel-client-buddy/buddy-myai.yaml"
-BINARY_SUFFIX = "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
+BINARY = HOME + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 STATUS_FILE = HOME + "/.config/tunnel-client-buddy/jiti-launcher.status"
 
 def emit(value):
@@ -220,7 +219,7 @@ def identity(pid):
                     and normalize(args[i + 1]) == expected for i in range(len(args)))
     config_ok = config_ok or any(arg.startswith("--config=")
                                  and normalize(arg.split("=", 1)[1]) == expected for arg in args)
-    return executable.endswith(BINARY_SUFFIX) and config_ok
+    return normalize(executable) == normalize(BINARY) and config_ok
 
 def process_start_time(pid):
     try:
@@ -374,7 +373,7 @@ import urllib.request
 import urllib.error
 
 HOME = os.path.expanduser("~")
-BINARY_SUFFIX = "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
+BINARY = HOME + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 CONFIG = HOME + "/.config/tunnel-client-buddy/buddy-myai.yaml"
 
 def emit(value):
@@ -397,7 +396,7 @@ def process_identity(pid):
                     and normalize(args[i + 1]) == expected for i in range(len(args)))
     config_ok = config_ok or any(arg.startswith("--config=")
                                  and normalize(arg.split("=", 1)[1]) == expected for arg in args)
-    return executable.endswith(BINARY_SUFFIX) and config_ok
+    return normalize(executable) == normalize(BINARY) and config_ok
 
 def decode_message(body):
     text = body.decode("utf-8", "replace").strip()

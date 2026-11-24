@@ -6,15 +6,17 @@ public final class TunnelProfileIdentity {
 
     private TunnelProfileIdentity() {}
 
-    public static boolean matchesExecutable(String executablePath) {
-        if (executablePath == null) return false;
+    public static boolean matchesExecutable(String executablePath, String termuxHome) {
+        if (executablePath == null || termuxHome == null || !termuxHome.startsWith("/")
+                || termuxHome.contains("..")) return false;
         String path = executablePath.trim();
-        return !path.endsWith(" (deleted)") && path.endsWith(BINARY_SUFFIX);
+        if (path.endsWith(" (deleted)")) return false;
+        return normalize(path).equals(normalize(termuxHome + BINARY_SUFFIX));
     }
 
     public static boolean matchesProfile(String executablePath, String nulSeparatedCommandLine,
                                          String termuxHome, String configRelativePath, String configFlag) {
-        if (!matchesExecutable(executablePath) || nulSeparatedCommandLine == null
+        if (!matchesExecutable(executablePath, termuxHome) || nulSeparatedCommandLine == null
                 || termuxHome == null || !termuxHome.startsWith("/")
                 || configRelativePath == null || !configRelativePath.startsWith("/")
                 || configRelativePath.contains("..")

@@ -16,5 +16,16 @@ public class SecretRedactorTest {
         assertFalse(value.contains("runtime-secret"));
         assertFalse(value.contains("header-secret"));
     }
+    @Test public void redactsCommandLineSecretsAndUrlCredentials() {
+        String value = SecretRedactor.redact("--token cli-secret --api-key=key-secret https://alice:pw-secret@example.test/path");
+        assertFalse(value.contains("cli-secret"));
+        assertFalse(value.contains("key-secret"));
+        assertFalse(value.contains("alice:pw-secret"));
+        assertTrue(value.contains("[REDACTED]"));
+    }
+    @Test public void redactsBasicAuthorizationHeader() {
+        String value = SecretRedactor.redact("Authorization: Basic dXNlcjpwYXNz");
+        assertFalse(value.contains("dXNlcjpwYXNz"));
+    }
     @Test public void nullIsSafe() { assertEquals("", SecretRedactor.redact(null)); }
 }
