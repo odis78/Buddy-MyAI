@@ -46,6 +46,8 @@ jobs:
           repository: openai/tunnel-client
           ref: 01d67bb4da0d8359b808b4761f8db171ab682cd7
           path: tunnel-client
+      - name: Apply runtime procfs hardening patch
+        run: python3 scripts/patch_tunnel_client_runtime.py tunnel-client
       - name: Validate Buddy profile against pinned Tunnel Client schema
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
@@ -69,11 +71,11 @@ jobs:
           EOF
       - name: Run upstream runtime-focused Go tests
         run: |
-          docker run --rm \
+          docker run --rm --cap-drop=SYS_PTRACE \
             -v "$PWD/tunnel-client:/src" \
             -w /src \
             golang:1.27.3-alpine \
-            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo
+            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime
       - name: Build Linux ARM64 runtime binary
         run: |
           mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
