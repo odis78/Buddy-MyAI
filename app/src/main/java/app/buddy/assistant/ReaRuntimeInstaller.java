@@ -114,35 +114,47 @@ final class ReaRuntimeInstaller {
 
     private static String buildInstallCommand() {
         return "set -eu; "
+                + "stage=\\"$(mktemp -d /root/.buddy-runtime-stage.XXXXXX)\\"; "
+                + "backup=\\"/root/.buddy-runtime-backup-$(date +%s)-$$\\"; "
+                + "mkdir -p \\"$stage/new/rea\\" \\"$stage/new/rea-source\\" \\"$stage/new/bridge/server\\" \\"$stage/new/droidmcp/server\\"; "
                 + "apk update >/tmp/buddy-apk-update.log 2>&1 || { tail -n 30 /tmp/buddy-apk-update.log; exit 1; }; "
                 + "apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools "
                 + ">/tmp/buddy-apk-install.log 2>&1 || { tail -n 40 /tmp/buddy-apk-install.log; exit 1; }; "
                 + "node --version | grep -F '" + NODE_VERSION + "' >/dev/null; "
-                + "rm -rf /root/rea /root/rea-source /root/bridge /root/droidmcp; "
-                + "mkdir -p /root/rea; "
-                + "tar -xzf /tmp/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1; "
-                + "cd /root/rea; "
+                + "tar -xzf /tmp/rea-agents-6.5.0.tgz -C \\"$stage/new/rea\\" --strip-components=1; "
+                + "cd \\"$stage/new/rea\\"; "
                 + "npm install --omit=dev --no-audit --no-fund >/tmp/buddy-rea-npm.log 2>&1 "
                 + "|| { tail -n 50 /tmp/buddy-rea-npm.log; exit 1; }; "
                 + "REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off "
                 + "REA_MCP_MAX_RESPONSE_BYTES=10485760 node scripts/rea.mjs mcp doctor --format json "
-                + "> /root/rea/.buddy-mcp-doctor.json; "
-                + "node -e 'const fs=require(\"fs\"); const r=JSON.parse(fs.readFileSync(\"/root/rea/.buddy-mcp-doctor.json\",\"utf8\")); "
+                + "> .buddy-mcp-doctor.json; "
+                + "node -e 'const fs=require(\\\"fs\\\"); const r=JSON.parse(fs.readFileSync(\\\".buddy-mcp-doctor.json\\\",\\\"utf8\\\")); "
                 + "if(!r.healthy || r.inventory.tools.expected!==" + EXPECTED_TOOLS
                 + " || r.inventory.tools.observed!==" + EXPECTED_TOOLS
                 + " || r.inventory.prompts.expected!==" + EXPECTED_PROMPTS
                 + " || r.inventory.prompts.observed!==" + EXPECTED_PROMPTS
-                + ") process.exit(2); console.log(\"REA_MCP_READY=207/207;6/6\");'; "
-                + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source "
+                + ") process.exit(2); console.log(\\\"REA_MCP_READY=207/207;6/6\\\");'; "
+                + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git \\"$stage/new/rea-source\\" "
                 + ">/tmp/buddy-rea-source.log 2>&1 || { tail -n 40 /tmp/buddy-rea-source.log; exit 1; }; "
-                + "test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
-                + "mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext /storage/emulated/0; "
-                + "cp /tmp/termux-bridge-0.1.3.mjs /root/bridge/server/index.mjs; "
-                + "cp /tmp/droidmcp-filesystem-0.4.0.mjs /root/droidmcp/server/index.mjs; "
-                + "node --check /root/bridge/server/index.mjs; "
-                + "node --check /root/droidmcp/server/index.mjs; "
-                + "printf '%s\\n' 'HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0'; "
-                + "node --version; npm --version; java -version; adb version";
+                + "test \\"$(git -C \\"$stage/new/rea-source\\" rev-parse HEAD)\\" = \\"" + REA_SOURCE_COMMIT + "\\"; "
+                + "cp /tmp/termux-bridge-0.1.3.mjs \\"$stage/new/bridge/server/index.mjs\\"; "
+                + "cp /tmp/droidmcp-filesystem-0.4.0.mjs \\"$stage/new/droidmcp/server/index.mjs\\"; "
+                + "node --check \\"$stage/new/bridge/server/index.mjs\\"; "
+                + "node --check \\"$stage/new/droidmcp/server/index.mjs\\"; "
+                + "printf '%s\\\\n' 'HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0'; "
+                + "node --version; npm --version; java -version; adb version; "
+                + "mkdir -p \\"$backup\\"; "
+                + "for name in rea rea-source bridge droidmcp; do "
+                + "if [ -e \\"/root/$name\\" ]; then mv \\"/root/$name\\" \\"$backup/$name\\"; fi; done; "
+                + "for name in rea rea-source bridge droidmcp; do "
+                + "if ! mv \\"$stage/new/$name\\" \\"/root/$name\\"; then "
+                + "for restore in rea rea-source bridge droidmcp; do "
+                + "if [ -e \\"$backup/$restore\\" ]; then "
+                + "if [ -e \\"/root/$restore\\" ]; then mv \\"/root/$restore\\" \\"$stage/failed-$restore\\"; fi; "
+                + "mv \\"$backup/$restore\\" \\"/root/$restore\\"; fi; done; exit 1; fi; done; "
+                + "printf '%s\\\\n' 'REA_RUNTIME_INSTALL_COMMITTED=1' "
+                + "'PREVIOUS_RUNTIME_BACKUP='\\\"$backup\\\"; "
+                + "rm -rf \\"$stage\\"";
     }
 
     private static String tail(String value) {
