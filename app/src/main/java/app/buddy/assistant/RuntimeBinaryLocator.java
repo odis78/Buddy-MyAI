@@ -14,7 +14,9 @@ import java.security.MessageDigest;
  */
 final class RuntimeBinaryLocator {
     static final String LIBRARY_NAME = "libtunnel-client.so";
+    static final String CLOUDFLARED_LIBRARY_NAME = "libcloudflared.so";
     static final String EXPECTED_SHA256 = "35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39";
+    static final String EXPECTED_CLOUDFLARED_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private RuntimeBinaryLocator() { }
 
@@ -24,6 +26,15 @@ final class RuntimeBinaryLocator {
             throw new IOException("Pinned Tunnel Client native runtime is missing or not executable");
         }
         verify(binary, EXPECTED_SHA256);
+        return binary;
+    }
+
+    static File locateCloudflared(Context context) throws IOException {
+        File binary = new File(context.getApplicationInfo().nativeLibraryDir, CLOUDFLARED_LIBRARY_NAME);
+        if (!binary.isFile() || !binary.canExecute()) {
+            throw new IOException("Pinned cloudflared companion is missing or not executable");
+        }
+        verify(binary, EXPECTED_CLOUDFLARED_SHA256);
         return binary;
     }
 
