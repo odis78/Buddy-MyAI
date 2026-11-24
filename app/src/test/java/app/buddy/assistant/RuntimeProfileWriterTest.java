@@ -64,6 +64,18 @@ public class RuntimeProfileWriterTest {
                         new File("/tmp/libcloudflared.so"), java.util.Collections.singletonList(REA_COMMAND)));
     }
 
+    @Test public void writeReaProfileCreatesCompleteAtomicProfile() throws Exception {
+        File dir = Files.createTempDirectory("rea-profile").toFile();
+        File target = new File(dir, "rea-mcp.yaml");
+        File cloudflared = new File(dir, "libcloudflared.so");
+        RuntimeProfileWriter.writeReaProfile(target, REA_TUNNEL, dir, cloudflared,
+                java.util.Collections.singletonList(REA_COMMAND));
+        assertTrue(target.isFile());
+        assertEquals(RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, dir, cloudflared,
+                        java.util.Collections.singletonList(REA_COMMAND)),
+                new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
+    }
+
     @Test public void rejectsMalformedTunnelId() {
         try {
             RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
