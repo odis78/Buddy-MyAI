@@ -44,6 +44,9 @@ public class TunnelProfileIdentityTest {
         assertFalse(TunnelProfileIdentity.matchesProfile("/system/bin/sh", cmdline, HOME,
                 "/.config/other/profile.yaml", "--config"));
         assertFalse(TunnelProfileIdentity.matchesExecutable(EXE + " (deleted)"));
+        String doctor = cmd(EXE, "doctor", "--config", HOME + "/.config/other/profile.yaml");
+        assertFalse(TunnelProfileIdentity.matchesProfile(EXE, doctor, HOME,
+                "/.config/other/profile.yaml", "--config"));
     }
 
     @Test public void unsafeConfigPathsAndFlagsAreRejected() {
