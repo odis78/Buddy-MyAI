@@ -91,9 +91,9 @@ public class TermuxCommandSpecTest {
         assertFalse(stop.arguments.get(1).contains("signal.SIGKILL"));
         assertTrue(stop.arguments.get(1).contains("pid_identity_mismatch"));
         assertTrue(stop.arguments.get(1).contains("def finish(value, code=0):"));
-        assertTrue(stop.arguments.get(1).contains("if mode == \\"stop\\":\\n        write_status(value)"));
-        assertFalse(stop.arguments.get(1).contains("emit(result)\\n    write_status(result)"));
-        assertTrue(stopPreflight.arguments.get(1).contains("if mode == \\"preflight\\":\\n    finish({\\"result\\": \\"ready_to_stop\\""));
+        assertTrue(stop.arguments.get(1).contains("if mode == \"stop\":\n        write_status(value)"));
+        assertFalse(stop.arguments.get(1).contains("emit(result)\n    write_status(result)"));
+        assertTrue(stopPreflight.arguments.get(1).contains("if mode == \"preflight\":\n    finish({\"result\": \"ready_to_stop\""));
     }
 
     @Test public void buddyLaunchRejectsUnsupportedMode() {
