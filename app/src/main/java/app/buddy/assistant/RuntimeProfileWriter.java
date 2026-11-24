@@ -99,8 +99,9 @@ final class RuntimeProfileWriter {
                 + "  format: json\n"
                 + "  file: \"" + yamlQuote(dir + "/tunnel-client.log") + "\"\n"
                 + "mcp:\n"
-                + "  command:\n"
-                + "    - \"" + yamlQuote(command.toString()) + "\"\n";
+                + "  commands:\n"
+                + "    - channel: main\n"
+                + "      command: \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
     static String renderReaProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
