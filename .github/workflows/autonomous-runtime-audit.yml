@@ -139,7 +139,7 @@ jobs:
           readelf -h dist/cloudflared | grep -E 'Class:.*ELF64|Machine:.*AArch64'
           ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
           ! readelf -l dist/cloudflared | grep -q INTERP
-          echo '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39  dist/tunnel-client-runtime' | sha256sum --check
+          echo 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393  dist/tunnel-client-runtime' | sha256sum --check
           sha256sum dist/cloudflared
           chmod 700 dist/tunnel-client-runtime dist/cloudflared
           test "$(dist/tunnel-client-runtime version)" = "0.0.19"
@@ -210,7 +210,7 @@ jobs:
           path: dist
       - name: Verify pinned runtime payload
         run: |
-          echo '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39  dist/tunnel-client-runtime' | sha256sum --check
+          echo 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393  dist/tunnel-client-runtime' | sha256sum --check
           sha256sum dist/cloudflared
       - name: Stage runtime as Android native executables
         run: |
@@ -240,7 +240,7 @@ jobs:
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
           echo "$BADGING" | grep -F "versionCode='216'"
-          unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39'
+          unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'b9b0b5819c0b59b2e8a8d4308e20aa55a4aa01d9bb3d9c923a10d2ed26917393'
           unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
