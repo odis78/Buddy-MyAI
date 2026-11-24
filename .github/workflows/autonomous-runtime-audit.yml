@@ -96,7 +96,7 @@ jobs:
               apk add --no-cache python3 >/dev/null
               python3 /buddy/scripts/patch_cloudflared_module.py "$MOD_DIR"
               cd "$MOD_DIR"
-              go test ./cmd/cloudflared -run "^TestCloudflaredHidesEnvironmentFromSameUidProcess$" -count=1
+              GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test ./cmd/cloudflared -run "^TestCloudflaredHidesEnvironmentFromSameUidProcess$" -count=1
               go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=2026.10.2 -X main.BuildTime=2026-11-24 -X main.BuildType=buddy" -o /out/cloudflared ./cmd/cloudflared
             '
           file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
