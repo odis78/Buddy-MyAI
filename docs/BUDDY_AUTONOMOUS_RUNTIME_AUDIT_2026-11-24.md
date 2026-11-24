@@ -236,3 +236,18 @@ Release keystore создаётся один раз только после ут
 ---
 
 **Итог этапа 1:** Buddy уже имеет Alpine/PRoot runtime, поэтому проект следует строить как расширение существующей среды, а не как перенос Termux целиком. Рабочая Termux-инфраструктура остаётся эталоном и резервом. Следующий этап: точная инвентаризация каждого helper server и Tunnel Client profile, затем минимальный прототип supervisor в отдельной feature-ветке.
+
+
+## 13. Дополнительные findings по процессам и секретам (проверка исходников)
+
+Дополнительно проверены `Helper.java`, `BuddyService.java`, `Secrets.java`:
+
+- `Helper.runFor()` уже запускает долгоживущие процессы внутри встроенной Linux-среды через `Linux.builder(...).start()`. Процесс обслуживается worker thread и его stdout читается в ограниченный debug log. Это подтверждает, что Buddy уже умеет запускать Linux child processes, но текущий helper рассчитан на агентские run-процессы, а не на постоянный multi-service supervisor.
+- `Helper` использует общий cached thread pool; в текущем коде не найден отдельный реестр инфраструктурных процессов с устойчивой идентичностью, dependency graph, readiness gates и контролируемой политикой рестарта.
+- `BuddyService` является Android AccessibilityService и запускает собственный MCP server, а при `onDestroy()` останавливает связанные с ним RemoteSession/SSH/CodexRemote и MCP server. Это не следует автоматически считать подходящей моделью для непрерывной работы сетевых туннелей. Для Runtime нужен отдельно спроектированный Android foreground service и корректная политика lifecycle для target SDK 36.
+- `Secrets.java` уже применяет Android Keystore AES/GCM, храня шифротекст в приватных SharedPreferences и не помещая значения секретов в Buddy Linux. Это хорошая существующая основа для API keys, но новый Runtime должен проверить требования к backup/restore, invalidated keystore key и миграции секретов; не создавать параллельный самодельный механизм без необходимости.
+- В дереве commit `d621393e...` не обнаружены каталоги `app/src/test` и `app/src/androidTest`. Следовательно, нынешние CI helper tests не покрывают Java-классы приложения, Android lifecycle, Linux process supervision или установку/обновление APK.
+
+### Последствие для реализации
+
+Не переносить текущий `Helper` в роль supervisor простым переименованием. Разработать отдельные классы, например `RuntimeSupervisor`, `RuntimeOrchestrator`, `RuntimeComponent` и `RuntimeHealthProbe`, с узким интерфейсом запуска поверх `Linux.builder()`. Существующий Helper, MCP server, Android Keystore secrets и Alpine installer должны остаться без регрессий. Добавить тесты отдельно для новой подсистемы, не меняя поведение текущих агентских процессов.
