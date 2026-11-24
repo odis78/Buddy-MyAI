@@ -334,3 +334,11 @@ Pinned runtime binary SHA-256:
 Important boundary: these additions do not yet start or supervise Tunnel Client, REA helper processes, or the Android MCP lifecycle. A native-process supervisor, special-use foreground service, opt-in boot receiver, and settings screen have now been added. They gate startup on Buddy's existing MCP listener at 127.0.0.1:8766, probe Tunnel Client readiness on loopback, restart with capped backoff, and stop only the exact Process handle they launched. Credentials are read from short-lived 0600 app-private files and removed after the health URL appears. These are source-level/CI-tested components, not yet proven on a physical Android device.
 
 Still mandatory: real Android-device execution and reboot tests, ChatGPT-originated end-to-end tool invocation, integration of the REA-Termux-Bridge / DroidMCP-Filesystem / REA-Termux-Android helper group, GT release package/signing, and update-over-update testing. The process-environment isolation patch is source-tested on Linux, but Android-specific procfs behavior and the static Linux binary's execution from nativeLibraryDir still require device validation. Do not describe this payload APK as the completed autonomous runtime or install it over the current Buddy.
+
+
+## 15. REA helper runtime (2026-11-24)
+
+- The Buddy app now has a first-run installer for the pinned `rea-agents@6.5.0` npm package inside its own Alpine 3.24 rootfs. It installs Alpine's Node 26 runtime, verifies the package archive, installs production dependencies, and runs the REA MCP doctor before the helper tunnel can start.
+- The REA server is launched as a stdio child through the app's bundled PRoot executable. It does not require Termux.
+- The REA tunnel uses the route identity recovered from the Termux checkpoint. Its MCP environment sets `REA_MCP_INPUT_SCHEMA_PROFILE=compact` and `REA_MCP_OUTPUT_SCHEMA_PROFILE=off` to reduce catalog payload size and mitigate the earlier ChatGPT observation-result limit.
+- CI on Alpine ARM64 confirmed the public 6.5.0 package is healthy with **207 tools and 6 prompts**. The prior Termux environment reported 208 tools and 6 prompts, so one local-only tool is not present in the public npm release. Do not claim exact 208-tool parity until that extra local tool is identified and ported. Buddy's own MCP catalog remains a separate channel.
