@@ -534,8 +534,8 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
             cmd = bootstrap + cleanup
                     + "opencode mcp add phone --global --url " + url
                     + " --header 'Authorization=Bearer {file:~/.config/buddy-mcp/token}'"
-                    + " && cfg=~/.config/opencode/opencode.json && [ -f \\"$cfg\\" ] || cfg=~/.config/opencode/opencode.jsonc"
-                    + " && sed -i '/\\"phone\\"[[:space:]]*:/,/\\"type\\"[[:space:]]*:[[:space:]]*\\"remote\\"/ s/\\"type\\"[[:space:]]*:[[:space:]]*\\"remote\\"/\\"type\\": \\"remote\\",\\n            \\"oauth\\": false/' \\"$cfg\\""
+                    + " && { cfg=~/.config/opencode/opencode.json; [ -f \"$cfg\" ] || cfg=~/.config/opencode/opencode.jsonc; }"
+                    + " && sed -i '/\"phone\"[[:space:]]*:/,/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/ s/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/\"type\": \"remote\",\\n            \"oauth\": false/' \"$cfg\""
                     + " && opencode mcp list";
         } else if ("agy".equals(mcpAgent)) {
             cmd = bootstrap + cleanup + "agy mcp add --header \"Authorization: Bearer $BUDDY_TOKEN\" phone " + url
