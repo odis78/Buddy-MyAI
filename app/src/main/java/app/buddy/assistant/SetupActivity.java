@@ -522,7 +522,7 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                 + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && [[ \"$BUDDY_TOKEN\" =~ ^[0-9a-f]{48}$ ]] || { echo 'Invalid Buddy MCP token'; false; } && "
                 + "printf '%s' \"$BUDDY_TOKEN\" > ~/.config/buddy-mcp/token && chmod 600 ~/.config/buddy-mcp/token && ";
         // Preserve user shell settings; only remove/rewrite Buddy-owned marked blocks.
-        String cleanup = "touch ~/.bashrc && tmp=$(mktemp) && awk '$0 == \"# >>> Buddy MCP managed >>>\" { inside=1; block=$0 ORS; next } inside { block=block $0 ORS; if ($0 == \"# <<< Buddy MCP managed <<<\") { inside=0; block=\"\" } next } { print } END { if (inside) printf \"%s\", block }' ~/.bashrc > \"$tmp\" && cat \"$tmp\" > ~/.bashrc && rm -f \"$tmp\" && ";
+        String cleanup = "touch ~/.bashrc && tmp=$(mktemp) && awk '$0 == \"# >>> Buddy MCP managed >>>\" { inside=1; next } inside { if ($0 == \"# <<< Buddy MCP managed <<<\") inside=0; next } { print } END { if (inside) { print \"Unclosed Buddy MCP block; ~/.bashrc left unchanged\" > \"/dev/stderr\"; exit 2 } }' ~/.bashrc > \"$tmp\" && cat \"$tmp\" > ~/.bashrc && rm -f \"$tmp\" && ";
         final String cmd;
         if ("codex".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
