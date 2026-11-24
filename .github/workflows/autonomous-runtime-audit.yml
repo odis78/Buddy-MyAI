@@ -52,6 +52,8 @@ jobs:
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
           cp app/src/test/resources/rea-mcp-tunnel-profile.yaml tunnel-client/rea-profile-validation.yaml
+          cp app/src/test/resources/bridge-mcp-tunnel-profile.yaml tunnel-client/bridge-profile-validation.yaml
+          cp app/src/test/resources/droidmcp-tunnel-profile.yaml tunnel-client/droidmcp-profile-validation.yaml
           cat > tunnel-client/pkg/runtimeconfig/buddy_profile_validation_test.go <<'EOF'
           package runtimeconfig
 
@@ -61,7 +63,7 @@ jobs:
           )
 
           func TestBuddyGeneratedProfilesAcceptedByPinnedRuntime(t *testing.T) {
-            for _, name := range []string{"buddy-profile-validation.yaml", "rea-profile-validation.yaml"} {
+            for _, name := range []string{"buddy-profile-validation.yaml", "bridge-profile-validation.yaml", "droidmcp-profile-validation.yaml", "rea-profile-validation.yaml"} {
               data, err := os.ReadFile("../../" + name)
               if err != nil {
                 t.Fatalf("read profile fixture %s: %v", name, err)
