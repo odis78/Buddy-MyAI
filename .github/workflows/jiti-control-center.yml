@@ -27,31 +27,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
       - name: Validate embedded Termux Python control scripts
-        run: |
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-          source = Path("control-center/app/src/main/java/app/jiti/controlcenter/termux/TermuxCommandSpec.java").read_text()
-          names = ("BUDDY_MCP_AUTH_PROBE_SCRIPT", "BUDDY_LAUNCH_SCRIPT", "BUDDY_STOP_SCRIPT")
-          scripts = {}
-          for name in names:
-              match = re.search(rf'{name} = """\n(.*?)\n""";', source, re.S)
-              if not match:
-                  raise SystemExit(f"{name} text block not found")
-              script = match.group(1).replace("\\\\", "\\")
-              compile(script, name + ".py", "exec")
-              scripts[name] = script
-          auth = scripts["BUDDY_MCP_AUTH_PROBE_SCRIPT"]
-          assert "BUDDY_AUTH_HEADER" in auth and "BUDDY_TOKEN" in auth
-          assert "ProxyHandler({})" in auth and "NoRedirect" in auth
-          assert "print(auth)" not in auth
-          launch = scripts["BUDDY_LAUNCH_SCRIPT"]
-          stop = scripts["BUDDY_STOP_SCRIPT"]
-          assert "CONTROL_PLANE_API_KEY" in launch and "BUDDY_TOKEN" in launch
-          assert "EXPECTED_TUNNEL_ID" in launch
-          assert "signal.SIGTERM" in stop and "signal.SIGKILL" not in stop
-          print("All embedded Termux Python scripts compile and pass secret/process-safety guards")
-          PY
+        run: python3 control-center/tools/validate_termux_scripts.py
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
