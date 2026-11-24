@@ -1,0 +1,109 @@
+name: Buddy Autonomous Runtime Audit
+
+on:
+  push:
+    branches:
+      - feature/buddy-autonomous-runtime-audit-20261124
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    name: Source and architecture audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: true
+      - name: Run read-only source audit
+        run: python3 scripts/autonomous_runtime_source_audit.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: autonomous-runtime-source-audit
+          path: build/reports/autonomous-runtime-audit.json
+
+  existing-helper-tests:
+    name: Existing Buddy helper regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: MCP SSE parser tests
+        run: node --test mcp-bridge/sse-response.test.mjs
+      - name: Recorded agent output tests
+        run: bash linux/test/run.sh
+
+  tunnel-client-runtime:
+    name: Pinned Tunnel Client runtime tests and Linux ARM64 build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout audited Tunnel Client source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: openai/tunnel-client
+          ref: 01d67bb4da0d8359b808b4761f8db171ab682cd7
+          path: tunnel-client
+      - name: Run upstream runtime-focused Go tests
+        run: |
+          docker run --rm \
+            -v "$PWD/tunnel-client:/src" \
+            -w /src \
+            golang:1.27.3-alpine \
+            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo
+      - name: Build Linux ARM64 runtime binary
+        run: |
+          mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
+          docker run --rm \
+            -v "$PWD/tunnel-client:/src" \
+            -v "$RUNNER_TEMP/tunnel-runtime:/out" \
+            -w /src \
+            -e CGO_ENABLED=0 \
+            -e GOOS=linux \
+            -e GOARCH=arm64 \
+            golang:1.27.3-alpine \
+            go build -mod=readonly -trimpath -buildvcs=false \
+              -o /out/tunnel-client-runtime ./cmd/client-runtime
+          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
+          sha256sum "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
+          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" dist/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tunnel-client-v0.0.19-linux-arm64-runtime
+          path: dist/tunnel-client-runtime
+
+  android-baseline-build:
+    name: Buddy Android baseline build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: true
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - name: Build native libraries
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
+      - name: Assemble existing side-by-side debug APK
+        run: ./gradlew --no-daemon assembleGithubDebug
+      - name: Verify APK signature and package metadata
+        run: |
+          APK="$(find app/build/outputs/apk/github/debug -name '*.apk' -print -quit)"
+          test -s "$APK"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
+          echo "$BADGING" | grep -F "versionCode='216'"
+          mkdir -p dist
+          cp "$APK" dist/buddy-baseline-debug.apk
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: buddy-autonomous-runtime-baseline-debug
+          path: dist/buddy-baseline-debug.apk
