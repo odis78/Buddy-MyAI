@@ -199,3 +199,37 @@ Use JITI's **Stop** control only when intentionally stopping Buddy. The helper R
 ---
 
 **Checkpoint integrity note:** this document is a reproducible operational runbook and source/build reference. It intentionally does not contain a raw Termux snapshot or a binary archive. Those local artifacts and the automatic report upload remain pending until phone-shell/Linux-tools access is available in the current chat and the uploader's exact interface has been inspected.
+
+
+## 9. Component lineage and protected references
+
+These are reference points from the preceding project checkpoints. They are not claims that a fresh local Git status was collected today.
+
+### Buddy-MyAI Android app
+- Repository: `odis78/Buddy-MyAI`.
+- Previously protected Buddy app branch: `checkpoint/buddy-myai-2.3.17-JITI.1-2026-11-21`.
+- Protected branch commit: `ef9fea50f86865f97cf82b45fbc2c6e84f174e1`.
+- App version in that checkpoint: `2.3.17-JITI.1`, versionCode 215.
+- Keep that protected branch unchanged. The JITI controller work lives under `control-center/` and is isolated in the dedicated checkpoint branch created for this recovery.
+
+### Tunnel Client
+- Upstream repository: `openai/tunnel-client`.
+- Local checkout previously identified at `~/tunnel-client-android-build-v0.0.19/source`.
+- Previously recorded tag: `v0.0.19`.
+- Previously recorded source commit: `01d67bb4da0d8359b808b4761f8db171ab682cd7`.
+- Runtime binary observed in the live process: `~/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64`.
+- The current runtime was launched from the existing installation; this checkpoint did not rebuild or replace Tunnel Client.
+
+### REA
+- Project root: `~/rea`.
+- Previously recorded branch: `experiment/termux-jadx`.
+- Previously recorded commit: `d72d856f5`.
+- Previously recorded REA package version: `6.5.0`.
+- The live status check in section 1 independently confirmed REA 6.5.0 and its full 208-tool / 6-prompt catalog. A fresh `git status` of `~/rea` has not been collected for this checkpoint.
+- Do not update, reset, clean, or otherwise modify `~/rea` as part of this recovery.
+
+### Device / app boundaries
+- Device: Infinix X678B, Android 14; ADB serial shown in the diagnostic was `emulator-5554`.
+- MyAI package: `com.dmitry.myai.infinix`.
+- Do not modify Control APK 102 or unrelated Android apps while recovering Buddy.
+- Do not infer the currently installed JITI versionCode from the build artifact; the package version was not independently queried after installation.
