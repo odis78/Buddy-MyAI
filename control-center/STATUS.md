@@ -2,13 +2,13 @@
 
 **Branch:** `project/jiti-control-center`  
 **Protected base:** `ef9fea50f86865f97cf82b45f6bc2c6e84f174e1`  
-**Current milestone:** M2 plus guarded Buddy lifecycle prototype; target-device acceptance remains pending.
+**Current milestone:** M3 four-profile read-only monitoring plus guarded Buddy lifecycle prototype; target-device acceptance remains pending.
 
 ## Completed
 - Isolated project branch; protected Buddy checkpoint and main branch remain untouched.
 - Historical inventory and dependency/recovery design documented from 22–23 November evidence.
 - Android project and first debug APK build pipeline established.
-- Added typed component registry with 42 evidence-labelled rows, JITI controller/monitor, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services/packages, authenticated MCP probe, and dependency metadata.
+- Added typed component registry with 43 evidence-labelled rows, JITI controller/monitor, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services/packages, authenticated MCP probe, and dependency metadata.
 - Added dependency-aware startup/shutdown planner and scoped downstream restart planning.
 - Added bounded retry/backoff and circuit-breaker decision policy.
 - Added credential redaction utility.
