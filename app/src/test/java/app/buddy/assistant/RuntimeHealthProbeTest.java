@@ -36,6 +36,14 @@ public class RuntimeHealthProbeTest {
         }
     }
 
+
+    @Test public void checksBuddyMcpPortOnlyOnLoopback() throws Exception {
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            assertTrue(RuntimeHealthProbe.isLoopbackPortOpen(server.getLocalPort()));
+            assertFalse(RuntimeHealthProbe.isLoopbackPortOpen(65535));
+        }
+    }
+
     @Test public void rejectsRemoteHealthUrlWithoutConnecting() throws Exception {
         File dir = Files.createTempDirectory("buddy-health-test").toFile();
         File url = new File(dir, "health.url");
