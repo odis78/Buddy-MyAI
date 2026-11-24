@@ -85,3 +85,5 @@ Before enabling any command button on Infinix X678B:
 - test force-stop separately and record expected non-recoverability.
 
 No live device configuration was changed while documenting this contract. Buddy lifecycle prototypes are not considered accepted until the exact Termux service contract, PID/config identity, start/stop behavior, and Android lifecycle are tested on the target Infinix device.
+
+The fixed health allowlist now includes Buddy, REA-Termux-Bridge, DroidMCP-Filesystem, and REA-Termux-Android. The foreground monitor executes the three REA profile health probes sequentially after the Buddy MCP check and verifies the process executable plus exact `--config`/`--profile-file` argument before recording READY. This behavior is CI-verified but still requires target-device acceptance.
