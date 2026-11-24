@@ -15,7 +15,7 @@ public class RuntimeProfileWriterTest {
         assertTrue(yaml.contains("api_key: \"env:CONTROL_PLANE_API_KEY\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
         assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
-        assertTrue(yaml.contains("url_file: \"/root/.config/tunnel-client/health.url\""));
+        assertTrue(yaml.contains("url_file: \"/tmp/buddy-runtime/health.url\""));
         assertFalse(yaml.contains("Bearer "));
         assertFalse(yaml.contains("api_key: \"sk-"));
     }
@@ -32,12 +32,12 @@ public class RuntimeProfileWriterTest {
             while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
             bytes = out.toByteArray();
         }
-        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL));
+        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime")));
     }
 
     @Test public void rejectsMalformedTunnelId() {
         try {
-            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel");
+            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
             fail("invalid tunnel id accepted");
         } catch (IllegalArgumentException expected) { }
     }
