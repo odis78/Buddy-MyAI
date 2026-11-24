@@ -73,7 +73,7 @@ public class RuntimeProfileWriterTest {
 
     @Test public void generatedDroidMcpProfileMatchesPinnedFixture() throws Exception {
         assertProfileFixture("droidmcp-tunnel-profile.yaml", DROID_TUNNEL,
-                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DROIDMCP_ROOT=/root/rea-source /usr/bin/node /root/droidmcp/server/index.mjs");
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /storage/emulated/0 /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DROIDMCP_ROOT=/storage/emulated/0 /usr/bin/node /root/droidmcp/server/index.mjs");
     }
 
     private void assertProfileFixture(String name, String tunnelId, String command) throws Exception {
