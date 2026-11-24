@@ -140,9 +140,27 @@ final class Linux {
             }
         });
         reader.start();
-        boolean done = p.waitFor(timeoutSec, TimeUnit.SECONDS);
+        boolean done;
+        try {
+            done = p.waitFor(timeoutSec, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            p.destroy();
+            try {
+                if (!p.waitFor(2, TimeUnit.SECONDS)) p.destroyForcibly();
+            } catch (InterruptedException ignored) {
+                p.destroyForcibly();
+            }
+            Thread.currentThread().interrupt();
+            throw e;
+        }
         if (!done) p.destroyForcibly();
-        reader.join(2000);
+        try {
+            reader.join(2000);
+        } catch (InterruptedException e) {
+            p.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
         String text;
         synchronized (out) {
             text = new String(out.toByteArray(), StandardCharsets.UTF_8);
