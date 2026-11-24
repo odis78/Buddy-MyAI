@@ -21,6 +21,11 @@ mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
+runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
+runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
+runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
+runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
+manifest = read("app/src/main/AndroidManifest.xml")
 runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
@@ -78,6 +83,19 @@ secret_files_ok = all(term in runtime_launcher for term in [
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
 add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
     "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
+supervisor_ok = all(term in runtime_supervisor for term in [
+    "RuntimeProcessLauncher.startConfigured", "RuntimeHealthProbe.isReady", "process.isAlive", "destroyForcibly"
+])
+add("runtime_process_supervisor", "PASS" if supervisor_ok else "FAIL",
+    "Supervisor owns an exact Process handle, gates on loopback MCP and health, and stops only that handle")
+fgs_ok = all(term in runtime_service and term in manifest for term in [
+    "FOREGROUND_SERVICE_TYPE_SPECIAL_USE", "foregroundServiceType=\"specialUse\"", "PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+]) and "BOOT_COMPLETED" in manifest and "auto_start" in runtime_boot
+add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
+    "User-visible special-use foreground service and opt-in boot restart are declared")
+settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
+add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
+    "User can save the control-plane key through Android Keystore and control opt-in startup")
 hardening_ok = (
     "PR_SET_DUMPABLE" in runtime_hardening
     and "hardenProcess" in runtime_hardening
