@@ -49,7 +49,7 @@ final class ReaRuntimeInstaller {
         copyVerifiedAsset(app.getAssets(), BRIDGE_ASSET, bridgeFile, BRIDGE_SHA256);
         copyVerifiedAsset(app.getAssets(), DROIDMCP_ASSET, droidFile, DROIDMCP_SHA256);
 
-        if (progress != null) progress.onProgress("Installing REA 6.5.0 and its dependencies");
+        if (progress != null) progress.onProgress("Installing REA, Bridge and DroidMCP helper runtimes");
         String command = buildInstallCommand();
         String output = Linux.exec(app, command, 600);
         if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")
