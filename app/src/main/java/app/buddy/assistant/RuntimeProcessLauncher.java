@@ -2,15 +2,16 @@ package app.buddy.assistant;
 
 import android.content.Context;
 import android.system.Os;
+import android.system.OsConstants;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Starts the hardened Tunnel Client as a native Android child process, outside the agent PRoot. */
 final class RuntimeProcessLauncher {
@@ -18,6 +19,7 @@ final class RuntimeProcessLauncher {
     static final String DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
     static final String API_KEY_FILE = "control-plane-api-key";
     static final String AUTH_HEADER_FILE = "buddy-auth-header";
+    static final String DISCOVERY_AUTH_HEADER_FILE = "buddy-discovery-auth-header";
 
     private RuntimeProcessLauncher() { }
 
@@ -38,19 +40,27 @@ final class RuntimeProcessLauncher {
             throw new IOException("Buddy runtime directory could not be created");
         }
         chmod(runtimeDir, 0700, "Buddy runtime directory permissions could not be secured");
-        File apiKeyFile = new File(runtimeDir, API_KEY_FILE);
-        File authHeaderFile = new File(runtimeDir, AUTH_HEADER_FILE);
+        File apiKeyFifo = new File(runtimeDir, API_KEY_FILE);
+        File authHeaderFifo = new File(runtimeDir, AUTH_HEADER_FILE);
+        File discoveryHeaderFifo = new File(runtimeDir, DISCOVERY_AUTH_HEADER_FILE);
+        Process process = null;
         try {
-            writeSecretFile(apiKeyFile, apiKey);
-            writeSecretFile(authHeaderFile, "Bearer " + buddyToken);
+            createSecretFifo(apiKeyFifo);
+            createSecretFifo(authHeaderFifo);
+            createSecretFifo(discoveryHeaderFifo);
             File config = new File(runtimeDir, "buddy-myai.yaml");
             RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir);
             chmod(config, 0600, "Buddy runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
             File binary = RuntimeBinaryLocator.locate(app);
-            return createProcessBuilder(binary, config, runtimeDir).start();
+            process = createProcessBuilder(binary, config, runtimeDir).start();
+            handoffSecrets(process, apiKeyFifo, apiKey, authHeaderFifo,
+                    "Bearer " + buddyToken, discoveryHeaderFifo, "Bearer " + buddyToken);
+            cleanupSecretFiles(runtimeDir);
+            return process;
         } catch (Exception e) {
+            if (process != null) process.destroyForcibly();
             cleanupSecretFiles(runtimeDir);
             throw e;
         }
@@ -71,41 +81,100 @@ final class RuntimeProcessLauncher {
         env.put("PATH", binary.getParentFile().getAbsolutePath());
         // Go's Linux cert pool reads Android's system trust directory through this explicit override.
         env.put("SSL_CERT_DIR", "/system/etc/security/cacerts");
-        // Credential values are read from 0600 app-private files, never argv or environment.
+        // Credential values are handed over through one-shot FIFOs, never argv or environment.
         builder.redirectErrorStream(true);
         builder.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(runtimeDir, "launcher.log")));
         return builder;
     }
 
-    static void writeSecretFile(File target, String value) throws IOException {
-        if (target == null || value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Secret file input is incomplete");
+    private static void createSecretFifo(File fifo) throws IOException {
+        if (fifo.exists() && !fifo.delete()) throw new IOException("Could not replace stale credential FIFO");
+        try {
+            Os.mkfifo(fifo.getAbsolutePath(), 0600);
+        } catch (android.system.ErrnoException e) {
+            throw new IOException("Could not create one-shot credential FIFO", e);
         }
-        writeSecretFileAtomically(target, value);
-        chmod(target, 0600, "Could not secure runtime credential file");
     }
 
-    static void writeSecretFileAtomically(File target, String value) throws IOException {
-        if (target == null || value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Secret file input is incomplete");
-        }
-        File parent = target.getAbsoluteFile().getParentFile();
-        if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
-            throw new IOException("Secret directory is unavailable");
-        }
-        File staging = new File(parent, target.getName() + ".installing");
-        try {
-            try (FileOutputStream out = new FileOutputStream(staging, false)) {
-                out.write(value.getBytes(StandardCharsets.UTF_8));
-                out.getFD().sync();
+    private static void handoffSecrets(Process process,
+                                       File apiFifo, String apiKey,
+                                       File authFifo, String authHeader,
+                                       File discoveryFifo, String discoveryHeader) throws IOException {
+        AtomicReference<IOException> failure = new AtomicReference<>();
+        Thread apiWriter = writer(process, apiFifo, apiKey, failure);
+        Thread authWriter = writer(process, authFifo, authHeader, failure);
+        Thread discoveryWriter = writer(process, discoveryFifo, discoveryHeader, failure);
+        apiWriter.start();
+        authWriter.start();
+        discoveryWriter.start();
+
+        long deadline = System.currentTimeMillis() + 15000;
+        while (apiWriter.isAlive() || authWriter.isAlive() || discoveryWriter.isAlive()) {
+            if (failure.get() != null) throw failure.get();
+            if (!process.isAlive()) throw new IOException("Tunnel Client exited during credential handoff");
+            if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client credential handoff timed out");
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Tunnel Client credential handoff interrupted", e);
             }
-            Files.move(staging.toPath(), target.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (Exception e) {
-            throw new IOException("Could not securely write runtime credential file", e);
-        } finally {
-            if (staging.exists()) staging.delete();
         }
+        if (failure.get() != null) throw failure.get();
+    }
+
+    private static Thread writer(Process process, File fifo, String value,
+                                 AtomicReference<IOException> failure) {
+        Thread thread = new Thread(() -> {
+            try {
+                writeSecretFifo(fifo, value, process);
+            } catch (IOException e) {
+                failure.compareAndSet(null, e);
+            }
+        }, "buddy-runtime-secret-" + fifo.getName());
+        thread.setDaemon(true);
+        return thread;
+    }
+
+    private static void writeSecretFifo(File fifo, String value, Process process) throws IOException {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        long deadline = System.currentTimeMillis() + 12000;
+        while (System.currentTimeMillis() < deadline) {
+            if (!process.isAlive()) throw new IOException("Tunnel Client exited before reading credential FIFO");
+            FileDescriptor fd = null;
+            try {
+                fd = Os.open(fifo.getAbsolutePath(), OsConstants.O_WRONLY | OsConstants.O_NONBLOCK, 0600);
+                int offset = 0;
+                while (offset < bytes.length) {
+                    int written = Os.write(fd, bytes, offset, bytes.length - offset);
+                    if (written <= 0) throw new IOException("Credential FIFO write made no progress");
+                    offset += written;
+                }
+                return;
+            } catch (android.system.ErrnoException e) {
+                if (e.errno != OsConstants.ENXIO) {
+                    throw new IOException("Credential FIFO handoff failed", e);
+                }
+            } finally {
+                if (fd != null) {
+                    try { Os.close(fd); } catch (android.system.ErrnoException ignored) { }
+                }
+            }
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Credential FIFO handoff interrupted", e);
+            }
+        }
+        throw new IOException("Tunnel Client did not open its credential FIFO");
+    }
+
+    private static void ensureSecureFile(File file) throws IOException {
+        if (!file.exists()) {
+            try (FileOutputStream ignored = new FileOutputStream(file, true)) { }
+        }
+        chmod(file, 0600, "Runtime log permissions could not be secured");
     }
 
     static void cleanupSecretsIfLoaded(Context context) {
@@ -117,15 +186,7 @@ final class RuntimeProcessLauncher {
         if (runtimeDir == null) return;
         new File(runtimeDir, API_KEY_FILE).delete();
         new File(runtimeDir, AUTH_HEADER_FILE).delete();
-        new File(runtimeDir, API_KEY_FILE + ".installing").delete();
-        new File(runtimeDir, AUTH_HEADER_FILE + ".installing").delete();
-    }
-
-    private static void ensureSecureFile(File file) throws IOException {
-        if (!file.exists()) {
-            try (FileOutputStream ignored = new FileOutputStream(file, true)) { }
-        }
-        chmod(file, 0600, "Runtime log permissions could not be secured");
+        new File(runtimeDir, DISCOVERY_AUTH_HEADER_FILE).delete();
     }
 
     private static void chmod(File file, int mode, String message) throws IOException {
