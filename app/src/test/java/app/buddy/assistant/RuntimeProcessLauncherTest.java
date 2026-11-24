@@ -39,6 +39,10 @@ public class RuntimeProcessLauncherTest {
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).getAbsolutePath()));
             assertTrue(yaml.contains("path: \\"" + cloudflared.getAbsolutePath() + "\\""));
             assertEquals("/system/etc/security/cacerts", builder.environment().get("SSL_CERT_DIR"));
+            assertEquals(new File(dir, "libproot-loader.so").getAbsolutePath(), builder.environment().get("PROOT_LOADER"));
+            assertEquals(new File(dir, "proot-tmp").getAbsolutePath(), builder.environment().get("PROOT_TMP_DIR"));
+            assertEquals(dir.getAbsolutePath(), builder.environment().get("LD_LIBRARY_PATH"));
+            assertEquals("exit", builder.environment().get("MCP_STDIO_FAILURE_POLICY"));
             RuntimeProcessLauncher.cleanupSecretFiles(dir);
             assertFalse(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).exists());
             assertFalse(new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).exists());
