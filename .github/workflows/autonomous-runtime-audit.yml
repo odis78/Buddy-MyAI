@@ -142,28 +142,24 @@ jobs:
           mkdir -p dist
           docker run --rm --platform linux/arm64 \
             -v "$PWD:/work" -w /work \
-            node:26.13.1-alpine3.24 sh -c '
+            alpine:3.24.2 sh -c '
               set -eu
-              apk add --no-cache python3 make g++ linux-headers git >/dev/null
+              apk add --no-cache nodejs-current npm python3 make g++ linux-headers git >/dev/null
               mkdir -p /tmp/rea-package
-              npm pack rea-agents@6.5.0 --pack-destination /tmp/rea-package >/dev/null
-              mkdir -p /root/rea
-              tar -xzf /tmp/rea-package/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1
-              cd /root/rea
-              npm install --omit=dev --no-audit --no-fund
-              node scripts/rea.mjs mcp doctor --format json > /work/dist/rea-mcp-doctor.json
+              npm install -g rea-agents@6.5.0 --no-audit --no-fund
+              REA_ROOT="$(npm root -g)/rea-agents"
+              REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 \\
+                node "$REA_ROOT/scripts/rea.mjs" mcp doctor --format json > /work/dist/rea-mcp-doctor.json
               node /work/scripts/verify_rea_mcp_doctor.mjs /work/dist/rea-mcp-doctor.json
-              cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
               node --version
               npm --version
+              apk info -v nodejs-current
             '
-          sha256sum dist/rea-agents-6.5.0.tgz dist/rea-mcp-doctor.json
+          sha256sum dist/rea-mcp-doctor.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: rea-agents-6.5.0-alpine-arm64-smoke
-          path: |
-            dist/rea-agents-6.5.0.tgz
-            dist/rea-mcp-doctor.json
+          path: dist/rea-mcp-doctor.json
 
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
