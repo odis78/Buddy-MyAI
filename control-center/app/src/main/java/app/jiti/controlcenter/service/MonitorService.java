@@ -69,12 +69,14 @@ public final class MonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_POLL_NOW.equals(intent.getAction())) {
-            if (monitoring) {
-                if (inFlight) pollRequested = true;
-                else {
-                    handler.removeCallbacks(poll);
-                    handler.post(poll);
-                }
+            if (!monitoring) {
+                stopSelf(startId);
+                return START_NOT_STICKY;
+            }
+            if (inFlight) pollRequested = true;
+            else {
+                handler.removeCallbacks(poll);
+                handler.post(poll);
             }
             return START_STICKY;
         }
