@@ -232,82 +232,53 @@ if mode not in ("preflight", "stop"):
     emit({"result": "blocked", "reason": "invalid_operation"})
     sys.exit(2)
 
+def finish(value, code=0):
+    emit(value)
+    if mode == "stop":
+        write_status(value)
+    sys.exit(code)
+
 try:
     with open(PID_FILE, "r", encoding="utf-8") as handle:
         pid = int(handle.read().strip())
     if pid <= 0:
         raise ValueError()
 except FileNotFoundError:
-    result = {"result": "already_stopped"}
-    emit(result)
-    write_status(result)
-    sys.exit(0)
+    finish({"result": "already_stopped"})
 except Exception:
-    result = {"result": "blocked", "reason": "invalid_pid_file"}
-    emit(result)
-    write_status(result)
-    sys.exit(2)
+    finish({"result": "blocked", "reason": "invalid_pid_file"}, 2)
 
 if not os.path.exists("/proc/%d" % pid):
-    result = {"result": "stale_pid_file", "pid": pid}
-    emit(result)
-    write_status(result)
-    sys.exit(0)
+    finish({"result": "stale_pid_file", "pid": pid})
 if not identity(pid):
-    result = {"result": "pid_identity_mismatch", "pid": pid}
-    emit(result)
-    write_status(result)
-    sys.exit(2)
+    finish({"result": "pid_identity_mismatch", "pid": pid}, 2)
 
 if mode == "preflight":
-    result = {"result": "ready_to_stop", "pid": pid}
-    emit(result)
-    sys.exit(0)
+    finish({"result": "ready_to_stop", "pid": pid})
 
 try:
     os.kill(pid, signal.SIGTERM)
 except ProcessLookupError:
-    result = {"result": "stopped", "pid": pid}
-    emit(result)
-    write_status(result)
-    sys.exit(0)
+    finish({"result": "stopped", "pid": pid})
 except Exception as exc:
-    result = {"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}
-    emit(result)
-    write_status(result)
-    sys.exit(2)
+    finish({"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}, 2)
 
 deadline = time.time() + 10.0
 while time.time() < deadline:
     if not os.path.exists("/proc/%d" % pid):
-        result = {"result": "stopped", "pid": pid}
-        emit(result)
-        write_status(result)
-        sys.exit(0)
+        finish({"result": "stopped", "pid": pid})
     try:
         stat_text = open("/proc/%d/stat" % pid, "r", encoding="utf-8").read()
         state = stat_text[stat_text.rfind(")") + 2:].split()[0]
         if state == "Z":
-            result = {"result": "stopped", "pid": pid}
-            emit(result)
-            write_status(result)
-            sys.exit(0)
+            finish({"result": "stopped", "pid": pid})
     except Exception:
-        result = {"result": "stopped", "pid": pid}
-        emit(result)
-        write_status(result)
-        sys.exit(0)
+        finish({"result": "stopped", "pid": pid})
     if not identity(pid):
-        result = {"result": "pid_identity_changed", "pid": pid}
-        emit(result)
-        write_status(result)
-        sys.exit(2)
+        finish({"result": "pid_identity_changed", "pid": pid}, 2)
     time.sleep(0.2)
 
-result = {"result": "stop_timeout", "pid": pid, "signal": "SIGTERM"}
-emit(result)
-write_status(result)
-sys.exit(2)
+finish({"result": "stop_timeout", "pid": pid, "signal": "SIGTERM"}, 2)
 """;
     private static final String BUDDY_MCP_AUTH_PROBE_SCRIPT = """
 import json
