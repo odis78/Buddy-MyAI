@@ -21,6 +21,8 @@ mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
+rea_runtime_installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
+rea_profile_fixture = read("app/src/test/resources/rea-mcp-tunnel-profile.yaml")
 runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
 runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
 runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
@@ -93,15 +95,15 @@ rea_runtime_ok = (
     and "mcp doctor --format json" in rea_runtime_installer
     and "EXPECTED_TOOLS = 207" in rea_runtime_installer
     and "REA_MCP_INPUT_SCHEMA_PROFILE" in rea_runtime_installer
-    and "startReaConfigured" in runtime_process_launcher
-    and "scheduleReaAttempt" in rea_service
+    and "startReaConfigured" in runtime_launcher
+    and "scheduleReaAttempt" in runtime_service
 )
 add("rea_runtime_bootstrap", "PASS" if rea_runtime_ok else "FAIL",
     "Buddy installs and validates the pinned REA 6.5.0 MCP runtime inside its own Alpine rootfs")
 
 rea_profile_ok = (
     "renderReaProfile" in runtime_profile
-    and "REA_TUNNEL_ID" in runtime_process_launcher
+    and "REA_TUNNEL_ID" in runtime_launcher
     and "command:" in rea_profile_fixture
     and "REA_MCP_OUTPUT_SCHEMA_PROFILE=off" in rea_profile_fixture
 )
