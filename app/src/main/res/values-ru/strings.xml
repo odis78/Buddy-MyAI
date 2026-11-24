@@ -2213,4 +2213,36 @@
     <string name="onphone_note_qwen_4b">От Alibaba. Больше и примерно вдвое медленнее 2B.</string>
     <string name="hub_still_reading_phone">Всё ещё работает… Модели на этом телефоне нужно немного времени, особенно для первого ответа.</string>
     <string name="onphone_too_hot">Телефон сейчас слишком горячий для запуска модели. Дайте ему остыть несколько минут и попробуйте снова.</string>
+
+    <!-- Автономный Tunnel Client внутри Buddy. -->
+    <string name="runtime_settings_title">Автономная Buddy</string>
+    <string name="runtime_settings_subtitle">Поддерживать связь с ChatGPT без Termux</string>
+    <string name="runtime_settings_info">Tunnel Client запускается из собственного пакета Buddy. Адрес MCP для ChatGPT остаётся прежним: 127.0.0.1:8766. Нужен API-ключ управляющего сервера туннеля.</string>
+    <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
+    <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится через Android Keystore.</string>
+    <string name="runtime_api_key_saved">Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.</string>
+    <string name="runtime_tunnel_id_label">Идентификатор туннеля</string>
+    <string name="runtime_tunnel_id_hint">tunnel_ и 32 шестнадцатеричных символа</string>
+    <string name="runtime_auto_start">Запускать после перезагрузки</string>
+    <string name="runtime_auto_start_info">Запуск выполняется по возможности. Android может задержать его, если ограничена фоновая работа Buddy.</string>
+    <string name="runtime_save">Сохранить настройки</string>
+    <string name="runtime_start">Запустить runtime</string>
+    <string name="runtime_stop">Остановить runtime</string>
+    <string name="runtime_status">Состояние runtime</string>
+    <string name="runtime_status_not_configured">Не настроено</string>
+    <string name="runtime_status_saved">Учётные данные сохранены</string>
+    <string name="runtime_status_detail">Состояние: %1$s</string>
+    <string name="runtime_notification_title">Автономная Buddy</string>
+    <string name="runtime_notification_channel">Автономная Buddy</string>
+    <string name="runtime_notification_channel_description">Поддерживает авторизованное соединение Buddy с ChatGPT.</string>
+    <string name="runtime_notification_starting">Запускаю защищённое соединение…</string>
+    <string name="runtime_notification_ready">Соединение с ChatGPT активно</string>
+    <string name="runtime_notification_retry">Соединение не готово. Повтор через %1$d с.</string>
+    <string name="runtime_notification_setup">Откройте настройки Buddy и укажите API-ключ туннеля.</string>
+    <string name="runtime_notification_stop">Остановить</string>
+    <string name="runtime_toast_saved">Настройки runtime сохранены.</string>
+    <string name="runtime_toast_started">Запрос на запуск runtime отправлен.</string>
+    <string name="runtime_toast_stopped">Запрос на остановку runtime отправлен.</string>
+    <string name="runtime_invalid_tunnel_id">Введите корректный идентификатор туннеля.</string>
+    <string name="runtime_missing_api_key">Сначала введите API-ключ управляющего сервера.</string>
 </resources>
