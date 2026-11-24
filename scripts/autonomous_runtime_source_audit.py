@@ -88,9 +88,12 @@ supervisor_ok = all(term in runtime_supervisor for term in [
 ])
 add("runtime_process_supervisor", "PASS" if supervisor_ok else "FAIL",
     "Supervisor owns an exact Process handle, gates on loopback MCP and health, and stops only that handle")
-fgs_ok = all(term in runtime_service and term in manifest for term in [
-    "FOREGROUND_SERVICE_TYPE_SPECIAL_USE", "foregroundServiceType=\"specialUse\"", "PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-]) and "BOOT_COMPLETED" in manifest and "auto_start" in runtime_boot
+fgs_ok = (
+    "FOREGROUND_SERVICE_TYPE_SPECIAL_USE" in runtime_service
+    and "foregroundServiceType=\"specialUse\"" in manifest
+    and "PROPERTY_SPECIAL_USE_FGS_SUBTYPE" in manifest
+    and "BOOT_COMPLETED" in manifest and "auto_start" in runtime_boot
+)
 add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
     "User-visible special-use foreground service and opt-in boot restart are declared")
 settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
