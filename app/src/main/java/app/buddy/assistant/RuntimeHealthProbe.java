@@ -6,10 +6,24 @@ import java.io.FileReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 
 /** Local-only Tunnel Client readiness probe. Never follows a URL outside loopback. */
 final class RuntimeHealthProbe {
     private RuntimeHealthProbe() { }
+
+    static boolean isBuddyMcpAvailable() { return isLoopbackPortOpen(McpServer.PORT); }
+
+    static boolean isLoopbackPortOpen(int port) {
+        if (port < 1 || port > 65535) return false;
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 700);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
 
     static boolean isReady(File urlFile) {
         if (urlFile == null || !urlFile.isFile()) return false;
