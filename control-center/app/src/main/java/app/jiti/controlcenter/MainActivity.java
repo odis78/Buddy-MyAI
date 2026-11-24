@@ -379,7 +379,7 @@ public final class MainActivity extends Activity {
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_result" : report.optString("result");
-            if ("stopped".equals(state) || "already_stopped".equals(state) || "stale_pid_file".equals(state)) {
+            if (result.succeeded() && ("stopped".equals(state) || "already_stopped".equals(state) || "stale_pid_file".equals(state))) {
                 buddyControlStatusView.setText("Остановка подтверждена: " + state + ". SIGKILL не применялся.");
                 saveProbeSnapshot("tunnel-client", ComponentStatus.STOPPED, "Buddy stop result: " + state);
                 saveProbeSnapshot("buddy-tunnel", ComponentStatus.STOPPED, "Buddy Tunnel Client stopped or not running");
@@ -435,7 +435,7 @@ public final class MainActivity extends Activity {
         TermuxCommandClient.run(this, operation, result -> {
             if (isFinishing() || isDestroyed()) return;
             appendCommandResult(output, operation, result);
-            if (operation == TermuxOperation.IDENTITY && result.internalError != -1) {
+            if (operation == TermuxOperation.IDENTITY && !result.succeeded()) {
                 output.append("\nRemaining probes skipped: RUN_COMMAND did not return a successful result.");
                 button.setEnabled(true);
                 return;
@@ -599,7 +599,7 @@ public final class MainActivity extends Activity {
     private void updateSnapshotForProbe(TermuxOperation operation, TermuxCommandResult result) {
         switch (operation) {
             case IDENTITY:
-                boolean commandAccepted = result.internalError == -1;
+                boolean commandAccepted = result.succeeded();
                 saveProbeSnapshot("termux", commandAccepted ? ComponentStatus.RUNNING : ComponentStatus.UNAVAILABLE,
                         commandAccepted ? "Termux RUN_COMMAND responded" : "Termux identity command failed");
                 saveProbeSnapshot("termux-run-command", commandAccepted ? ComponentStatus.AVAILABLE : ComponentStatus.BLOCKED,
