@@ -8,9 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Writes Buddy's Tunnel Client profile directly instead of using the upstream connect-profile generator.
- * Both authenticated MCP header maps are explicit: the generator in v0.0.19 omits these fields.
- * Only secret references are written; credential values never enter the YAML file.
+ * Writes Buddy's Tunnel Client profile directly instead of using the v0.0.19 connect-profile generator.
+ * Both authenticated MCP header maps are explicit and credentials remain environment references.
  */
 final class RuntimeProfileWriter {
     static final String MCP_URL = "http://127.0.0.1:8766/mcp";
@@ -19,9 +18,16 @@ final class RuntimeProfileWriter {
 
     private RuntimeProfileWriter() { }
 
-    static String renderBuddyProfile(String tunnelId) {
+    static String renderBuddyProfile(String tunnelId, File runtimeDir) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
             throw new IllegalArgumentException("Invalid Buddy tunnel id");
+        }
+        if (runtimeDir == null || !runtimeDir.isAbsolute()) {
+            throw new IllegalArgumentException("Absolute runtime directory is required");
+        }
+        String dir = runtimeDir.getAbsolutePath();
+        if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("Invalid runtime directory");
         }
         return "config_version: 1\n"
                 + "control_plane:\n"
@@ -30,13 +36,13 @@ final class RuntimeProfileWriter {
                 + "  api_key: \"" + API_KEY_REFERENCE + "\"\n"
                 + "health:\n"
                 + "  listen_addr: \"127.0.0.1:0\"\n"
-                + "  url_file: \"/root/.config/tunnel-client/health.url\"\n"
+                + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
                 + "process:\n"
-                + "  pid_file: \"/root/.config/tunnel-client/tunnel-client.pid\"\n"
+                + "  pid_file: \"" + yamlQuote(dir + "/tunnel-client.pid") + "\"\n"
                 + "log:\n"
                 + "  level: info\n"
                 + "  format: json\n"
-                + "  file: \"/root/.config/tunnel-client/tunnel-client.log\"\n"
+                + "  file: \"" + yamlQuote(dir + "/tunnel-client.log") + "\"\n"
                 + "mcp:\n"
                 + "  server_urls:\n"
                 + "    - channel: main\n"
@@ -47,9 +53,9 @@ final class RuntimeProfileWriter {
                 + "    Authorization: \"" + AUTH_HEADER_REFERENCE + "\"\n";
     }
 
-    static void writeBuddyProfile(File target, String tunnelId) throws IOException {
+    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir) throws IOException {
         if (target == null) throw new IllegalArgumentException("Profile target is required");
-        byte[] bytes = renderBuddyProfile(tunnelId).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir).getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Tunnel Client profile directory is unavailable");
@@ -67,5 +73,9 @@ final class RuntimeProfileWriter {
         } finally {
             if (staging.exists()) staging.delete();
         }
+    }
+
+    private static String yamlQuote(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
