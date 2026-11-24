@@ -39,6 +39,7 @@ final class RuntimeSupervisor {
     synchronized boolean start() throws Exception {
         if (machine.state() == RuntimeStateMachine.State.READY
                 && tunnelProcess != null && tunnelProcess.isAlive()
+                && (!requireBuddyMcp || RuntimeHealthProbe.isBuddyMcpAvailable())
                 && RuntimeHealthProbe.isReady(new File(runtimeDir, "health.url"))) {
             return true;
         }
