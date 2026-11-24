@@ -705,7 +705,8 @@ public final class MainActivity extends Activity {
             JSONObject report = new JSONObject(result.stdout);
             JSONObject process = report.optJSONObject("process");
             detail = summarizeHealth(result.stdout) + "; process identity pending";
-            if (process != null && !process.optBoolean("running")) status = ComponentStatus.STOPPED;
+            if (process != null && !process.optString("error", "").isEmpty()) status = ComponentStatus.ERROR;
+            else if (process != null && !process.optBoolean("running")) status = ComponentStatus.STOPPED;
             else if (process != null && process.optBoolean("running")) status = ComponentStatus.PID_PRESENT;
             else if (result.internalError != -1 || result.exitCode == 127) status = ComponentStatus.UNAVAILABLE;
         } catch (Exception ignored) {
@@ -729,6 +730,12 @@ public final class MainActivity extends Activity {
                 ComponentStatus status = healthResult.internalError != -1 || healthResult.exitCode == 127
                         ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
                 saveProfileSnapshot(componentId, status, 0, "Tunnel health did not return a process object");
+                next.run();
+                return;
+            }
+            if (!process.optString("error", "").isEmpty()) {
+                saveProfileSnapshot(componentId, ComponentStatus.ERROR, process.optInt("pid", 0),
+                        "Tunnel PID file could not be read or parsed");
                 next.run();
                 return;
             }
