@@ -519,7 +519,7 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
         String url = "http://127.0.0.1:" + McpServer.PORT + "/mcp";
         // The token is entered at a silent prompt, never embedded in a command or shell history.
         String bootstrap = "mkdir -p ~/.config/buddy-mcp && chmod 700 ~/.config/buddy-mcp && "
-                + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && "
+                + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && [[ \\"$BUDDY_TOKEN\\" =~ ^[0-9a-f]{48}$ ]] || { echo 'Invalid Buddy MCP token'; exit 1; } && "
                 + "printf '%s' \"$BUDDY_TOKEN\" > ~/.config/buddy-mcp/token && chmod 600 ~/.config/buddy-mcp/token && ";
         // Preserve user shell settings; only remove/rewrite Buddy-owned marked blocks.
         String cleanup = "touch ~/.bashrc && tmp=$(mktemp) && awk '$0 == \"# >>> Buddy MCP managed >>>\" { inside=1; block=$0 ORS; next } inside { block=block $0 ORS; if ($0 == \"# <<< Buddy MCP managed <<<\") { inside=0; block=\"\" } next } { print } END { if (inside) printf \"%s\", block }' ~/.bashrc > \"$tmp\" && cat \"$tmp\" > ~/.bashrc && rm -f \"$tmp\" && ";
@@ -532,9 +532,12 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                     + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.codex/config.toml";
         } else if ("opencode".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
-                    + "printf '%s\\n' '# >>> Buddy MCP managed >>>' 'export OPENCODE_CONFIG_CONTENT=\"{\\\"mcp\\\":{\\\"phone\\\":{\\\"type\\\":\\\"remote\\\",\\\"url\\\":\\\"" + url
-                    + "\\\",\\\"oauth\\\":false,\\\"timeout\\\":600000,\\\"headers\\\":{\\\"Authorization\\\":\\\"Bearer $(cat ~/.config/buddy-mcp/token)\\\"}}}}\"' >> ~/.bashrc"
-                    + " && printf '%s\\n' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && unset BUDDY_TOKEN";
+                    + "cat >> ~/.bashrc <<'BUDDY_MCP_EOF'\\n"
+                    + "# >>> Buddy MCP managed >>>\\n"
+                    + "export OPENCODE_CONFIG_CONTENT=\\"$(printf '{\\"mcp\\":{\\"phone\\":{\\"type\\":\\"remote\\",\\"url\\":\\""+url+"\\",\\"oauth\\":false,\\"timeout\\":600000,\\"headers\\":{\\"Authorization\\":\\"Bearer %s\\"}}}}' \\"$(cat ~/.config/buddy-mcp/token)\\")\\"\\n"
+                    + "# <<< Buddy MCP managed <<<\\n"
+                    + "BUDDY_MCP_EOF\\n"
+                    + " && . ~/.bashrc && unset BUDDY_TOKEN";
         } else if ("agy".equals(mcpAgent)) {
             cmd = bootstrap + cleanup + "agy mcp add --header \"Authorization: Bearer $BUDDY_TOKEN\" phone " + url
                     + " && unset BUDDY_TOKEN";
