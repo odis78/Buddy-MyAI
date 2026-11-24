@@ -62,6 +62,31 @@ public class TermuxCommandSpecTest {
         assertTrue(health.isSafeFixedCommand());
     }
 
+    @Test public void allReaTunnelProfilesUseFixedHealthUrlAndPidFiles() {
+        String home = "/data/data/com.termux/files/home";
+        TermuxCommandSpec bridge = TermuxCommandSpec.forOperation(TermuxOperation.BRIDGE_TUNNEL_HEALTH,
+                "/data/data/com.termux/files/usr", home);
+        TermuxCommandSpec droid = TermuxCommandSpec.forOperation(TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
+                "/data/data/com.termux/files/usr", home);
+        TermuxCommandSpec rea = TermuxCommandSpec.forOperation(TermuxOperation.REA_ANDROID_TUNNEL_HEALTH,
+                "/data/data/com.termux/files/usr", home);
+
+        assertTrue(bridge.isSafeFixedCommand());
+        assertTrue(droid.isSafeFixedCommand());
+        assertTrue(rea.isSafeFixedCommand());
+        assertTrue(bridge.arguments.contains(home + "/.local/state/tunnels/bridge-013.health.url"));
+        assertTrue(bridge.arguments.contains(home + "/.local/state/tunnels/bridge-013.pid"));
+        assertTrue(droid.arguments.contains(home + "/.local/state/tunnels/droidmcp.health.url"));
+        assertTrue(droid.arguments.contains(home + "/.local/state/tunnels/droidmcp.pid"));
+        assertTrue(rea.arguments.contains(home + "/.local/state/tunnels/rea-android.health.url"));
+        assertTrue(rea.arguments.contains(home + "/.local/state/tunnels/rea-android.pid"));
+        for (TermuxCommandSpec probe : java.util.Arrays.asList(bridge, droid, rea)) {
+            assertEquals("health", probe.arguments.get(0));
+            assertTrue(probe.arguments.contains("--require-control-plane-poll"));
+            assertTrue(probe.arguments.contains("--json"));
+        }
+    }
+
     @Test public void MCPChallengeIsPinnedToLoopbackAndUnauthenticated() {
         TermuxCommandSpec probe = TermuxCommandSpec.forOperation(TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
