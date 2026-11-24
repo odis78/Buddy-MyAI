@@ -484,7 +484,7 @@ def send(payload, session_id=None, protocol=None, method="POST"):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with opener.open(request, timeout=6) as response:
+        with opener.open(request, timeout=3) as response:
             return response.status, response.headers, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.headers, error.read()
@@ -531,7 +531,7 @@ names = []
 cursor = None
 page_count = 0
 failure = None
-while page_count < 10:
+while page_count < 4:
     params = {} if not cursor else {"cursor": cursor}
     tools_status, tools_headers, tools_body = send(
         {"jsonrpc": "2.0", "id": 2 + page_count, "method": "tools/list", "params": params},

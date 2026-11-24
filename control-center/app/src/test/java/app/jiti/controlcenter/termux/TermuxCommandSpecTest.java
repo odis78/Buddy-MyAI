@@ -159,6 +159,8 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.arguments.get(1).contains("/proc/%d/environ"));
         assertTrue(probe.arguments.get(1).contains("BINARY = HOME +"));
         assertTrue(probe.arguments.get(1).contains("normalize(executable) == normalize(BINARY)"));
+        assertTrue(probe.arguments.get(1).contains("timeout=3"));
+        assertTrue(probe.arguments.get(1).contains("while page_count < 4:"));
         assertTrue(probe.arguments.get(1).contains("def process_identity(pid):"));
         assertTrue(probe.arguments.get(1).contains("pid_identity_mismatch"));
         assertTrue(probe.arguments.get(1).contains("BUDDY_AUTH_HEADER"));

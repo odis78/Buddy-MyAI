@@ -34,6 +34,8 @@ assert auth.index("if not process_identity(pid):") < auth.index('raw_env = open(
 assert auth.count("if not process_identity(pid):") >= 2
 assert 'args[1] != "run"' in auth and 'args[1] != "run"' in launch and 'args[1] != "run"' in stop
 assert "normalize(executable) == normalize(BINARY)" in auth
+assert "timeout=3" in auth
+assert "while page_count < 4:" in auth
 assert "normalize(executable) == normalize(BINARY)" in launch
 assert "normalize(executable) == normalize(BINARY)" in stop
 assert "CONTROL_PLANE_API_KEY" in launch and "BUDDY_TOKEN" in launch

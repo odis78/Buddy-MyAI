@@ -18,6 +18,7 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import app.jiti.controlcenter.core.CommandGate;
+import app.jiti.controlcenter.core.InFlightGate;
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
 import app.jiti.controlcenter.core.EvidenceStatus;
@@ -63,6 +64,7 @@ public final class MainActivity extends Activity {
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
     private boolean diagnosticsInFlight;
+    private static final InFlightGate BUDDY_OPERATION_GATE = new InFlightGate();
     private final android.os.Handler uiRefreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable uiRefreshRunnable = new Runnable() {
         @Override public void run() {
@@ -216,16 +218,18 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
+        if (!BUDDY_OPERATION_GATE.tryAcquire()) return;
+        refreshTermuxControls();
         buddyControlStatusView.setText("Проверка бинарника, YAML, env-файла и PID перед запуском…");
-        buddyStartButton.setEnabled(false);
         TermuxCommandClient.runBuddyLaunchPreflight(this, result -> {
+            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_preflight_result" : report.optString("result");
             if (!result.succeeded() || report == null) {
                 buddyControlStatusView.setText("Preflight не выполнен: " + result.internalErrorMessage);
                 logControlEvent("buddy-tunnel", "START_PREFLIGHT_FAILED", "Buddy launch preflight command failed");
-                refreshTermuxControls();
+                finishBuddyOperation();
                 return;
             }
             if ("already_running".equals(state)) {
@@ -233,7 +237,7 @@ public final class MainActivity extends Activity {
                 buddyControlStatusView.setText("Buddy Tunnel Client уже запущен; PID=" + pid + ". Дубликат не создавался.");
                 saveProbeSnapshot("tunnel-client", ComponentStatus.RUNNING, "Launch preflight verified existing binary and Buddy config");
                 MonitorService.pollNow(this);
-                refreshTermuxControls();
+                finishBuddyOperation();
                 return;
             }
             if (!"ready_to_start".equals(state)) {
@@ -242,7 +246,7 @@ public final class MainActivity extends Activity {
                         + (report.has("missing_keys") ? " • отсутствуют ключи: " + report.optJSONArray("missing_keys") : ""));
                 saveProbeSnapshot("buddy-tunnel", ComponentStatus.BLOCKED, "Buddy launch preflight: " + reason);
                 logControlEvent("buddy-tunnel", "START_BLOCKED", "Buddy launch preflight blocked: " + reason);
-                refreshTermuxControls();
+                finishBuddyOperation();
                 return;
             }
             String message = "Проверки прошли. Будет запущен существующий Tunnel Client v0.0.19 с текущим Buddy YAML. "
@@ -255,7 +259,8 @@ public final class MainActivity extends Activity {
                         .setTitle("Запустить Buddy Tunnel?")
                         .setMessage(message)
                         .setPositiveButton("Запустить", (dialog, which) -> performBuddyStart())
-                        .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
+                        .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
+                        .setOnCancelListener(dialog -> finishBuddyOperation())
                         .show();
             } else {
                 performBuddyStart();
@@ -265,17 +270,18 @@ public final class MainActivity extends Activity {
     }
 
     private void performBuddyStart() {
+        if (!BUDDY_OPERATION_GATE.isInFlight()) return;
         if (!commandGate.mayExecute("buddy.start", true, true, true)) {
             buddyControlStatusView.setText("CommandGate заблокировал запуск: отсутствует подтверждение или проверка контракта/цели.");
             logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy start rejected by CommandGate");
-            refreshTermuxControls();
+            finishBuddyOperation();
             return;
         }
         String error = TermuxCommandClient.startBuddyTunnel(this);
         if (!error.isEmpty()) {
             buddyControlStatusView.setText(error);
             logControlEvent("buddy-tunnel", "START_REQUEST_FAILED", error);
-            refreshTermuxControls();
+            finishBuddyOperation();
             return;
         }
         buddyControlStatusView.setText("Запрос запуска отправлен в Termux RUN_COMMAND. Ожидается подтверждение процесса и healthz/readyz…");
@@ -288,10 +294,11 @@ public final class MainActivity extends Activity {
 
     private void readBuddyLauncherStatus() {
         TermuxCommandClient.runBuddyLaunchStatus(this, result -> {
+            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
             if (!result.succeeded()) {
                 buddyControlStatusView.setText("Нет свежего подтверждения запуска от Termux: " + result.internalErrorMessage
                         + ". Проверка health продолжится отдельно.");
-                refreshTermuxControls();
+                finishBuddyOperation();
                 return;
             }
             try {
@@ -308,7 +315,7 @@ public final class MainActivity extends Activity {
             } catch (Exception e) {
                 buddyControlStatusView.setText("Не удалось разобрать безопасный статус запуска.");
             }
-            refreshTermuxControls();
+            finishBuddyOperation();
         });
     }
 
@@ -321,15 +328,18 @@ public final class MainActivity extends Activity {
     }
 
     private void preflightBuddyStop(boolean restart) {
+        if (!BUDDY_OPERATION_GATE.tryAcquire()) return;
+        refreshTermuxControls();
         buddyControlStatusView.setText("Read-only preflight: проверка PID, executable и точного Buddy YAML…");
         TermuxCommandClient.runBuddyStopPreflight(this, result -> {
+            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_preflight" : report.optString("result");
             if (!result.succeeded() || report == null) {
                 buddyControlStatusView.setText("Stop preflight не выполнен: " + result.internalErrorMessage);
                 logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
-                refreshTermuxControls();
+                finishBuddyOperation();
                 return;
             }
             if ("ready_to_stop".equals(state)) {
@@ -342,7 +352,8 @@ public final class MainActivity extends Activity {
                         .setMessage(message)
                         .setPositiveButton(restart ? "Перезапустить" : "Остановить",
                                 (dialog, which) -> performBuddyStop(restart ? () -> preflightBuddyStart(false) : null))
-                        .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
+                        .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
+                        .setOnCancelListener(dialog -> finishBuddyOperation())
                         .show();
                 return;
             }
@@ -351,13 +362,17 @@ public final class MainActivity extends Activity {
                     new android.app.AlertDialog.Builder(this)
                             .setTitle("Buddy уже остановлен")
                             .setMessage("Работающий процесс не найден. JITI повторит launch preflight и запустит только проверенный Buddy профиль.")
-                            .setPositiveButton("Запустить", (dialog, which) -> preflightBuddyStart(false))
-                            .setNegativeButton("Отмена", (dialog, which) -> refreshTermuxControls())
+                            .setPositiveButton("Запустить", (dialog, which) -> {
+                                finishBuddyOperation();
+                                preflightBuddyStart(false);
+                            })
+                            .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
+                            .setOnCancelListener(dialog -> finishBuddyOperation())
                             .show();
                 } else {
                     buddyControlStatusView.setText("Buddy уже остановлен. Устаревший PID-файл не удалялся.");
+                    finishBuddyOperation();
                 }
-                refreshTermuxControls();
                 return;
             }
             String reason = report.optString("reason", state);
@@ -365,33 +380,34 @@ public final class MainActivity extends Activity {
                     + ". Процесс не затрагивался.");
             saveProbeSnapshot("buddy-tunnel", ComponentStatus.BLOCKED, "Buddy stop preflight: " + state);
             logControlEvent("buddy-tunnel", "STOP_BLOCKED", "Buddy stop preflight blocked: " + state);
-            refreshTermuxControls();
+            finishBuddyOperation();
         });
     }
 
     private void performBuddyStop(Runnable afterStopped) {
+        if (!BUDDY_OPERATION_GATE.isInFlight()) return;
         if (!commandGate.mayExecute("buddy.stop", true, true, true)) {
             buddyControlStatusView.setText("CommandGate заблокировал остановку: отсутствует подтверждение или проверка PID identity.");
             logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy stop rejected by CommandGate");
-            refreshTermuxControls();
+            finishBuddyOperation();
             return;
         }
         buddyControlStatusView.setText("Повторная проверка PID identity и отправка SIGTERM…");
         buddyStopButton.setEnabled(false);
         TermuxCommandClient.runBuddyStop(this, result -> {
+            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_result" : report.optString("result");
             if (!result.succeeded()) state = "stop_command_failed";
+            Runnable followUp = null;
             if (result.succeeded() && ("stopped".equals(state) || "already_stopped".equals(state) || "stale_pid_file".equals(state))) {
                 buddyControlStatusView.setText("Остановка подтверждена: " + state + ". SIGKILL не применялся.");
                 saveProbeSnapshot("tunnel-client", ComponentStatus.STOPPED, "Buddy stop result: " + state);
                 saveProbeSnapshot("buddy-tunnel", ComponentStatus.STOPPED, "Buddy Tunnel Client stopped or not running");
                 logControlEvent("buddy-tunnel", "STOP_CONFIRMED", "Buddy stop result: " + state);
                 MonitorService.pollNow(this);
-                if (afterStopped != null) {
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(afterStopped, 500L);
-                }
+                followUp = afterStopped;
             } else {
                 String reason = report == null ? result.internalErrorMessage : report.optString("reason", state);
                 buddyControlStatusView.setText("Остановка не подтверждена: " + state + " • " + reason
@@ -400,8 +416,16 @@ public final class MainActivity extends Activity {
                         ? ComponentStatus.BLOCKED : ComponentStatus.NOT_READY, "Buddy stop result: " + state);
                 logControlEvent("buddy-tunnel", "STOP_NOT_CONFIRMED", "Buddy stop result: " + state);
             }
-            refreshTermuxControls();
+            finishBuddyOperation();
+            if (followUp != null) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(followUp, 500L);
+            }
         });
+    }
+
+    private void finishBuddyOperation() {
+        BUDDY_OPERATION_GATE.release();
+        refreshTermuxControls();
     }
 
     private void logControlEvent(String component, String type, String message) {
@@ -927,11 +951,14 @@ public final class MainActivity extends Activity {
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
         boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
-        if (buddyStartButton != null) buddyStartButton.setEnabled(controlsReady);
-        if (buddyStopButton != null) buddyStopButton.setEnabled(controlsReady);
-        if (buddyRestartButton != null) buddyRestartButton.setEnabled(controlsReady);
+        boolean buddyBusy = BUDDY_OPERATION_GATE.isInFlight();
+        boolean buddyControlsEnabled = controlsReady && !buddyBusy;
+        if (buddyStartButton != null) buddyStartButton.setEnabled(buddyControlsEnabled);
+        if (buddyStopButton != null) buddyStopButton.setEnabled(buddyControlsEnabled);
+        if (buddyRestartButton != null) buddyRestartButton.setEnabled(buddyControlsEnabled);
         if (buddyControlStatusView != null) {
-            String controlState = !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
+            String controlState = buddyBusy ? "Операция Buddy уже выполняется. Повторные команды временно заблокированы."
+                    : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
                     : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку и подтвердите allow-external-apps."
                     : !MonitorService.running ? "Сначала запустите фоновый мониторинг."
                     : "Контроль Buddy доступен. Каждый запуск/остановка требует подтверждения; PID проверяется по бинарнику и YAML.";
