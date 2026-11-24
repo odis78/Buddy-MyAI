@@ -76,26 +76,38 @@ jobs:
             -w /src \
             golang:1.27.3-alpine \
             go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime
-      - name: Build Linux ARM64 runtime binary
+      - name: Build Linux ARM64 Tunnel Client and cloudflared companions
         run: |
           mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
-          docker run --rm \
+          docker run --rm --cap-drop=SYS_PTRACE \
             -v "$PWD/tunnel-client:/src" \
+            -v "$PWD:/buddy" \
             -v "$RUNNER_TEMP/tunnel-runtime:/out" \
             -w /src \
             -e CGO_ENABLED=0 \
             -e GOOS=linux \
             -e GOARCH=arm64 \
-            golang:1.27.3-alpine \
-            go build -mod=readonly -trimpath -buildvcs=false \
-              -o /out/tunnel-client-runtime ./cmd/client-runtime
-          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
-          sha256sum "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
-          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" dist/
+            golang:1.27.3-alpine sh -c '
+              set -eu
+              go build -mod=readonly -trimpath -buildvcs=false -o /out/tunnel-client-runtime ./cmd/client-runtime
+              go mod download github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a
+              MOD_DIR="$(go env GOPATH)/pkg/mod/github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a"
+              chmod -R u+w "$MOD_DIR"
+              apk add --no-cache python3 >/dev/null
+              python3 /buddy/scripts/patch_cloudflared_module.py "$MOD_DIR"
+              cd "$MOD_DIR"
+              go test ./cmd/cloudflared -run "^TestCloudflaredHidesEnvironmentFromSameUidProcess$" -count=1
+              go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=2026.10.2 -X main.BuildTime=2026-11-24 -X main.BuildType=buddy" -o /out/cloudflared ./cmd/cloudflared
+            '
+          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
+          sha256sum "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
+          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared" dist/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: tunnel-client-v0.0.19-linux-arm64-runtime
-          path: dist/tunnel-client-runtime
+          path: |
+            dist/tunnel-client-runtime
+            dist/cloudflared
 
   tunnel-client-arm64-smoke:
     name: Execute pinned Tunnel Client on native ARM64 runner
