@@ -50,15 +50,15 @@ public final class RuntimeSettingsActivity extends Screen {
         ScrollView scroll = new ScrollView(this);
         LinearLayout body = column(this);
         body.setPaddingRelative(dp(this, 20), dp(this, 8), dp(this, 20), dp(this, 28));
-        body.addView(text(this, getString(R.string.runtime_settings_info), 14, MUTED), gap(8));
+        body.addView(text(this, getString(R.string.runtime_settings_info), 14, MUTED), topGap(8));
 
-        body.addView(sectionLabel(this, getString(R.string.runtime_api_key_label)), gap(8));
+        body.addView(sectionLabel(this, getString(R.string.runtime_api_key_label)), topGap(8));
         apiKey = field(getString(R.string.runtime_api_key_hint), true);
         body.addView(apiKey, full());
         savedKey = text(this, "", 12, MUTED);
-        body.addView(savedKey, gap(4));
+        body.addView(savedKey, topGap(4));
 
-        body.addView(sectionLabel(this, getString(R.string.runtime_tunnel_id_label)), gap(16));
+        body.addView(sectionLabel(this, getString(R.string.runtime_tunnel_id_label)), topGap(16));
         tunnelId = field(getString(R.string.runtime_tunnel_id_hint), false);
         tunnelId.setText(getSharedPreferences("runtime", MODE_PRIVATE)
                 .getString("tunnel_id", RuntimeProcessLauncher.DEFAULT_TUNNEL_ID));
@@ -69,8 +69,8 @@ public final class RuntimeSettingsActivity extends Screen {
         autoStart.setTextColor(TEXT);
         autoStart.setTextSize(15);
         autoStart.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("auto_start", false));
-        body.addView(autoStart, gap(18));
-        body.addView(text(this, getString(R.string.runtime_auto_start_info), 12, MUTED), gap(4));
+        body.addView(autoStart, topGap(18));
+        body.addView(text(this, getString(R.string.runtime_auto_start_info), 12, MUTED), topGap(4));
 
         Button save = button(this, getString(R.string.runtime_save), true);
         body.addView(save, topGap(18));
