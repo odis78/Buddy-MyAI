@@ -214,6 +214,14 @@ def identity(pid):
                                  and normalize(arg.split("=", 1)[1]) == expected for arg in args)
     return executable.endswith(BINARY_SUFFIX) and config_ok
 
+def process_start_time(pid):
+    try:
+        stat_text = open("/proc/%d/stat" % pid, "r", encoding="utf-8").read()
+        fields = stat_text[stat_text.rfind(")") + 2:].split()
+        return fields[19] if len(fields) > 19 else None
+    except Exception:
+        return None
+
 def write_status(value):
     try:
         value["timestamp"] = int(time.time())
@@ -252,6 +260,9 @@ if not os.path.exists("/proc/%d" % pid):
     finish({"result": "stale_pid_file", "pid": pid})
 if not identity(pid):
     finish({"result": "pid_identity_mismatch", "pid": pid}, 2)
+initial_start_time = process_start_time(pid)
+if not initial_start_time:
+    finish({"result": "process_start_time_unavailable", "pid": pid}, 2)
 
 if mode == "preflight":
     finish({"result": "ready_to_stop", "pid": pid})
@@ -264,20 +275,32 @@ except Exception as exc:
     finish({"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}, 2)
 
 deadline = time.time() + 10.0
+identity_lost = False
 while time.time() < deadline:
     if not os.path.exists("/proc/%d" % pid):
         finish({"result": "stopped", "pid": pid})
     try:
         stat_text = open("/proc/%d/stat" % pid, "r", encoding="utf-8").read()
-        state = stat_text[stat_text.rfind(")") + 2:].split()[0]
-        if state == "Z":
+        fields = stat_text[stat_text.rfind(")") + 2:].split()
+        state = fields[0] if fields else ""
+        if state in ("Z", "X", "x"):
             finish({"result": "stopped", "pid": pid})
     except Exception:
         finish({"result": "stopped", "pid": pid})
+    current_start_time = process_start_time(pid)
+    if current_start_time is None:
+        finish({"result": "stopped", "pid": pid})
+    if current_start_time != initial_start_time:
+        finish({"result": "stopped", "pid": pid, "reason": "original_process_exited_pid_reused"})
     if not identity(pid):
-        finish({"result": "pid_identity_changed", "pid": pid}, 2)
+        # During SIGTERM teardown, /proc can briefly stop exposing argv/exe
+        # before the task becomes a zombie or disappears. Wait without ever
+        # signalling a process whose stable start-time has changed.
+        identity_lost = True
     time.sleep(0.2)
 
+if identity_lost:
+    finish({"result": "stop_identity_lost", "pid": pid}, 2)
 finish({"result": "stop_timeout", "pid": pid, "signal": "SIGTERM"}, 2)
 """;
     private static final String BUDDY_MCP_AUTH_PROBE_SCRIPT = """
