@@ -47,6 +47,8 @@ def process_identity(pid):
     except Exception:
         return False, "process_unreadable"
     args = [item.decode("utf-8", "replace") for item in raw.split(b"\\0") if item]
+    if len(args) < 3 or args[1] != "run":
+        return False, "process_not_run_command"
     config_ok = False
     expected = normalize(CONFIG)
     for index, arg in enumerate(args):
@@ -211,6 +213,8 @@ def identity(pid):
     except Exception:
         return False
     args = [item.decode("utf-8", "replace") for item in raw.split(b"\\0") if item]
+    if len(args) < 3 or args[1] != "run":
+        return False
     expected = normalize(CONFIG)
     config_ok = any(args[i] == "--config" and i + 1 < len(args)
                     and normalize(args[i + 1]) == expected for i in range(len(args)))
@@ -331,6 +335,8 @@ def process_identity(pid):
     except Exception:
         return False
     args = [item.decode("utf-8", "replace") for item in raw.split(b"\\0") if item]
+    if len(args) < 3 or args[1] != "run":
+        return False
     expected = normalize(CONFIG)
     config_ok = any(args[i] == "--config" and i + 1 < len(args)
                     and normalize(args[i + 1]) == expected for i in range(len(args)))
