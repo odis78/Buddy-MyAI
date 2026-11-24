@@ -26,6 +26,7 @@ import app.jiti.controlcenter.core.ToolSpec;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
 import app.jiti.controlcenter.termux.TermuxOperation;
+import app.jiti.controlcenter.termux.TunnelProfileIdentity;
 import app.jiti.controlcenter.service.MonitorService;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.core.DiagnosticEvent;
@@ -423,6 +424,9 @@ public final class MainActivity extends Activity {
                 TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
                 TermuxOperation.TUNNELS_SCRIPT_AUDIT,
                 TermuxOperation.BUDDY_TUNNEL_HEALTH,
+                TermuxOperation.BRIDGE_TUNNEL_HEALTH,
+                TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
+                TermuxOperation.REA_ANDROID_TUNNEL_HEALTH,
                 TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE,
                 TermuxOperation.PROCESS_LIST
         };
@@ -441,7 +445,12 @@ public final class MainActivity extends Activity {
                 button.setEnabled(true);
                 return;
             }
-            runTermuxStep(button, output, index + 1);
+            if (isReaProfileHealthOperation(operation)) {
+                verifyReaProfileIdentity(operation, result,
+                        () -> runTermuxStep(button, output, index + 1));
+            } else {
+                runTermuxStep(button, output, index + 1);
+            }
         });
     }
 
@@ -454,6 +463,9 @@ public final class MainActivity extends Activity {
             case BUDDY_ENV_SOURCE_AUDIT: return "BUDDY ENV SOURCE AUDIT (NAMES ONLY)";
             case TUNNELS_SCRIPT_AUDIT: return "EXISTING TUNNELS SCRIPT (READ ONLY)";
             case BUDDY_TUNNEL_HEALTH: return "BUDDY TUNNEL HEALTH";
+            case BRIDGE_TUNNEL_HEALTH: return "REA-TERMUX-BRIDGE HEALTH";
+            case DROIDMCP_TUNNEL_HEALTH: return "DROIDMCP HEALTH";
+            case REA_ANDROID_TUNNEL_HEALTH: return "REA-TERMUX-ANDROID HEALTH";
             case BUDDY_MCP_LISTENER_CHALLENGE: return "BUDDY MCP AUTH CHALLENGE";
             case PROCESS_LIST: return "PROCESS INVENTORY";
             default: return operation.name();
