@@ -203,6 +203,7 @@ public final class BuddyRuntimeService extends Service {
         if (retryTask != null) retryTask.cancel(true);
         if (reaMonitorTask != null) reaMonitorTask.cancel(true);
         if (reaRetryTask != null) reaRetryTask.cancel(true);
+        if (helperExecutor != null) helperExecutor.shutdownNow();
         if (executor == null) {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
