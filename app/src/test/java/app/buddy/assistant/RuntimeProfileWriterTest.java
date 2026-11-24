@@ -14,7 +14,7 @@ public class RuntimeProfileWriterTest {
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
-        assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
+        assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-discovery-auth-header\""));
         assertTrue(yaml.contains("url_file: \"/tmp/buddy-runtime/health.url\""));
         assertFalse(yaml.contains("Bearer "));
         assertFalse(yaml.contains("api_key: \"sk-"));
