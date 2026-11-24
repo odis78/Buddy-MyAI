@@ -15,6 +15,8 @@ public class RuntimeProcessLauncherTest {
         String buddyToken = "test-buddy-token";
         try {
             Files.write(binary.toPath(), new byte[]{1});
+            File cloudflared = new File(dir, RuntimeBinaryLocator.CLOUDFLARED_LIBRARY_NAME);
+            Files.write(cloudflared.toPath(), new byte[]{2});
             Files.write(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).toPath(),
                     apiKey.getBytes(StandardCharsets.UTF_8));
             Files.write(new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).toPath(),
@@ -22,7 +24,7 @@ public class RuntimeProcessLauncherTest {
             Files.write(new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).toPath(),
                     ("Bearer " + buddyToken).getBytes(StandardCharsets.UTF_8));
             RuntimeProfileWriter.writeBuddyProfile(config,
-                    RuntimeProcessLauncher.DEFAULT_TUNNEL_ID, dir);
+                    RuntimeProcessLauncher.DEFAULT_TUNNEL_ID, dir, cloudflared);
             ProcessBuilder builder = RuntimeProcessLauncher.createProcessBuilder(binary, config, dir);
             assertEquals(binary.getAbsolutePath(), builder.command().get(0));
             assertFalse(builder.command().toString().contains(apiKey));
@@ -35,6 +37,7 @@ public class RuntimeProcessLauncherTest {
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.API_KEY_FILE).getAbsolutePath()));
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.AUTH_HEADER_FILE).getAbsolutePath()));
             assertTrue(yaml.contains("file:" + new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).getAbsolutePath()));
+            assertTrue(yaml.contains("cloudflared:\\n  path: \\"" + cloudflared.getAbsolutePath() + "\\""));
             assertEquals("/system/etc/security/cacerts", builder.environment().get("SSL_CERT_DIR"));
             RuntimeProcessLauncher.cleanupSecretFiles(dir);
             assertFalse(new File(dir, RuntimeProcessLauncher.API_KEY_FILE).exists());
