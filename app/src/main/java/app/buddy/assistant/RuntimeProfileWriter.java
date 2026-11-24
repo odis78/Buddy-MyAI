@@ -35,6 +35,8 @@ final class RuntimeProfileWriter {
                 + "  base_url: \"https://api.openai.com\"\n"
                 + "  tunnel_id: \"" + tunnelId + "\"\n"
                 + "  api_key: \"" + "file:" + yamlQuote(dir + "/control-plane-api-key") + "\"\n"
+                + "cloudflared:\n"
+                + "  path: \"" + yamlQuote(cloudflaredBinary.getAbsolutePath()) + "\"\n"
                 + "health:\n"
                 + "  listen_addr: \"127.0.0.1:0\"\n"
                 + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
