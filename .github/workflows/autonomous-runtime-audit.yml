@@ -122,6 +122,14 @@ jobs:
         with:
           name: tunnel-client-v0.0.19-linux-arm64-runtime
           path: dist
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: rea-agents-6.5.0-alpine-arm64-smoke
+          path: rea-dist
+      - name: Stage pinned REA package for first-run bootstrap
+        run: |
+          mkdir -p app/src/main/assets/runtime
+          cp rea-dist/rea-agents-6.5.0.tgz app/src/main/assets/runtime/
       - name: Verify and execute native ARM64 runtime
         run: |
           file dist/tunnel-client-runtime dist/cloudflared
@@ -174,7 +182,7 @@ jobs:
 
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
-    needs: [tunnel-client-runtime, tunnel-client-arm64-smoke]
+    needs: [tunnel-client-runtime, tunnel-client-arm64-smoke, rea-mcp-alpine-arm64-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
