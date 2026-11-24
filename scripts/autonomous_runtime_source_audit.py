@@ -67,6 +67,22 @@ has_supervisor = any((ROOT / p).exists() for p in [
     "app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java",
     "app/src/main/java/app/buddy/assistant/RuntimeOrchestrator.java",
 ])
+runtime_primitives = all((ROOT / p).is_file() for p in [
+    "app/src/main/java/app/buddy/assistant/RuntimeComponentSpec.java",
+    "app/src/main/java/app/buddy/assistant/RuntimeDependencyPlanner.java",
+    "app/src/main/java/app/buddy/assistant/RuntimeProcessIdentity.java",
+    "app/src/main/java/app/buddy/assistant/RuntimeStateMachine.java",
+])
+runtime_tests = all((ROOT / p).is_file() for p in [
+    "app/src/test/java/app/buddy/assistant/RuntimeDependencyPlannerTest.java",
+    "app/src/test/java/app/buddy/assistant/RuntimeProcessIdentityTest.java",
+    "app/src/test/java/app/buddy/assistant/RuntimeStateMachineTest.java",
+])
+add("runtime_lifecycle_primitives", "PASS" if runtime_primitives else "FAIL",
+    "Dependency planning, process identity and lifecycle state machine sources are present")
+add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
+    "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
+
 add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
     "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
 add("release_signing_gate", "WARN",
