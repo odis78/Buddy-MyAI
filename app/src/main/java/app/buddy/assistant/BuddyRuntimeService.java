@@ -28,6 +28,8 @@ public final class BuddyRuntimeService extends Service {
     private ScheduledExecutorService executor;
     private ScheduledExecutorService helperExecutor;
     private RuntimeSupervisor supervisor;
+    private RuntimeSupervisor bridgeSupervisor;
+    private RuntimeSupervisor droidMcpSupervisor;
     private RuntimeSupervisor reaSupervisor;
     private RuntimeRecoveryPolicy recovery;
     private ScheduledFuture<?> monitorTask;
@@ -60,6 +62,10 @@ public final class BuddyRuntimeService extends Service {
         });
         Context app = getApplicationContext();
         supervisor = new RuntimeSupervisor(app);
+        bridgeSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/bridge-tunnel"),
+                () -> RuntimeProcessLauncher.startBridgeConfigured(app), true);
+        droidMcpSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/droidmcp-tunnel"),
+                () -> RuntimeProcessLauncher.startDroidMcpConfigured(app), true);
         reaSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/rea-tunnel"),
                 () -> RuntimeProcessLauncher.startReaConfigured(app), true);
         helperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -142,15 +148,20 @@ public final class BuddyRuntimeService extends Service {
         try {
             ReaRuntimeInstaller.ensureReady(getApplicationContext(),
                     message -> updateNotification(getString(R.string.runtime_notification_rea_installing, message)));
-            boolean ready = reaSupervisor.start();
-            if (ready) {
+            boolean bridgeReady = bridgeSupervisor.start();
+            setBridgePersistentState(bridgeReady ? "READY" : "WAITING",
+                    bridgeReady ? "6 tools; Bridge 0.1.3" : bridgeSupervisor.lastError());
+            boolean droidReady = droidMcpSupervisor.start();
+            setDroidPersistentState(droidReady ? "READY" : "WAITING",
+                    droidReady ? "5 read-only tools; DroidMCP 0.4.0" : droidMcpSupervisor.lastError());
+            boolean reaReady = reaSupervisor.start();
+            setReaPersistentState(reaReady ? "READY" : "WAITING",
+                    reaReady ? "207 tools; 6 prompts" : reaSupervisor.lastError());
+            if (bridgeReady && droidReady && reaReady) {
                 reaRecovery.reset();
-                setReaPersistentState("READY", "207 tools; 6 prompts");
                 updateNotification(getString(R.string.runtime_notification_ready_with_rea));
                 startReaMonitor();
             } else {
-                String message = reaSupervisor.lastError();
-                setReaPersistentState("WAITING", message);
                 long delay = reaRecovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_rea_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
@@ -173,9 +184,13 @@ public final class BuddyRuntimeService extends Service {
         if (helperExecutor == null) return;
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping || reaSupervisor == null) return;
-            if (reaSupervisor.isReady()) return;
-            String message = reaSupervisor.lastError();
-            setReaPersistentState("DEGRADED", message);
+            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady();
+            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
+            boolean reaReady = reaSupervisor.isReady();
+            if (bridgeReady && droidReady && reaReady) return;
+            if (!bridgeReady) setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "" : bridgeSupervisor.lastError());
+            if (!droidReady) setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "" : droidMcpSupervisor.lastError());
+            if (!reaReady) setReaPersistentState("DEGRADED", reaSupervisor.lastError());
             long delay = reaRecovery.nextDelayMillis();
             updateNotification(getString(R.string.runtime_notification_rea_retry,
                     Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
@@ -213,8 +228,12 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
+            if (bridgeSupervisor != null) bridgeSupervisor.stop();
+            if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
             if (reaSupervisor != null) reaSupervisor.stop();
             setPersistentState("STOPPED", "");
+            setBridgePersistentState("STOPPED", "");
+            setDroidPersistentState("STOPPED", "");
             setReaPersistentState("STOPPED", "");
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -267,6 +286,22 @@ public final class BuddyRuntimeService extends Service {
         }
     }
 
+    private void setBridgePersistentState(String state, String detail) {
+        getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                .putString("bridge_state", state)
+                .putString("bridge_detail", detail == null ? "" : detail)
+                .putLong("bridge_state_updated_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    private void setDroidPersistentState(String state, String detail) {
+        getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                .putString("droidmcp_state", state)
+                .putString("droidmcp_detail", detail == null ? "" : detail)
+                .putLong("droidmcp_state_updated_at", System.currentTimeMillis())
+                .apply();
+    }
+
     private void setReaPersistentState(String state, String detail) {
         getSharedPreferences("runtime", MODE_PRIVATE).edit()
                 .putString("rea_state", state)
@@ -296,6 +331,8 @@ public final class BuddyRuntimeService extends Service {
         if (reaMonitorTask != null) reaMonitorTask.cancel(true);
         if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
+        if (bridgeSupervisor != null) bridgeSupervisor.stop();
+        if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
         if (reaSupervisor != null) reaSupervisor.stop();
         if (executor != null) executor.shutdownNow();
         if (helperExecutor != null) helperExecutor.shutdownNow();
