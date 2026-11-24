@@ -31,6 +31,7 @@ assert "ProxyHandler({})" in auth and "NoRedirect" in auth
 assert "print(auth)" not in auth
 assert auth.index("if not process_identity(pid):") < auth.index('raw_env = open("/proc/%d/environ"')
 assert auth.count("if not process_identity(pid):") >= 2
+assert 'args[1] != "run"' in auth and 'args[1] != "run"' in launch and 'args[1] != "run"' in stop
 assert "CONTROL_PLANE_API_KEY" in launch and "BUDDY_TOKEN" in launch
 assert "EXPECTED_TUNNEL_ID" in launch
 assert "signal.SIGTERM" in stop and "signal.SIGKILL" not in stop
@@ -192,10 +193,19 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     # Exercise the positive identity path with an isolated copy of the
     # current Python interpreter placed at the exact expected executable path.
     # Its argv includes the exact Buddy config argument, so it is a safe fixture.
-    shutil.copyfile(sys.executable, binary)
+    helper_source = (
+        "#include <unistd.h>\\n"
+        "int main(int argc, char **argv) { (void)argc; (void)argv; "
+        "for (;;) sleep(1); return 0; }\\n"
+    )
+    compiled = subprocess.run(
+        ["cc", "-x", "c", "-o", str(binary), "-"],
+        input=helper_source, text=True, capture_output=True, timeout=30
+    )
+    assert compiled.returncode == 0, compiled.stderr
     binary.chmod(0o700)
     child = subprocess.Popen(
-        [str(binary), "-c", "import time; time.sleep(30)", "--config", str(config)],
+        [str(binary), "run", "--config", str(config)],
         env={**os.environ, "HOME": str(home)},
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
