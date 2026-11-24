@@ -20,6 +20,21 @@ public class RuntimeProfileWriterTest {
         assertFalse(yaml.contains("api_key: \"sk-"));
     }
 
+
+    @Test public void generatedProfileMatchesPinnedRuntimeFixture() throws Exception {
+        java.io.InputStream input = getClass().getClassLoader()
+                .getResourceAsStream("buddy-myai-tunnel-profile.yaml");
+        assertNotNull("runtime profile fixture missing", input);
+        byte[] bytes;
+        try (java.io.InputStream in = input; java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            bytes = out.toByteArray();
+        }
+        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL));
+    }
+
     @Test public void rejectsMalformedTunnelId() {
         try {
             RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel");
