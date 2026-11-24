@@ -532,11 +532,11 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                     + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.codex/config.toml";
         } else if ("opencode".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
-                    + "{ cat >> ~/.bashrc <<'BUDDY_MCP_EOF'\n"
-                    + "# >>> Buddy MCP managed >>>\n"
-                    + "export OPENCODE_CONFIG_CONTENT=\"$(printf '{\"mcp\":{\"phone\":{\"type\":\"remote\",\"url\":\""+url+"\",\"oauth\":false,\"timeout\":600000,\"headers\":{\"Authorization\":\"Bearer %s\"}}}}' \"$(cat ~/.config/buddy-mcp/token)\")\"\n"
-                    + "# <<< Buddy MCP managed <<<\n"
-                    + "BUDDY_MCP_EOF\n} && . ~/.bashrc && unset BUDDY_TOKEN";
+                    + "opencode mcp add phone --global --url " + url
+                    + " --header 'Authorization=Bearer {file:~/.config/buddy-mcp/token}'"
+                    + " && cfg=~/.config/opencode/opencode.json && [ -f \\"$cfg\\" ] || cfg=~/.config/opencode/opencode.jsonc"
+                    + " && sed -i '/\\"phone\\"[[:space:]]*:/,/\\"type\\"[[:space:]]*:[[:space:]]*\\"remote\\"/ s/\\"type\\"[[:space:]]*:[[:space:]]*\\"remote\\"/\\"type\\": \\"remote\\",\\n            \\"oauth\\": false/' \\"$cfg\\""
+                    + " && opencode mcp list";
         } else if ("agy".equals(mcpAgent)) {
             cmd = bootstrap + cleanup + "agy mcp add --header \"Authorization: Bearer $BUDDY_TOKEN\" phone " + url
                     + " && unset BUDDY_TOKEN";
