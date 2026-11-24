@@ -127,6 +127,20 @@ final class Linux {
         return args;
     }
 
+    /** Exposes shared storage to the read-only DroidMCP process. */
+    static List<String> commandAtWithStorage(Context c, String workingDirectory,
+                                             Map<String, String> extraEnvironment, String... cmd) {
+        List<String> args = commandAt(c, workingDirectory, extraEnvironment, cmd);
+        int workingDirectoryFlag = args.indexOf("-w");
+        if (workingDirectoryFlag < 0) throw new IllegalStateException("PRoot working directory flag is missing");
+        File storage = new File("/storage/emulated/0");
+        if (storage.isDirectory()) {
+            args.add(workingDirectoryFlag, storage.getAbsolutePath() + ":" + storage.getAbsolutePath());
+            args.add(workingDirectoryFlag, "-b");
+        }
+        return args;
+    }
+
     static ProcessBuilder builder(Context c, String... cmd) {
         String lib = c.getApplicationInfo().nativeLibraryDir;
         File tmp = new File(c.getCacheDir(), "proot");
