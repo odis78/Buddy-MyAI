@@ -23,6 +23,7 @@ public final class TunnelProfileIdentity {
         }
         String expected = normalize(termuxHome + configRelativePath);
         String[] args = nulSeparatedCommandLine.split(String.valueOf((char) 0), -1);
+        if (args.length < 3 || !"run".equals(args[1])) return false;
         for (int i = 0; i < args.length; i++) {
             if (configFlag.equals(args[i]) && i + 1 < args.length
                     && expected.equals(normalize(args[i + 1]))) return true;
