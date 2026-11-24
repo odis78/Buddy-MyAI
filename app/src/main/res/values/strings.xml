@@ -2367,4 +2367,36 @@
     <string name="onphone_note_qwen_4b">By Alibaba. Bigger and about half as fast as the 2B.</string>
     <string name="hub_still_reading_phone">Still working… The model on this phone needs a moment, mostly for the first answer.</string>
     <string name="onphone_too_hot">The phone is too hot to run a model now. Let it cool down for a few minutes, then try again.</string>
+
+    <!-- Buddy-owned autonomous Tunnel Client runtime. -->
+    <string name="runtime_settings_title">Buddy runtime</string>
+    <string name="runtime_settings_subtitle">Maintain the ChatGPT connection without Termux</string>
+    <string name="runtime_settings_info">Runs the pinned Tunnel Client from Buddy's own app package. Your ChatGPT ↔ Buddy MCP endpoint remains 127.0.0.1:8766. A control-plane API key is required.</string>
+    <string name="runtime_api_key_label">Tunnel control-plane API key</string>
+    <string name="runtime_api_key_hint">Paste API key (stored with Android Keystore)</string>
+    <string name="runtime_api_key_saved">A key is saved. Leave blank to keep it.</string>
+    <string name="runtime_tunnel_id_label">Tunnel ID</string>
+    <string name="runtime_tunnel_id_hint">tunnel_ followed by 32 hexadecimal characters</string>
+    <string name="runtime_auto_start">Start after reboot</string>
+    <string name="runtime_auto_start_info">Best effort. Android may delay startup if Buddy is battery-restricted.</string>
+    <string name="runtime_save">Save settings</string>
+    <string name="runtime_start">Start runtime</string>
+    <string name="runtime_stop">Stop runtime</string>
+    <string name="runtime_status">Runtime status</string>
+    <string name="runtime_status_not_configured">Not configured</string>
+    <string name="runtime_status_saved">Credentials saved</string>
+    <string name="runtime_status_detail">Status: %1$s</string>
+    <string name="runtime_notification_title">Buddy runtime</string>
+    <string name="runtime_notification_channel">Buddy runtime</string>
+    <string name="runtime_notification_channel_description">Keeps Buddy's authenticated ChatGPT tunnel available.</string>
+    <string name="runtime_notification_starting">Starting authenticated connection…</string>
+    <string name="runtime_notification_ready">ChatGPT connection active</string>
+    <string name="runtime_notification_retry">Connection not ready. Retrying in %1$d s.</string>
+    <string name="runtime_notification_setup">Open Buddy settings to configure the tunnel API key.</string>
+    <string name="runtime_notification_stop">Stop</string>
+    <string name="runtime_toast_saved">Runtime settings saved.</string>
+    <string name="runtime_toast_started">Runtime start requested.</string>
+    <string name="runtime_toast_stopped">Runtime stop requested.</string>
+    <string name="runtime_invalid_tunnel_id">Enter a valid Tunnel ID.</string>
+    <string name="runtime_missing_api_key">Enter the control-plane API key first.</string>
 </resources>
