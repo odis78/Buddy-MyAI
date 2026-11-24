@@ -36,7 +36,7 @@ Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
 - `TUNNEL_CLIENT_VERSION`: the known v0.0.19 ARM64 binary with `--version`.
 - `CURL_VERSION`: curl version check.
 - `PYTHON_VERSION`: Python 3 availability check for the fixed authenticated MCP probe.
-- `BUDDY_MCP_AUTH_PROBE`: fixed Python argv script, invoked only after PID/executable/Buddy-config identity is verified. It reads `BUDDY_AUTH_HEADER` or `BUDDY_TOKEN` from that process's `/proc/PID/environ`, performs MCP initialize, initialized notification, and paginated `tools/list`, then emits only auth-source variable name, server/protocol, tool count, and tool names. Secret values and raw HTTP bodies are never printed, logged, or persisted.
+- ``BUDDY_MCP_AUTH_PROBE`: fixed Python argv script that independently verifies PID/executable/Buddy-config identity before reading `BUDDY_AUTH_HEADER` or `BUDDY_TOKEN` from that process's `/proc/PID/environ`, performs MCP initialize, initialized notification, and paginated `tools/list`, then emits only auth-source variable name, server/protocol, tool count, and tool names. Secret values and raw HTTP bodies are never printed, logged, or persisted.
 - `BUDDY_ENV_SOURCE_AUDIT`: grep only the names `BUDDY_TOKEN`, `BUDDY_AUTH_HEADER`, and `CONTROL_PLANE_API_KEY` in a fixed list of known config/shell files; values are never printed.
 - `TUNNELS_SCRIPT_AUDIT`: read-only `sed -n 1,240p ~/bin/tunnels` to recover the exact existing three-profile launch/status/stop contracts; the script is displayed as data and never executed.
 - `BUDDY_TUNNEL_HEALTH`: v0.0.19 `health --url-file ... --pid-file ... --require-control-plane-poll --json` using the recorded Buddy health/PID files.
@@ -44,7 +44,7 @@ Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
 - `PROCESS_LIST`: `/system/bin/ps -A`, with only Termux/Buddy/REA/Tunnel Client lines displayed.
 - `PROCESS_EXECUTABLE` and `PROCESS_CMDLINE`: dynamically constructed only from a positive PID parsed from the Buddy health JSON; they read `/proc/PID/exe` and `/proc/PID/cmdline` through `/system/bin/readlink` and `/system/bin/cat`. The app never displays or persists raw command-line content. It verifies both the v0.0.19 binary path and exact Buddy YAML path before marking the Buddy tunnel READY.
 
-No free-form command is accepted, no shell is invoked, and Buddy-only start/stop operations are now present as fixed, reviewed prototypes. They are not generic shell operations and do not enable global or multi-profile lifecycle control. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
+No free-form command is accepted and no shell is invoked. Buddy-only start/stop operations are fixed, reviewed prototypes. Stop preflight is read-only; the confirmed stop path rechecks process start-time and identity before SIGTERM. Launch preflight rejects env-file symlinks, insecure permissions, and shell expansion. The MCP probe rechecks identity before reading process environment. They are not generic shell operations and do not enable global or multi-profile lifecycle control. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
 
 ## Android 11+ package visibility
 
