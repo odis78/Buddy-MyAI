@@ -163,18 +163,26 @@ final class McpServer {
 
     void stop() {
         running = false;
-        try {
-            if (socket != null) socket.close();
-            if (tailnetSocket != null) tailnetSocket.close();
-        } catch (IOException ignored) {
+        ServerSocket local = socket;
+        if (local != null) {
+            try {
+                local.close();
+            } catch (IOException ignored) {
+            }
+        }
+        ServerSocket remote = tailnetSocket;
+        if (remote != null) {
+            try {
+                remote.close();
+            } catch (IOException ignored) {
+            }
         }
         pool.shutdownNow();
     }
 
     private void acceptLoop() {
         while (running) {
-            try {
-                ServerSocket ss = new ServerSocket();
+            try (ServerSocket ss = new ServerSocket()) {
                 ss.setReuseAddress(true);
                 ss.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT));
                 socket = ss;
@@ -190,6 +198,8 @@ final class McpServer {
                 } catch (InterruptedException ie) {
                     return;
                 }
+            } finally {
+                socket = null;
             }
         }
     }
