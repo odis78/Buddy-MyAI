@@ -31,7 +31,7 @@ final class RuntimeProfileWriter {
                 + "control_plane:\n"
                 + "  base_url: \"https://api.openai.com\"\n"
                 + "  tunnel_id: \"" + tunnelId + "\"\n"
-                + "  api_key: \"" + API_KEY_REFERENCE + "\"\n"
+                + "  api_key: \"" + "file:" + yamlQuote(dir + "/control-plane-api-key") + "\"\n"
                 + "health:\n"
                 + "  listen_addr: \"127.0.0.1:0\"\n"
                 + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
@@ -46,7 +46,7 @@ final class RuntimeProfileWriter {
                 + "    - channel: main\n"
                 + "      url: \"" + MCP_URL + "\"\n"
                 + "  extra_headers:\n"
-                + "    Authorization: \"" + AUTH_HEADER_REFERENCE + "\"\n"
+                + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-auth-header") + "\"\n"
                 + "  discovery_extra_headers:\n"
                 + "    Authorization: \"" + AUTH_HEADER_REFERENCE + "\"\n";
     }
