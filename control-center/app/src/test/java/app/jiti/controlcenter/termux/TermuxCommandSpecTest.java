@@ -44,6 +44,21 @@ public class TermuxCommandSpecTest {
         assertTrue(audit.isSafeFixedCommand());
     }
 
+    @Test public void mcpEndpointAuditReadsOnlyTheThreeFixedProfileConfigs() {
+        TermuxCommandSpec audit = TermuxCommandSpec.forOperation(TermuxOperation.MCP_ENDPOINT_AUDIT,
+                "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
+        assertTrue(audit.executable.endsWith("/bin/python"));
+        assertEquals("-c", audit.arguments.get(0));
+        String script = audit.arguments.get(1);
+        assertTrue(script.contains("/.config/tunnel-client-bridge-013/bridge-013.yaml"));
+        assertTrue(script.contains("/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"));
+        assertTrue(script.contains("/.config/rea-tunnel/profile/rea-android.yaml"));
+        assertTrue(script.contains("SENSITIVE_KEY"));
+        assertTrue(script.contains("def redact(value):"));
+        assertFalse(script.contains("runtime.env"));
+        assertTrue(audit.isSafeFixedCommand());
+    }
+
     @Test public void tunnelsScriptHashProbeUsesOnlyTheFixedManagerPath() {
         TermuxCommandSpec hash = TermuxCommandSpec.forOperation(TermuxOperation.TUNNELS_SCRIPT_SHA256,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
