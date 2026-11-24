@@ -80,7 +80,7 @@ final class ReaRuntimeInstaller {
                     || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
                     || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
             String output = Linux.exec(context,
-                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -d /storage/emulated/0",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
@@ -136,7 +136,7 @@ final class ReaRuntimeInstaller {
                 + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source "
                 + ">/tmp/buddy-rea-source.log 2>&1 || { tail -n 40 /tmp/buddy-rea-source.log; exit 1; }; "
                 + "test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
-                + "mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext; "
+                + "mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext /storage/emulated/0; "
                 + "cp /tmp/termux-bridge-0.1.3.mjs /root/bridge/server/index.mjs; "
                 + "cp /tmp/droidmcp-filesystem-0.4.0.mjs /root/droidmcp/server/index.mjs; "
                 + "node --check /root/bridge/server/index.mjs; "
