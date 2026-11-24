@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -155,6 +156,35 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     assert mismatch_stop_report["result"] == "pid_identity_mismatch"
     persisted = json.loads(status_file.read_text(encoding="utf-8"))
     assert persisted["result"] == "pid_identity_mismatch"
+
+    # Exercise the positive identity path with an isolated copy of the
+    # current Python interpreter placed at the exact expected executable path.
+    # Its argv includes the exact Buddy config argument, so it is a safe fixture.
+    shutil.copyfile(sys.executable, binary)
+    binary.chmod(0o700)
+    child = subprocess.Popen(
+        [str(binary), "-c", "import time; time.sleep(30)", "--config", str(config)],
+        env={**os.environ, "HOME": str(home)},
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    try:
+        pid_file.write_text(str(child.pid), encoding="utf-8")
+        status_file.write_text(sentinel, encoding="utf-8")
+        ready_stop = report(execute(stop, home, "preflight"))
+        assert ready_stop["result"] == "ready_to_stop", ready_stop
+        assert ready_stop["pid"] == child.pid
+        assert status_file.read_text(encoding="utf-8") == sentinel
+
+        stopped = execute(stop, home, "stop")
+        stopped_report = report(stopped)
+        assert stopped.returncode == 0 and stopped_report["result"] == "stopped", stopped_report
+        child.wait(timeout=5)
+        persisted = json.loads(status_file.read_text(encoding="utf-8"))
+        assert persisted["result"] == "stopped", persisted
+    finally:
+        if child.poll() is None:
+            child.terminate()
+            child.wait(timeout=5)
 
     # The MCP probe independently checks PID identity before reading environ.
     auth_probe = report(execute(auth, home, "1"))
