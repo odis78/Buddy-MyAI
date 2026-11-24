@@ -27,8 +27,10 @@
 - No automatic retries executing state-changing commands; bounded retry/circuit-breaker policies currently govern diagnostic decisions only.
 - No configuration editing.
 - No app-side credential storage or display. The fixed Termux Buddy launch operation reads the existing approved env-file values in memory and passes them to the Tunnel Client process; values are never returned to Android or logged.
-- The authenticated MCP probe is implemented but not yet proven on the target device; it reads only the verified Tunnel Client process environment inside a fixed Termux Python operation, returns tool names/status only, and never displays or persists the token.
-- Buddy stop preflight is read-only; status-file writes occur only during the confirmed stop operation. Stop revalidates PID, executable and exact Buddy YAML before SIGTERM and never sends SIGKILL.
+- The authenticated MCP probe is implemented but not yet proven on the target device; it independently verifies the exact Tunnel Client executable/config before reading its process environment, returns tool names/status only, and never displays or persists the token.
+- Buddy launch preflight requires a mode-600 fixed env file with the Control Plane key and MCP auth token/header. Historical diagnostics show the MCP token is not in the documented runtime.env; until its source is safely resolved, launch intentionally returns BLOCKED. It does not source shell startup files or substitute the REA Control Plane key.
+- Buddy stop preflight is read-only; status-file writes occur only during the confirmed stop operation. Stop revalidates PID, executable, exact Buddy YAML and process start-time before SIGTERM, handles PID reuse and `/proc` teardown, and never sends SIGKILL.
+- The embedded-script CI harness exercises the fixed launch/stop paths against temporary fake files/processes; it does not touch the real phone or Termux configuration.
 - UI success states require both a zero process exit code and a successful Termux result callback.
 - No automatic permission changes.
 
@@ -36,7 +38,7 @@ This is intentional. The RUN_COMMAND interface is powerful enough to execute arb
 
 ## Next implementation gates
 
-1. CI unit tests and debug APK assembly passed in run 45294973372; a subsequent UI result-guard change is awaiting CI, and target-device validation remains required.
+1. JVM tests, isolated Python lifecycle-script harness, and debug APK assembly passed in run 45296930671; target-device validation remains required.
 2. Prove Termux package/version/permission/external-app policy, result callbacks, output redaction, and /proc identity reads on Infinix X678B.
 3. Test Android 14 specialUse foreground start/stop, notification visibility, partial wake lock, task swipe, process death, force-stop, and OEM battery behavior.
 4. Recover exact profile metadata and start/stop contracts for all four Tunnel Client profiles without writing current configuration.
