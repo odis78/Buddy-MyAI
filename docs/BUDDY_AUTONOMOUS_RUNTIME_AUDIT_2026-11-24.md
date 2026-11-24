@@ -323,10 +323,10 @@ Reuse the ideas and test cases for DependencyPlanner, ComponentStateMachine, Pro
 The candidate branch now contains the first two production-side runtime building blocks:
 
 - `RuntimeBinaryLocator` locates the pinned, statically linked Linux ARM64 Tunnel Client from Android's extracted `nativeLibraryDir` and verifies SHA-256 before launch. This avoids relying on executing a file copied into ordinary app-private storage.
-- `RuntimeProfileWriter` writes the Buddy profile into app-private runtime storage without using the v0.0.19 connect-profile generator. The generated profile explicitly retains both `mcp.extra_headers.Authorization` and `mcp.discovery_extra_headers.Authorization`, each as a secret reference rather than a literal token.
+- `RuntimeProfileWriter` writes the Buddy profile into app-private runtime storage without using the v0.0.19 connect-profile generator. The generated profile explicitly retains both `mcp.extra_headers.Authorization` and `mcp.discovery_extra_headers.Authorization`, each as an app-private file reference rather than a literal token.
 - A shared profile fixture is validated by the exact pinned Tunnel Client `pkg/runtimeconfig.ValidateFullProfileBytes` implementation in CI. The JVM test also asserts that the Java writer emits the same fixture byte-for-byte.
 - CI packages the runtime payload as `lib/arm64-v8a/libtunnel-client.so` so Android extracts it to `nativeLibraryDir`, then verifies the APK-embedded hash. A separate native ARM64 runner executes the binary version command before the Android packaging job proceeds.
-- The pinned Tunnel Client source is patched to set Linux `PR_SET_DUMPABLE=0` before reading credentials. A Go regression test confirms that a same-UID process cannot read its `/proc/<pid>/environ`; this keeps the launch environment from being exposed to Buddy's sibling agent processes.
+- The launcher writes the two credentials to short-lived app-private files with mode `0600`; the profile references those files, and the supervisor removes them once the runtime has loaded its configuration. Secret values are not placed in argv or environment. The pinned Tunnel Client source is patched to set Linux `PR_SET_DUMPABLE=0` before reading credentials. A Go regression test confirms that a same-UID process cannot read its `/proc/<pid>/environ`.
 
 Pinned runtime binary SHA-256:
 `35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39`
