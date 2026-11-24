@@ -792,10 +792,13 @@ public final class MainActivity extends Activity {
             RuntimeSnapshot previous = eventStore.snapshot(id);
             int errors = previous == null ? 0 : previous.errorCount;
             int retries = previous == null ? 0 : previous.retryCount;
-            if (status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
-                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE) errors++;
+            String safeDetail = detail == null ? "" : detail;
+            boolean failure = status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
+                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE;
+            if (failure && (previous == null || previous.status != status
+                    || !safeDetail.equals(previous.detail))) errors++;
             eventStore.saveSnapshot(new RuntimeSnapshot(id, status, System.currentTimeMillis(),
-                    pid, errors, retries, detail));
+                    pid, errors, retries, safeDetail));
             refreshLiveStatuses();
         } catch (Exception ignored) { }
     }
@@ -806,10 +809,13 @@ public final class MainActivity extends Activity {
             RuntimeSnapshot previous = eventStore.snapshot(id);
             int errors = previous == null ? 0 : previous.errorCount;
             int retries = previous == null ? 0 : previous.retryCount;
-            if (status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
-                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE) errors++;
+            String safeDetail = detail == null ? "" : detail;
+            boolean failure = status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
+                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE;
+            if (failure && (previous == null || previous.status != status
+                    || !safeDetail.equals(previous.detail))) errors++;
             eventStore.saveSnapshot(new RuntimeSnapshot(id, status, System.currentTimeMillis(),
-                    0, errors, retries, detail));
+                    0, errors, retries, safeDetail));
         } catch (Exception ignored) { }
     }
 
