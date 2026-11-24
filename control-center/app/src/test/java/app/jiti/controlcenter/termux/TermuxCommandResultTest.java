@@ -11,4 +11,11 @@ public class TermuxCommandResultTest {
         TermuxCommandResult capped = new TermuxCommandResult(8, longText, "", 0, -1, "", false);
         assertTrue(capped.stdout.length() < 16500);
     }
+
+    @Test public void successRequiresZeroExitAndNoTransportError() {
+        assertTrue(new TermuxCommandResult(1, "", "", 0, -1, "", false).succeeded());
+        assertFalse(new TermuxCommandResult(1, "", "", 1, -1, "", false).succeeded());
+        assertFalse(new TermuxCommandResult(1, "", "", 0, 7, "transport failure", false).succeeded());
+        assertFalse(new TermuxCommandResult(1, "", "", 1, 7, "transport failure", false).succeeded());
+    }
 }
