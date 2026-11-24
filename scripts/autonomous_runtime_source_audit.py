@@ -41,7 +41,7 @@ add("version_metadata", "PASS" if version_name and version_code else "FAIL",
 add("package_metadata", "PASS" if app_id else "FAIL", f"applicationId={app_id}")
 add("sdk_metadata", "PASS" if compile_sdk and target_sdk and min_sdk else "FAIL",
     f"minSdk={min_sdk}; compileSdk={compile_sdk}; targetSdk={target_sdk}")
-add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so" in linux and "Linux.builder" in linux else "FAIL",
+add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so" in linux and "static ProcessBuilder builder" in linux else "FAIL",
     "Buddy has an app-private Alpine rootfs installer and PRoot command builder" if "ALPINE_SHA256" in linux and "libproot.so" in linux else "Required PRoot markers missing")
 add("child_process_launch", "PASS" if "Linux.builder(app, cmd).start()" in helper else "FAIL",
     "Existing Helper launches child processes inside Buddy Linux")
@@ -59,8 +59,8 @@ has_supervisor = any((ROOT / p).exists() for p in [
 ])
 add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
     "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
-add("release_signing_gate", "PASS" if "BUDDY_KEYSTORE_BASE64" in workflow and "BUDDY_KEYSTORE_PASSWORD" in workflow else "WARN",
-    "Workflow contains release keystore secret hooks; actual secret availability is not inspected")
+add("release_signing_gate", "WARN",
+    "Workflow has optional signing hooks, but actual release keystore availability and certificate identity are not verified")
 add("gt_package_line", "PASS" if app_id == "app.buddy.myai.gt" else "WARN",
     f"Current baseline package is {app_id}; proposed GT package app.buddy.myai.gt is not applied")
 report = {
