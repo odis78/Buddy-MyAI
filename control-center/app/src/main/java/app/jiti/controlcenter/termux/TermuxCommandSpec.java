@@ -572,6 +572,24 @@ else:
                         Arrays.asList("health", "--url-file", home + "/.config/tunnel-client-buddy/health.url",
                                 "--pid-file", home + "/.config/tunnel-client-buddy/buddy-myai.pid",
                                 "--require-control-plane-poll", "--json"));
+            case BRIDGE_TUNNEL_HEALTH:
+                return new TermuxCommandSpec(operation,
+                        home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
+                        Arrays.asList("health", "--url-file", home + "/.local/state/tunnels/bridge-013.health.url",
+                                "--pid-file", home + "/.local/state/tunnels/bridge-013.pid",
+                                "--require-control-plane-poll", "--json"));
+            case DROIDMCP_TUNNEL_HEALTH:
+                return new TermuxCommandSpec(operation,
+                        home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
+                        Arrays.asList("health", "--url-file", home + "/.local/state/tunnels/droidmcp.health.url",
+                                "--pid-file", home + "/.local/state/tunnels/droidmcp.pid",
+                                "--require-control-plane-poll", "--json"));
+            case REA_ANDROID_TUNNEL_HEALTH:
+                return new TermuxCommandSpec(operation,
+                        home + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64",
+                        Arrays.asList("health", "--url-file", home + "/.local/state/tunnels/rea-android.health.url",
+                                "--pid-file", home + "/.local/state/tunnels/rea-android.pid",
+                                "--require-control-plane-poll", "--json"));
             case BUDDY_MCP_LISTENER_CHALLENGE:
                 return new TermuxCommandSpec(operation, prefix + "/bin/curl",
                         Arrays.asList("--silent", "--show-error", "--output", "/dev/null",
