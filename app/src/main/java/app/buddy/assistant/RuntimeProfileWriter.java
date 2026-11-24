@@ -56,28 +56,28 @@ final class RuntimeProfileWriter {
                 + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-discovery-auth-header") + "\"\n";
     }
 
-    static String renderReaProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
-                                   java.util.List<String> mcpCommand) {
+    static String renderStdioProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
+                                     java.util.List<String> mcpCommand) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
-            throw new IllegalArgumentException("Invalid REA tunnel id");
+            throw new IllegalArgumentException("Invalid stdio tunnel id");
         }
         if (runtimeDir == null || !runtimeDir.isAbsolute()) {
-            throw new IllegalArgumentException("Absolute REA runtime directory is required");
+            throw new IllegalArgumentException("Absolute runtime directory is required");
         }
         if (cloudflaredBinary == null || !cloudflaredBinary.isAbsolute()) {
             throw new IllegalArgumentException("Absolute cloudflared binary path is required");
         }
         if (mcpCommand == null || mcpCommand.isEmpty()) {
-            throw new IllegalArgumentException("REA MCP command is required");
+            throw new IllegalArgumentException("stdio MCP command is required");
         }
         String dir = runtimeDir.getAbsolutePath();
         if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
-            throw new IllegalArgumentException("Invalid REA runtime directory");
+            throw new IllegalArgumentException("Invalid runtime directory");
         }
         StringBuilder command = new StringBuilder();
         for (String part : mcpCommand) {
             if (part == null || part.trim().isEmpty() || part.indexOf('\n') >= 0 || part.indexOf('\r') >= 0) {
-                throw new IllegalArgumentException("Invalid REA MCP command argument");
+                throw new IllegalArgumentException("Invalid stdio MCP command argument");
             }
             if (command.length() > 0) command.append(' ');
             command.append(part);
@@ -103,14 +103,19 @@ final class RuntimeProfileWriter {
                 + "    - \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
-    static void writeReaProfile(File target, String tunnelId, File runtimeDir,
-                                File cloudflaredBinary, java.util.List<String> mcpCommand) throws IOException {
-        if (target == null) throw new IllegalArgumentException("REA profile target is required");
-        byte[] bytes = renderReaProfile(tunnelId, runtimeDir, cloudflaredBinary, mcpCommand)
+    static String renderReaProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
+                                   java.util.List<String> mcpCommand) {
+        return renderStdioProfile(tunnelId, runtimeDir, cloudflaredBinary, mcpCommand);
+    }
+
+    static void writeStdioProfile(File target, String tunnelId, File runtimeDir,
+                                  File cloudflaredBinary, java.util.List<String> mcpCommand) throws IOException {
+        if (target == null) throw new IllegalArgumentException("stdio profile target is required");
+        byte[] bytes = renderStdioProfile(tunnelId, runtimeDir, cloudflaredBinary, mcpCommand)
                 .getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
-            throw new IOException("REA Tunnel Client profile directory is unavailable");
+            throw new IOException("stdio Tunnel Client profile directory is unavailable");
         }
         File staging = new File(parent, target.getName() + ".installing");
         try {
@@ -121,10 +126,15 @@ final class RuntimeProfileWriter {
             Files.move(staging.toPath(), target.toPath(),
                     StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
-            throw new IOException("Could not atomically write REA Tunnel Client profile", e);
+            throw new IOException("Could not atomically write stdio Tunnel Client profile", e);
         } finally {
             if (staging.exists()) staging.delete();
         }
+    }
+
+    static void writeReaProfile(File target, String tunnelId, File runtimeDir,
+                                File cloudflaredBinary, java.util.List<String> mcpCommand) throws IOException {
+        writeStdioProfile(target, tunnelId, runtimeDir, cloudflaredBinary, mcpCommand);
     }
 
     static void writeBuddyProfile(File target, String tunnelId, File runtimeDir, File cloudflaredBinary) throws IOException {
