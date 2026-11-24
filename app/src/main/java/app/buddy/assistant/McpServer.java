@@ -188,7 +188,7 @@ final class McpServer {
                 socket = ss;
                 while (running) {
                     final Socket s = ss.accept();
-                    pool.execute(() -> handle(s));
+                    dispatch(s, false);
                 }
             } catch (IOException e) {
                 if (!running) return;
@@ -201,6 +201,18 @@ final class McpServer {
             } finally {
                 socket = null;
             }
+        }
+    }
+
+    private void dispatch(Socket s, boolean remote) {
+        try {
+            pool.execute(() -> handle(s, remote));
+        } catch (java.util.concurrent.RejectedExecutionException stopped) {
+            try {
+                s.close();
+            } catch (IOException ignored) {
+            }
+            if (running) throw stopped;
         }
     }
 
@@ -227,7 +239,7 @@ final class McpServer {
                 while (running && at.equals(Tailnet.address(BuddyApp.context()))) {
                     try {
                         final Socket s = ss.accept();
-                        pool.execute(() -> handle(s, true));
+                        dispatch(s, true);
                     } catch (java.net.SocketTimeoutException again) {
                         // look at the address and the switch again
                     }
