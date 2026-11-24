@@ -527,10 +527,14 @@ public final class MonitorService extends Service {
             RuntimeSnapshot previous = eventStore == null ? null : eventStore.snapshot(id);
             int errors = previous == null ? 0 : previous.errorCount;
             int retries = previous == null ? 0 : previous.retryCount;
-            if (status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
-                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE) errors++;
+            boolean failure = status == ComponentStatus.ERROR || status == ComponentStatus.NOT_READY
+                    || status == ComponentStatus.BLOCKED || status == ComponentStatus.UNAVAILABLE;
+            String safeDetail = detail == null ? "" : detail;
+            boolean newFailure = failure && (previous == null || previous.status != status
+                    || !safeDetail.equals(previous.detail));
+            if (newFailure) errors++;
             eventStore.saveSnapshot(new RuntimeSnapshot(id, status, System.currentTimeMillis(),
-                    pid, errors, retries, detail));
+                    pid, errors, retries, safeDetail));
         } catch (Exception ignored) { }
     }
 
