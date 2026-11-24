@@ -61,11 +61,11 @@ with tempfile.TemporaryDirectory(prefix="jiti-mcp-endpoint-audit-") as root:
     bridge = home / ".config" / "tunnel-client-bridge-013" / "bridge-013.yaml"
     bridge.parent.mkdir(parents=True)
     bridge.write_text(
-        "mcp:\\n"
-        "  server-url: http://127.0.0.1:8765/mcp?token=fixture-url-secret\\n"
-        "  command: mcp-server --token fixture-cli-secret\\n"
-        "  mcp.extra_headers: {Authorization: Bearer fixture-header-secret}\\n"
-        "  api-key: fixture-admin-secret\\n",
+        "mcp:\n"
+        "  server-url: http://127.0.0.1:8765/mcp?token=fixture-url-secret\n"
+        "  command: mcp-server --token fixture-cli-secret\n"
+        "  mcp.extra_headers: {Authorization: Bearer fixture-header-secret}\n"
+        "  api-key: fixture-admin-secret\n",
         encoding="utf-8"
     )
     audited = execute(mcp_audit, home)
