@@ -106,6 +106,19 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     insecure = report(execute(launch, home, "preflight"))
     assert insecure["reason"] == "insecure_env_file_permissions", insecure
 
+    # Symlinked environment files are rejected even if their target is mode 0600.
+    external_env = home / "external-runtime.env"
+    external_env.write_text(
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\nBUDDY_TOKEN=fixture-buddy-token\\n",
+        encoding="utf-8"
+    )
+    external_env.chmod(0o600)
+    env_file.unlink()
+    env_file.symlink_to(external_env)
+    symlinked = report(execute(launch, home, "preflight"))
+    assert symlinked["reason"] == "env_file_symlink_not_allowed", symlinked
+    env_file.unlink()
+
     # Shell expansion syntax is data, never executed.
     marker = home / "should-not-exist"
     env_file.write_text(
@@ -117,6 +130,25 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     expansion = report(execute(launch, home, "preflight"))
     assert expansion["reason"] == "unsupported_env_syntax", expansion
     assert not marker.exists(), "environment parser executed shell syntax"
+
+    env_file.write_text(
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\nBUDDY_TOKEN=$BUDDY_TOKEN\\n",
+        encoding="utf-8"
+    )
+    env_file.chmod(0o600)
+    variable_expansion = report(execute(launch, home, "preflight"))
+    assert variable_expansion["reason"] == "unsupported_env_syntax", variable_expansion
+
+    # An explicitly named Authorization header is normalized to its value.
+    env_file.write_text(
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\n"
+        "BUDDY_AUTH_HEADER=Authorization: Bearer fixture-buddy-token\\n",
+        encoding="utf-8"
+    )
+    env_file.chmod(0o600)
+    header_preflight = report(execute(launch, home, "preflight"))
+    assert header_preflight["result"] == "ready_to_start", header_preflight
+    assert "fixture-buddy-token" not in json.dumps(header_preflight)
 
     # The launch mode uses execve on the fixed fake binary and records a
     # non-secret request state. It does not touch any real Tunnel Client.
