@@ -19,4 +19,4 @@ mcp:
   extra_headers:
     Authorization: "file:/tmp/buddy-runtime/buddy-auth-header"
   discovery_extra_headers:
-    Authorization: "env:BUDDY_AUTH_HEADER"
+    Authorization: "file:/tmp/buddy-runtime/buddy-auth-header"
