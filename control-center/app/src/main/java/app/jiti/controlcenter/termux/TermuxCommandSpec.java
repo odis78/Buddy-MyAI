@@ -16,6 +16,7 @@ HOME = os.path.expanduser("~")
 BINARY = HOME + "/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 CONFIG = HOME + "/.config/tunnel-client-buddy/buddy-myai.yaml"
 ENV_FILE = HOME + "/.config/termux-bridge/runtime.env"
+TOKEN_FILE = HOME + "/.config/tunnel-client-buddy/buddy.token"
 PID_FILE = HOME + "/.config/tunnel-client-buddy/buddy-myai.pid"
 HEALTH_URL_FILE = HOME + "/.config/tunnel-client-buddy/health.url"
 LOG_FILE = HOME + "/.config/tunnel-client-buddy/tunnel-client.log"
@@ -89,18 +90,36 @@ def load_environment():
                 values[key] = value
     except Exception as exc:
         return None, "env_file_read_" + type(exc).__name__, []
-    missing = []
     if not values.get("CONTROL_PLANE_API_KEY"):
-        missing.append("CONTROL_PLANE_API_KEY")
-    if not values.get("BUDDY_AUTH_HEADER") and not values.get("BUDDY_TOKEN"):
-        missing.append("BUDDY_AUTH_HEADER_or_BUDDY_TOKEN")
-    if missing:
-        return None, "missing_required_env_keys", missing
+        return None, "missing_required_env_keys", ["CONTROL_PLANE_API_KEY"]
+    auth = values.get("BUDDY_AUTH_HEADER") or values.get("BUDDY_TOKEN")
+    auth_from_token_file = False
+    if not auth:
+        if os.path.islink(TOKEN_FILE):
+            return None, "buddy_token_file_symlink_not_allowed", []
+        if not os.path.isfile(TOKEN_FILE):
+            return None, "missing_buddy_auth_source", ["BUDDY_AUTH_HEADER_or_BUDDY_TOKEN_or_buddy.token"]
+        token_mode = stat.S_IMODE(os.stat(TOKEN_FILE).st_mode)
+        if token_mode & 0o077:
+            return None, "insecure_buddy_token_file_permissions", []
+        try:
+            if os.path.getsize(TOKEN_FILE) > 4096:
+                return None, "buddy_token_file_too_large", []
+            with open(TOKEN_FILE, "r", encoding="utf-8") as handle:
+                auth = handle.read().strip()
+        except Exception as exc:
+            return None, "buddy_token_file_read_" + type(exc).__name__, []
+        if not auth:
+            return None, "empty_buddy_token_file", []
+        if any(character.isspace() for character in auth):
+            return None, "invalid_buddy_token_file_format", []
+        auth_from_token_file = True
     environment = os.environ.copy()
     environment["CONTROL_PLANE_API_KEY"] = values["CONTROL_PLANE_API_KEY"]
     if values.get("BUDDY_TOKEN"):
         environment["BUDDY_TOKEN"] = values["BUDDY_TOKEN"]
-    auth = values.get("BUDDY_AUTH_HEADER") or values.get("BUDDY_TOKEN")
+    elif auth_from_token_file:
+        environment["BUDDY_TOKEN"] = auth
     if auth.lower().startswith("authorization:"):
         auth = auth.split(":", 1)[1].strip()
     if not auth.lower().startswith("bearer "):
