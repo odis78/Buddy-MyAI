@@ -94,7 +94,7 @@ jobs:
             -e GOARCH=arm64 \
             golang:1.27.3-alpine sh -c '
               set -eu
-              go build -mod=readonly -trimpath -buildvcs=false -o /out/tunnel-client-runtime ./cmd/client-runtime
+              go build -mod=readonly -trimpath -buildvcs=false -ldflags "-X github.com/openai/tunnel-client/pkg/version.Flavor=runtime -X github.com/openai/tunnel-client/pkg/version.GitSHA=01d67bb4da0d8359b808b4761f8db171ab682cd7 -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false" -o /out/tunnel-client-runtime ./cmd/client-runtime
               go mod download github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a
               MOD_DIR="$(go env GOPATH)/pkg/mod/github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a"
               chmod -R u+w "$MOD_DIR"
