@@ -425,6 +425,7 @@ public final class MainActivity extends Activity {
                 TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
                 TermuxOperation.TUNNELS_SCRIPT_AUDIT,
                 TermuxOperation.TUNNELS_SCRIPT_SHA256,
+                TermuxOperation.MCP_ENDPOINT_AUDIT,
                 TermuxOperation.BUDDY_TUNNEL_HEALTH,
                 TermuxOperation.BRIDGE_TUNNEL_HEALTH,
                 TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
@@ -465,6 +466,7 @@ public final class MainActivity extends Activity {
             case BUDDY_ENV_SOURCE_AUDIT: return "BUDDY ENV SOURCE AUDIT (NAMES ONLY)";
             case TUNNELS_SCRIPT_AUDIT: return "EXISTING TUNNELS SCRIPT (READ ONLY)";
             case TUNNELS_SCRIPT_SHA256: return "TUNNELS MANAGER SHA-256";
+            case MCP_ENDPOINT_AUDIT: return "REDACTED MCP ENDPOINT CONFIG AUDIT";
             case BUDDY_TUNNEL_HEALTH: return "BUDDY TUNNEL HEALTH";
             case BRIDGE_TUNNEL_HEALTH: return "REA-TERMUX-BRIDGE HEALTH";
             case DROIDMCP_TUNNEL_HEALTH: return "DROIDMCP HEALTH";
@@ -647,6 +649,19 @@ public final class MainActivity extends Activity {
                         ? ComponentStatus.UNAVAILABLE : ComponentStatus.NOT_READY;
                 saveProbeSnapshot("buddy-tunnel", tunnelState,
                         detail + "; authenticated readiness withheld until process identity verification");
+                break;
+            case MCP_ENDPOINT_AUDIT:
+                int endpointFields = 0;
+                int endpointMarker = result.stdout.lastIndexOf("ENDPOINT_FIELDS=");
+                if (endpointMarker >= 0) {
+                    String countText = result.stdout.substring(endpointMarker + "ENDPOINT_FIELDS=".length()).trim();
+                    try { endpointFields = Integer.parseInt(countText.split("\\s+")[0]); }
+                    catch (Exception ignored) { endpointFields = 0; }
+                }
+                ComponentStatus endpointAuditStatus = !result.succeeded() ? ComponentStatus.UNAVAILABLE
+                        : endpointFields > 0 ? ComponentStatus.AVAILABLE : ComponentStatus.NOT_READY;
+                saveProbeSnapshot("mcp-endpoint-audit", endpointAuditStatus,
+                        "Three fixed REA profile YAMLs scanned; " + endpointFields + " non-secret endpoint fields found");
                 break;
             case TUNNELS_SCRIPT_SHA256:
                 boolean managerHashMatches = result.succeeded()
