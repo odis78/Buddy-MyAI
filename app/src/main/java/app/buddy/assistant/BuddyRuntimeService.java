@@ -31,6 +31,7 @@ public final class BuddyRuntimeService extends Service {
     private ScheduledFuture<?> monitorTask;
     private ScheduledFuture<?> retryTask;
     private volatile boolean stopping;
+    private boolean retryScheduled;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -67,10 +68,13 @@ public final class BuddyRuntimeService extends Service {
         return START_STICKY;
     }
 
-    private void scheduleAttempt(long delayMs) {
-        if (executor == null || stopping) return;
-        if (retryTask != null && !retryTask.isDone()) return;
-        retryTask = executor.schedule(this::attemptStart, delayMs, TimeUnit.MILLISECONDS);
+    private synchronized void scheduleAttempt(long delayMs) {
+        if (executor == null || stopping || retryScheduled) return;
+        retryScheduled = true;
+        retryTask = executor.schedule(() -> {
+            synchronized (BuddyRuntimeService.this) { retryScheduled = false; }
+            attemptStart();
+        }, delayMs, TimeUnit.MILLISECONDS);
     }
 
     private void attemptStart() {
