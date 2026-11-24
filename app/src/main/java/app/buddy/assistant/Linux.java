@@ -110,6 +110,17 @@ final class Linux {
         return a;
     }
 
+    /** Same isolated command with the Android system partition exposed for the fixed am launch bridge. */
+    static List<String> commandAtWithSystem(Context c, String workingDirectory,
+                                            Map<String, String> extraEnvironment, String... cmd) {
+        List<String> args = commandAt(c, workingDirectory, extraEnvironment, cmd);
+        int workingDirectoryFlag = args.indexOf("-w");
+        if (workingDirectoryFlag < 0) throw new IllegalStateException("PRoot working directory flag is missing");
+        args.add(workingDirectoryFlag, "/system");
+        args.add(workingDirectoryFlag, "-b");
+        return args;
+    }
+
     static ProcessBuilder builder(Context c, String... cmd) {
         String lib = c.getApplicationInfo().nativeLibraryDir;
         File tmp = new File(c.getCacheDir(), "proot");
