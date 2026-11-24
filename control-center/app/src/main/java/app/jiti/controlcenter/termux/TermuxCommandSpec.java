@@ -58,6 +58,8 @@ def process_identity(pid):
     return executable_ok and config_ok, "identity_match" if executable_ok and config_ok else "identity_mismatch"
 
 def load_environment():
+    if os.path.islink(ENV_FILE):
+        return None, "env_file_symlink_not_allowed", []
     if not os.path.isfile(ENV_FILE):
         return None, "missing_env_file", []
     mode = stat.S_IMODE(os.stat(ENV_FILE).st_mode)
@@ -81,7 +83,7 @@ def load_environment():
                 value = value.strip()
                 if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
                     value = value[1:-1]
-                if "$(" in value or "$" + "{" in value or chr(96) in value:
+                if "$" in value or chr(96) in value:
                     return None, "unsupported_env_syntax", []
                 values[key] = value
     except Exception as exc:
@@ -98,6 +100,8 @@ def load_environment():
     if values.get("BUDDY_TOKEN"):
         environment["BUDDY_TOKEN"] = values["BUDDY_TOKEN"]
     auth = values.get("BUDDY_AUTH_HEADER") or values.get("BUDDY_TOKEN")
+    if auth.lower().startswith("authorization:"):
+        auth = auth.split(":", 1)[1].strip()
     if not auth.lower().startswith("bearer "):
         auth = "Bearer " + auth
     if "\\r" in auth or "\\n" in auth:
