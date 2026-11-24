@@ -52,7 +52,8 @@ final class ReaRuntimeInstaller {
         if (progress != null) progress.onProgress("Installing REA 6.5.0 and its dependencies");
         String command = buildInstallCommand();
         String output = Linux.exec(app, command, 600);
-        if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")) {
+        if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")
+                || !output.contains("HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0")) {
             throw new IOException("REA bootstrap failed: " + tail(output));
         }
 
