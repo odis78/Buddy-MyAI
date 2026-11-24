@@ -71,36 +71,36 @@ final class RuntimeProfileWriter {
             throw new IllegalArgumentException("REA MCP command is required");
         }
         String dir = runtimeDir.getAbsolutePath();
-        if (dir.indexOf('\\n') >= 0 || dir.indexOf('\\r') >= 0) {
+        if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
             throw new IllegalArgumentException("Invalid REA runtime directory");
         }
         StringBuilder command = new StringBuilder();
         for (String part : mcpCommand) {
-            if (part == null || part.trim().isEmpty() || part.indexOf('\\n') >= 0 || part.indexOf('\\r') >= 0) {
+            if (part == null || part.trim().isEmpty() || part.indexOf('\n') >= 0 || part.indexOf('\r') >= 0) {
                 throw new IllegalArgumentException("Invalid REA MCP command argument");
             }
             if (command.length() > 0) command.append(' ');
             command.append(part);
         }
-        return "config_version: 1\\n"
-                + "control_plane:\\n"
-                + "  base_url: \\"https://api.openai.com\\"\\n"
-                + "  tunnel_id: \\"" + tunnelId + "\\"\\n"
-                + "  api_key: \\"file:" + yamlQuote(dir + "/control-plane-api-key") + "\\"\\n"
-                + "cloudflared:\\n"
-                + "  path: \\"" + yamlQuote(cloudflaredBinary.getAbsolutePath()) + "\\"\\n"
-                + "health:\\n"
-                + "  listen_addr: \\"127.0.0.1:0\\"\\n"
-                + "  url_file: \\"" + yamlQuote(dir + "/health.url") + "\\"\\n"
-                + "process:\\n"
-                + "  pid_file: \\"" + yamlQuote(dir + "/tunnel-client.pid") + "\\"\\n"
-                + "log:\\n"
-                + "  level: info\\n"
-                + "  format: json\\n"
-                + "  file: \\"" + yamlQuote(dir + "/tunnel-client.log") + "\\"\\n"
-                + "mcp:\\n"
-                + "  command:\\n"
-                + "    - \\"" + yamlQuote(command.toString()) + "\\"\\n";
+        return "config_version: 1\n"
+                + "control_plane:\n"
+                + "  base_url: \"https://api.openai.com\"\n"
+                + "  tunnel_id: \"" + tunnelId + "\"\n"
+                + "  api_key: \"file:" + yamlQuote(dir + "/control-plane-api-key") + "\"\n"
+                + "cloudflared:\n"
+                + "  path: \"" + yamlQuote(cloudflaredBinary.getAbsolutePath()) + "\"\n"
+                + "health:\n"
+                + "  listen_addr: \"127.0.0.1:0\"\n"
+                + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
+                + "process:\n"
+                + "  pid_file: \"" + yamlQuote(dir + "/tunnel-client.pid") + "\"\n"
+                + "log:\n"
+                + "  level: info\n"
+                + "  format: json\n"
+                + "  file: \"" + yamlQuote(dir + "/tunnel-client.log") + "\"\n"
+                + "mcp:\n"
+                + "  command:\n"
+                + "    - \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
     static void writeReaProfile(File target, String tunnelId, File runtimeDir,
