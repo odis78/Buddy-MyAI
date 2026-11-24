@@ -322,6 +322,7 @@ PROFILES = [
     ("rea-android", HOME + "/.config/rea-tunnel/profile/rea-android.yaml"),
 ]
 KEY_RE = re.compile(r"(?i)(mcp|server[-_]?url|listen|port|endpoint|command|args)")
+ENDPOINT_KEY = re.compile(r"(?i)(server[-_]?url|listen|port|endpoint|command|args)")
 SENSITIVE_KEY = re.compile(r"(?i)(token|api[-_]?key|auth|secret|password|bearer|private|admin[-_]?key)")
 
 def redact(value):
@@ -333,6 +334,7 @@ def redact(value):
     return value
 
 total = 0
+endpoint_total = 0
 for profile, path in PROFILES:
     if os.path.islink(path):
         print("[%s] config=symlink-blocked" % profile)
@@ -356,10 +358,13 @@ for profile, path in PROFILES:
                 value = redact(value.strip())
                 print("  L%d %s: %s" % (line_number, key, value))
                 total += 1
+                if ENDPOINT_KEY.search(key):
+                    endpoint_total += 1
     except Exception:
         print("[%s] config=unreadable" % profile)
 
-print("ENDPOINT_FIELDS=%d" % total)
+print("MCP_CONFIG_FIELDS=%d" % total)
+print("ENDPOINT_FIELDS=%d" % endpoint_total)
 """;
     private static final String BUDDY_MCP_AUTH_PROBE_SCRIPT = """
 import json
