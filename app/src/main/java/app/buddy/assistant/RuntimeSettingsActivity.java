@@ -129,6 +129,12 @@ public final class RuntimeSettingsActivity extends Screen {
         refreshStatus();
     }
 
+    private LinearLayout.LayoutParams topGap(int marginDp) {
+        LinearLayout.LayoutParams params = full();
+        params.topMargin = dp(this, marginDp);
+        return params;
+    }
+
     private EditText field(String hint, boolean secret) {
         EditText edit = new EditText(this);
         edit.setSingleLine(true);
