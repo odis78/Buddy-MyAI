@@ -44,7 +44,7 @@ public class RuntimeProfileWriterTest {
                 new File("/tmp/buddy-rea"), new File("/tmp/libcloudflared.so"),
                 java.util.Collections.singletonList(REA_COMMAND));
         assertTrue(yaml.contains("tunnel_id: \"" + REA_TUNNEL + "\""));
-        assertTrue(yaml.contains("command:\n    - \"" + REA_COMMAND + "\""));
+        assertTrue(yaml.contains("commands:\n    - channel: main\n      command: \"" + REA_COMMAND + "\""));
         assertTrue(yaml.contains("REA_MCP_INPUT_SCHEMA_PROFILE=compact"));
         assertTrue(yaml.contains("REA_MCP_OUTPUT_SCHEMA_PROFILE=off"));
         assertFalse(yaml.contains("server_urls:"));
