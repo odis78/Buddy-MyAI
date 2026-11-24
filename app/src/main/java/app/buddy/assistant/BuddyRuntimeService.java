@@ -26,12 +26,18 @@ public final class BuddyRuntimeService extends Service {
     private static final int NOTIFICATION_ID = 7316;
 
     private ScheduledExecutorService executor;
+    private ScheduledExecutorService helperExecutor;
     private RuntimeSupervisor supervisor;
+    private RuntimeSupervisor reaSupervisor;
     private RuntimeRecoveryPolicy recovery;
     private ScheduledFuture<?> monitorTask;
     private ScheduledFuture<?> retryTask;
+    private ScheduledFuture<?> reaMonitorTask;
+    private ScheduledFuture<?> reaRetryTask;
+    private RuntimeRecoveryPolicy reaRecovery;
     private volatile boolean stopping;
     private boolean retryScheduled;
+    private boolean reaRetryScheduled;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -52,8 +58,17 @@ public final class BuddyRuntimeService extends Service {
             thread.setDaemon(true);
             return thread;
         });
-        supervisor = new RuntimeSupervisor(getApplicationContext());
+        Context app = getApplicationContext();
+        supervisor = new RuntimeSupervisor(app);
+        reaSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/rea-tunnel"),
+                () -> RuntimeProcessLauncher.startReaConfigured(app), true);
+        helperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "buddy-rea-supervisor");
+            thread.setDaemon(true);
+            return thread;
+        });
         recovery = new RuntimeRecoveryPolicy(1000, 60000);
+        reaRecovery = new RuntimeRecoveryPolicy(5000, 120000);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -86,6 +101,7 @@ public final class BuddyRuntimeService extends Service {
                 setPersistentState("READY", "");
                 updateNotification(getString(R.string.runtime_notification_ready));
                 startMonitor();
+                scheduleReaAttempt(0);
             } else {
                 setPersistentState("WAITING", supervisor.lastError());
                 long delay = recovery.nextDelayMillis();
@@ -112,6 +128,61 @@ public final class BuddyRuntimeService extends Service {
         }
     }
 
+    private synchronized void scheduleReaAttempt(long delayMs) {
+        if (helperExecutor == null || stopping || reaRetryScheduled) return;
+        reaRetryScheduled = true;
+        reaRetryTask = helperExecutor.schedule(() -> {
+            synchronized (BuddyRuntimeService.this) { reaRetryScheduled = false; }
+            attemptReaStart();
+        }, delayMs, TimeUnit.MILLISECONDS);
+    }
+
+    private void attemptReaStart() {
+        if (stopping || reaSupervisor == null) return;
+        try {
+            ReaRuntimeInstaller.ensureReady(getApplicationContext(),
+                    message -> updateNotification(getString(R.string.runtime_notification_rea_installing, message)));
+            boolean ready = reaSupervisor.start();
+            if (ready) {
+                reaRecovery.reset();
+                setReaPersistentState("READY", "207 tools; 6 prompts");
+                updateNotification(getString(R.string.runtime_notification_ready_with_rea));
+                startReaMonitor();
+            } else {
+                String message = reaSupervisor.lastError();
+                setReaPersistentState("WAITING", message);
+                long delay = reaRecovery.nextDelayMillis();
+                updateNotification(getString(R.string.runtime_notification_rea_retry,
+                        Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
+                scheduleReaAttempt(delay);
+            }
+        } catch (Exception e) {
+            if (stopping) return;
+            String message = safeMessage(e);
+            setReaPersistentState("ERROR", message);
+            Log.w(TAG, "REA runtime bootstrap failed: " + message);
+            long delay = reaRecovery.nextDelayMillis();
+            updateNotification(getString(R.string.runtime_notification_rea_retry,
+                    Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
+            scheduleReaAttempt(delay);
+        }
+    }
+
+    private void startReaMonitor() {
+        if (reaMonitorTask != null && !reaMonitorTask.isDone()) return;
+        if (helperExecutor == null) return;
+        reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
+            if (stopping || reaSupervisor == null) return;
+            if (reaSupervisor.isReady()) return;
+            String message = reaSupervisor.lastError();
+            setReaPersistentState("DEGRADED", message);
+            long delay = reaRecovery.nextDelayMillis();
+            updateNotification(getString(R.string.runtime_notification_rea_retry,
+                    Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
+            scheduleReaAttempt(delay);
+        }, 30, 30, TimeUnit.SECONDS);
+    }
+
     private void startMonitor() {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
@@ -130,6 +201,8 @@ public final class BuddyRuntimeService extends Service {
         stopping = true;
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
+        if (reaMonitorTask != null) reaMonitorTask.cancel(true);
+        if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (executor == null) {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -139,7 +212,9 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
+            if (reaSupervisor != null) reaSupervisor.stop();
             setPersistentState("STOPPED", "");
+            setReaPersistentState("STOPPED", "");
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
         });
@@ -191,6 +266,14 @@ public final class BuddyRuntimeService extends Service {
         }
     }
 
+    private void setReaPersistentState(String state, String detail) {
+        getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                .putString("rea_state", state)
+                .putString("rea_detail", detail == null ? "" : detail)
+                .putLong("rea_state_updated_at", System.currentTimeMillis())
+                .apply();
+    }
+
     private void setPersistentState(String state, String detail) {
         getSharedPreferences("runtime", MODE_PRIVATE).edit()
                 .putString("state", state)
@@ -209,8 +292,12 @@ public final class BuddyRuntimeService extends Service {
         stopping = true;
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
+        if (reaMonitorTask != null) reaMonitorTask.cancel(true);
+        if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
+        if (reaSupervisor != null) reaSupervisor.stop();
         if (executor != null) executor.shutdownNow();
+        if (helperExecutor != null) helperExecutor.shutdownNow();
         super.onDestroy();
     }
 
