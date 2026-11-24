@@ -10,7 +10,7 @@ public class RuntimeProfileWriterTest {
     private static final String TUNNEL = "tunnel_6b02e7e420948191a1829df4a5373d20";
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
-        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL);
+        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
         assertTrue(yaml.contains("api_key: \"env:CONTROL_PLANE_API_KEY\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
@@ -47,7 +47,7 @@ public class RuntimeProfileWriterTest {
         File target = new File(dir, "buddy-myai.yaml");
         try {
             Files.write(target.toPath(), "old".getBytes(StandardCharsets.UTF_8));
-            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL);
+            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"));
             String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
             assertTrue(yaml.contains(TUNNEL));
             assertTrue(yaml.contains("discovery_extra_headers"));
