@@ -23,7 +23,8 @@
 - Hardened stop preflight to be genuinely read-only: it no longer writes launcher status for already-stopped, stale-PID, or identity-mismatch results; a JVM regression test protects this.
 - Corrected UI success handling so nonzero process exit codes cannot be mistaken for successful identity or stop operations.
 - Audited the installed Tunnel Client health command against upstream v0.0.19 source; `health --url-file --pid-file --require-control-plane-poll --json` matches the supported CLI flags.
-- Added read-only Buddy tunnel health and local MCP authentication-challenge probes.
+- Added read-only health probes for Buddy, REA-Termux-Bridge, DroidMCP-Filesystem, and REA-Termux-Android. Each profile is checked against its known PID/health URL, Tunnel Client executable, and exact `--config` or `--profile-file` argument.
+- Extended the foreground monitor to poll all four tunnel profiles sequentially after the Buddy MCP check; per-profile snapshots are persisted, and repeated identical failures no longer inflate error counters.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
 - Added bounded SQLite diagnostic event journal (maximum 2,000 events) and persistent latest-state snapshots per component.
 - Dashboard now renders historical evidence and live state as separate labels, with per-component freshness windows and cumulative error/retry counters.
@@ -43,10 +44,10 @@
 ## Next engineering gates
 1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45299172715 (commit 410d73f68086740a8d026173aede6cd6d8b0f60c).
 2. Resolve the Buddy MCP credential source using names-only diagnostics; until then, Buddy launch must remain blocked.
-3. Verify Termux RUN_COMMAND, Buddy PID/executable/config identity probes, guarded Buddy start/stop in an explicitly approved test window, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
-4. Recover and validate exact stop contracts for Buddy, Bridge, DroidMCP, and REA Android profiles without changing live configuration.
-5. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
-6. Recover and validate safe stop contracts for all profiles without changing live configuration.
+3. Verify Termux RUN_COMMAND, all four tunnel PID/executable/config identity probes, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
+4. Validate the continuous four-profile monitor on Infinix, including poll cadence, Termux service timeouts, foreground-service survival, task swipe, process death, force-stop, and OEM battery behavior.
+5. Recover and validate safe stop contracts for all profiles without changing live configuration.
+6. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
 7. Only after device acceptance and contract validation, add guarded per-profile start/stop/restart and bounded recovery.
 
 ## Safety and acceptance boundary
