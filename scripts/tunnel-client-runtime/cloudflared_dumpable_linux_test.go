@@ -48,8 +48,7 @@ func TestCloudflaredHidesEnvironmentFromSameUidProcess(t *testing.T) {
     hardened := startCloudflaredProbe(t, true)
     _, err = os.ReadFile("/proc/" + strconv.Itoa(hardened.Process.Pid) + "/environ")
     if err == nil { t.Fatal("same-UID process read hardened cloudflared environment") }
-    if !errors.Is(err, syscall.EACCES) && !errors.Is(err, syscall.EPERM)
-            && !strings.Contains(strings.ToLower(err.Error()), "permission denied") {
+    if !errors.Is(err, syscall.EACCES) && !errors.Is(err, syscall.EPERM) && !strings.Contains(strings.ToLower(err.Error()), "permission denied") {
         t.Fatalf("expected procfs permission denial, got: %v", err)
     }
 }
