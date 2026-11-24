@@ -95,9 +95,27 @@ jobs:
           name: tunnel-client-v0.0.19-linux-arm64-runtime
           path: dist/tunnel-client-runtime
 
+  tunnel-client-arm64-smoke:
+    name: Execute pinned Tunnel Client on native ARM64 runner
+    needs: tunnel-client-runtime
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: tunnel-client-v0.0.19-linux-arm64-runtime
+          path: dist
+      - name: Verify and execute native ARM64 runtime
+        run: |
+          file dist/tunnel-client-runtime
+          readelf -h dist/tunnel-client-runtime | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          echo 'f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44  dist/tunnel-client-runtime' | sha256sum --check
+          chmod 700 dist/tunnel-client-runtime
+          test "$(dist/tunnel-client-runtime version)" = "0.0.19"
+
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
-    needs: tunnel-client-runtime
+    needs: [tunnel-client-runtime, tunnel-client-arm64-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
