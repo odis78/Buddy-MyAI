@@ -101,6 +101,7 @@ public final class BuddyRuntimeService extends Service {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
         } catch (Exception e) {
+            if (stopping) return;
             String message = safeMessage(e);
             setPersistentState("ERROR", message);
             Log.w(TAG, "Tunnel Client start failed: " + message);
@@ -127,6 +128,8 @@ public final class BuddyRuntimeService extends Service {
 
     private void requestStop() {
         stopping = true;
+        if (monitorTask != null) monitorTask.cancel(true);
+        if (retryTask != null) retryTask.cancel(true);
         if (executor == null) {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
