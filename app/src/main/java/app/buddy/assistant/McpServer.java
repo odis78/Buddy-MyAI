@@ -245,6 +245,7 @@ final class McpServer {
                     }
                 }
             } catch (IOException e) {
+                if (!running) return;
                 Log.w(TAG, "tailnet listener", e);
                 pause(5000);
             } finally {
