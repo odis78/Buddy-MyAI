@@ -33,6 +33,9 @@ assert "print(auth)" not in auth
 assert auth.index("if not process_identity(pid):") < auth.index('raw_env = open("/proc/%d/environ"')
 assert auth.count("if not process_identity(pid):") >= 2
 assert 'args[1] != "run"' in auth and 'args[1] != "run"' in launch and 'args[1] != "run"' in stop
+assert "normalize(executable) == normalize(BINARY)" in auth
+assert "normalize(executable) == normalize(BINARY)" in launch
+assert "normalize(executable) == normalize(BINARY)" in stop
 assert "CONTROL_PLANE_API_KEY" in launch and "BUDDY_TOKEN" in launch
 assert "EXPECTED_TUNNEL_ID" in launch
 assert "signal.SIGTERM" in stop and "signal.SIGKILL" not in stop

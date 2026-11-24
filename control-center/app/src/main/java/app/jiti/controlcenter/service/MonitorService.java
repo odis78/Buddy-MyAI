@@ -456,20 +456,19 @@ public final class MonitorService extends Service {
 
         final int targetPid = pid;
         final boolean ready = endpointsReady;
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        final String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
         TermuxCommandClient.runProcessExecutable(this, targetPid, executable -> {
             if (!monitoring) { inFlight = false; return; }
-            if (!monitoring) return;
-            if (!executable.succeeded() || !TunnelProfileIdentity.matchesExecutable(executable.stdout)) {
+            if (!executable.succeeded() || home.isEmpty()
+                    || !TunnelProfileIdentity.matchesExecutable(executable.stdout, home)) {
                 recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid,
-                        "PID exists but Tunnel Client executable identity does not match");
+                        "PID exists but exact Tunnel Client executable identity does not match");
                 next.run();
                 return;
             }
             TermuxCommandClient.runProcessCmdline(this, targetPid, commandLine -> {
                 if (!monitoring) { inFlight = false; return; }
-                if (!monitoring) return;
-                TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
-                String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
                 boolean identity = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProfileIdentity.matchesProfile(executable.stdout, commandLine.stdout,
                         home, profileConfigRelativePath(operation), profileConfigFlag(operation));

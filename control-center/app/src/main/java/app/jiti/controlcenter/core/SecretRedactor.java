@@ -9,7 +9,7 @@ public final class SecretRedactor {
     private static final Pattern AUTHORIZATION = Pattern.compile(
         "(?i)(\\b(?:proxy-)?authorization\\s*[:=]\\s*)(?:bearer|basic)\\s+[^\\s,;}\"']+");
     private static final Pattern CLI_SECRET = Pattern.compile(
-        "(?i)(--(?:api[-_]?key|access[-_]?token|refresh[-_]?token|buddy[-_]?token|auth(?:orization)?|password|secret|key)(?:=|\\s+))(?:\"[^\"]*\"|'[^']*'|[^\\s,;]+)");
+        "(?i)(--(?:(?:[a-z0-9]+[-_])*(?:api[-_]?key|access[-_]?token|refresh[-_]?token|buddy[-_]?token|auth(?:orization)?(?:[-_]?header)?|password|secret|token|key))(?:=|\\s+)|(?:-u\\s+))(?:\"[^\"]*\"|'[^']*'|[^\\s,;]+)");
     private static final Pattern URL_CREDENTIALS = Pattern.compile("(?i)(https?://)[^/@\\s]+@");
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+/=-]+");
 
