@@ -85,6 +85,26 @@ add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
 cloudflared_profile_ok = "cloudflared:" in runtime_profile and "cloudflared:" in profile_fixture and "cloudflaredBinary.getAbsolutePath()" in runtime_profile
 add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
     "Buddy profile points to the separately bundled, pinned cloudflared companion")
+rea_runtime_ok = (
+    "nodejs-current" in rea_runtime_installer
+    and "rea-agents-6.5.0.tgz" in rea_runtime_installer
+    and "mcp doctor --format json" in rea_runtime_installer
+    and "EXPECTED_TOOLS = 207" in rea_runtime_installer
+    and "REA_MCP_INPUT_SCHEMA_PROFILE" in rea_runtime_installer
+    and "startReaConfigured" in runtime_process_launcher
+    and "scheduleReaAttempt" in rea_service
+)
+add("rea_runtime_bootstrap", "PASS" if rea_runtime_ok else "FAIL",
+    "Buddy installs and validates the pinned REA 6.5.0 MCP runtime inside its own Alpine rootfs")
+
+rea_profile_ok = (
+    "renderReaProfile" in runtime_profile
+    and "REA_TUNNEL_ID" in runtime_process_launcher
+    and "command:" in rea_profile_fixture
+    and "REA_MCP_OUTPUT_SCHEMA_PROFILE=off" in rea_profile_fixture
+)
+add("rea_stdio_tunnel_profile", "PASS" if rea_profile_ok else "FAIL",
+    "REA runs as a supervised stdio MCP child with compact tool schemas on its own tunnel identity")
 secret_files_ok = all(term in runtime_launcher for term in [
     "Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600", "O_NONBLOCK"
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
