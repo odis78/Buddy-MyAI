@@ -39,6 +39,9 @@ assert "while page_count < 4:" in auth
 assert "normalize(executable) == normalize(BINARY)" in launch
 assert "normalize(executable) == normalize(BINARY)" in stop
 assert "CONTROL_PLANE_API_KEY" in launch and "BUDDY_TOKEN" in launch
+assert 'TOKEN_FILE = HOME + "/.config/tunnel-client-buddy/buddy.token"' in launch
+assert "buddy_token_file_symlink_not_allowed" in launch
+assert "insecure_buddy_token_file_permissions" in launch
 assert "EXPECTED_TUNNEL_ID" in launch
 assert "signal.SIGTERM" in stop and "signal.SIGKILL" not in stop
 assert 'if mode == "stop":\n        write_status(value)' in stop
@@ -92,12 +95,13 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     config = profile_dir / "buddy-myai.yaml"
     env_file = env_dir / "runtime.env"
     status_file = profile_dir / "jiti-launcher.status"
+    token_file = profile_dir / "buddy.token"
     pid_file = profile_dir / "buddy-myai.pid"
 
     profile_dir.mkdir(parents=True)
     env_dir.mkdir(parents=True)
     binary.parent.mkdir(parents=True)
-    binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    binary.write_text("#!/bin/sh\nif [ \"$BUDDY_AUTH_HEADER\" = \"Bearer fixture-buddy-token-file\" ]; then touch \"$HOME/auth-env-ok\"; fi\nexit 0\n", encoding="utf-8")
     binary.chmod(0o700)
     config.write_text(
         "tunnel_id: tunnel_6b02e7e420948191a1829df4a5373d20\n"
@@ -126,7 +130,26 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     env_file.write_text("CONTROL_PLANE_API_KEY=fixture-control-plane-key\n", encoding="utf-8")
     env_file.chmod(0o600)
     missing = report(execute(launch, home, "preflight"))
-    assert missing["result"] == "blocked" and missing["reason"] == "missing_required_env_keys", missing
+    assert missing["result"] == "blocked" and missing["reason"] == "missing_buddy_auth_source", missing
+
+    # A dedicated token file is accepted only as a regular, private file.
+    token_file.write_text("fixture-buddy-token-file\n", encoding="utf-8")
+    token_file.chmod(0o600)
+    token_fallback = report(execute(launch, home, "preflight"))
+    assert token_fallback["result"] == "ready_to_start", token_fallback
+    assert "fixture-buddy-token-file" not in json.dumps(token_fallback)
+    token_file.chmod(0o644)
+    insecure_token = report(execute(launch, home, "preflight"))
+    assert insecure_token["reason"] == "insecure_buddy_token_file_permissions", insecure_token
+    token_file.chmod(0o600)
+    external_token = home / "external-buddy.token"
+    external_token.write_text("fixture-buddy-token-file\n", encoding="utf-8")
+    external_token.chmod(0o600)
+    token_file.unlink()
+    token_file.symlink_to(external_token)
+    symlink_token = report(execute(launch, home, "preflight"))
+    assert symlink_token["reason"] == "buddy_token_file_symlink_not_allowed", symlink_token
+    token_file.unlink()
 
     # Group/other-readable env files are rejected.
     env_file.write_text(
@@ -184,14 +207,17 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     # The launch mode uses execve on the fixed fake binary and records a
     # non-secret request state. It does not touch any real Tunnel Client.
     env_file.write_text(
-        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\nBUDDY_TOKEN=fixture-buddy-token\n",
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\n",
         encoding="utf-8"
     )
     env_file.chmod(0o600)
+    token_file.write_text("fixture-buddy-token-file\n", encoding="utf-8")
+    token_file.chmod(0o600)
     started = execute(launch, home, "start")
     assert started.returncode == 0, (started.returncode, started.stdout, started.stderr)
     start_status = json.loads(status_file.read_text(encoding="utf-8"))
     assert start_status["result"] == "launch_requested", start_status
+    assert (home / "auth-env-ok").exists(), "token file auth was not passed to Tunnel Client"
 
     # Stop preflight must not change a pre-existing status file for any
     # no-process, stale-PID, or mismatched-process outcome.
