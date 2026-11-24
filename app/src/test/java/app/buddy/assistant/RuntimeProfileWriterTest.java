@@ -15,7 +15,7 @@ public class RuntimeProfileWriterTest {
         assertTrue(yaml.contains("api_key: \"env:CONTROL_PLANE_API_KEY\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
         assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"env:BUDDY_AUTH_HEADER\""));
-        assertTrue(yaml.contains("health.url_file") == false);
+        assertTrue(yaml.contains("url_file: \"/root/.config/tunnel-client/health.url\""));
         assertFalse(yaml.contains("Bearer "));
         assertFalse(yaml.contains("api_key: \"sk-"));
     }
