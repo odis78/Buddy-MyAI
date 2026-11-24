@@ -20,6 +20,7 @@ helper = read("app/src/main/java/app/buddy/assistant/Helper.java")
 mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
+runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
 runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
@@ -68,10 +69,15 @@ add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and 
 add("runtime_artifact_integrity", "PASS" if "EXPECTED_SHA256" in runtime_binary and "nativeLibraryDir" in runtime_binary and "MessageDigest" in runtime_binary else "FAIL",
     "Pinned Linux ARM64 runtime is located in Android nativeLibraryDir and SHA-256 verified before launch")
 profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
-    "extra_headers:", "discovery_extra_headers:", "env:BUDDY_AUTH_HEADER"
+    "extra_headers:", "discovery_extra_headers:", "file:"
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
+secret_files_ok = all(term in runtime_launcher for term in [
+    "writeSecretFile", "cleanupSecretFiles", "0600", "CONTROL_PLANE_API_KEY"
+]) and "BUDDY_AUTH_HEADER" not in runtime_launcher
+add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
+    "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
 hardening_ok = (
     "PR_SET_DUMPABLE" in runtime_hardening
     and "hardenProcess" in runtime_hardening
