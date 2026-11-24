@@ -23,6 +23,8 @@ public final class RuntimeSettingsActivity extends Screen {
     private Switch autoStart;
     private TextView savedKey;
     private TextView status;
+    private TextView bridgeStatus;
+    private TextView droidStatus;
     private TextView reaStatus;
 
     @Override protected void onCreate(Bundle state) {
@@ -74,6 +76,12 @@ public final class RuntimeSettingsActivity extends Screen {
         stateCard.addView(title(this, getString(R.string.runtime_status), 14));
         status = text(this, "", 13, MUTED);
         stateCard.addView(status, topGap(4));
+        stateCard.addView(sectionLabel(this, getString(R.string.runtime_bridge_status_label)), topGap(12));
+        bridgeStatus = text(this, "", 13, MUTED);
+        stateCard.addView(bridgeStatus, topGap(4));
+        stateCard.addView(sectionLabel(this, getString(R.string.runtime_droid_status_label)), topGap(12));
+        droidStatus = text(this, "", 13, MUTED);
+        stateCard.addView(droidStatus, topGap(4));
         stateCard.addView(sectionLabel(this, getString(R.string.runtime_rea_status_label)), topGap(12));
         reaStatus = text(this, "", 13, MUTED);
         stateCard.addView(reaStatus, topGap(4));
@@ -164,6 +172,14 @@ public final class RuntimeSettingsActivity extends Screen {
         String detail = getSharedPreferences("runtime", MODE_PRIVATE).getString("detail", "");
         status.setText(getString(R.string.runtime_status_detail,
                 detail.isEmpty() ? state : state + " · " + detail));
+        String bridgeState = getSharedPreferences("runtime", MODE_PRIVATE).getString("bridge_state", "NOT_STARTED");
+        String bridgeDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("bridge_detail", "");
+        bridgeStatus.setText(getString(R.string.runtime_bridge_status_detail,
+                bridgeDetail.isEmpty() ? bridgeState : bridgeState + " · " + bridgeDetail));
+        String droidState = getSharedPreferences("runtime", MODE_PRIVATE).getString("droidmcp_state", "NOT_STARTED");
+        String droidDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("droidmcp_detail", "");
+        droidStatus.setText(getString(R.string.runtime_droid_status_detail,
+                droidDetail.isEmpty() ? droidState : droidState + " · " + droidDetail));
         String reaState = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_state", "NOT_STARTED");
         String reaDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_detail", "");
         reaStatus.setText(getString(R.string.runtime_rea_status_detail,
