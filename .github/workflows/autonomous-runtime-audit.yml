@@ -121,11 +121,16 @@ jobs:
           path: dist
       - name: Verify and execute native ARM64 runtime
         run: |
-          file dist/tunnel-client-runtime
+          file dist/tunnel-client-runtime dist/cloudflared
           readelf -h dist/tunnel-client-runtime | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          readelf -h dist/cloudflared | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
+          ! readelf -l dist/cloudflared | grep -q INTERP
           echo '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39  dist/tunnel-client-runtime' | sha256sum --check
-          chmod 700 dist/tunnel-client-runtime
+          sha256sum dist/cloudflared
+          chmod 700 dist/tunnel-client-runtime dist/cloudflared
           test "$(dist/tunnel-client-runtime version)" = "0.0.19"
+          dist/cloudflared --version | grep -F '2026.10.2'
 
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
@@ -142,11 +147,13 @@ jobs:
       - name: Verify pinned runtime payload
         run: |
           echo '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39  dist/tunnel-client-runtime' | sha256sum --check
-      - name: Stage runtime as Android native executable
+          sha256sum dist/cloudflared
+      - name: Stage runtime as Android native executables
         run: |
           mkdir -p app/src/main/jniLibs/arm64-v8a
           cp dist/tunnel-client-runtime app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
-          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
+          cp dist/cloudflared app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so app/src/main/jniLibs/arm64-v8a/libcloudflared.so
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
@@ -170,6 +177,7 @@ jobs:
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
           echo "$BADGING" | grep -F "versionCode='216'"
           unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F '35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39'
+          unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
