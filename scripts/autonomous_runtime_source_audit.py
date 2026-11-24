@@ -19,6 +19,9 @@ linux = read("app/src/main/java/app/buddy/assistant/Linux.java")
 helper = read("app/src/main/java/app/buddy/assistant/Helper.java")
 mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
+runtime_installer = read("app/src/main/java/app/buddy/assistant/RuntimeArtifactInstaller.java")
+runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
+profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
 workflow = read(".github/workflows/build.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
 
@@ -59,6 +62,13 @@ add("local_mcp_server", "PASS" if "PORT = 8766" in mcp and "127.0.0.1" in mcp el
     "Buddy local MCP endpoint source markers")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
+add("runtime_artifact_integrity", "PASS" if "EXPECTED_SHA256" in runtime_installer and "ATOMIC_MOVE" in runtime_installer and "MessageDigest" in runtime_installer else "FAIL",
+    "Pinned Linux ARM64 runtime installer verifies SHA-256 before atomic replacement")
+profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
+    "extra_headers:", "discovery_extra_headers:", "env:BUDDY_AUTH_HEADER"
+])
+add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
+    "Buddy profile preserves Authorization for both MCP discovery and request traffic")
 test_dirs = [ROOT / "app/src/test", ROOT / "app/src/androidTest"]
 has_tests = any(p.exists() for p in test_dirs)
 add("app_java_test_coverage", "PASS" if has_tests else "WARN",
