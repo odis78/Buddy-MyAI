@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
     static final String DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    static final String REA_TUNNEL_ID = "tunnel_6b0070cbe1508191b1b1463fa6ffeaa2";
     static final String API_KEY_FILE = "control-plane-api-key";
     static final String AUTH_HEADER_FILE = "buddy-auth-header";
     static final String DISCOVERY_AUTH_HEADER_FILE = "buddy-discovery-auth-header";
@@ -67,6 +68,65 @@ final class RuntimeProcessLauncher {
         }
     }
 
+    static Process startReaConfigured(Context context) throws Exception {
+        Context app = context.getApplicationContext();
+        String apiKey = Secrets.get(app, API_KEY_SECRET);
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalStateException("Buddy Tunnel Client API key is not configured");
+        }
+        File runtimeDir = new File(app.getFilesDir(), "runtime/rea-tunnel");
+        if (!runtimeDir.isDirectory() && !runtimeDir.mkdirs()) {
+            throw new IOException("REA runtime directory could not be created");
+        }
+        chmod(runtimeDir, 0700, "REA runtime directory permissions could not be secured");
+        File apiKeyFifo = new File(runtimeDir, API_KEY_FILE);
+        Process process = null;
+        try {
+            createSecretFifo(apiKeyFifo);
+            File binary = RuntimeBinaryLocator.locate(app);
+            File cloudflared = RuntimeBinaryLocator.locateCloudflared(app);
+            RuntimeBinaryLocator.locateProot(app);
+            java.util.Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+            guestEnvironment.put("REA_MCP_INPUT_SCHEMA_PROFILE", "compact");
+            guestEnvironment.put("REA_MCP_OUTPUT_SCHEMA_PROFILE", "off");
+            guestEnvironment.put("REA_MCP_MAX_RESPONSE_BYTES", "10485760");
+            java.util.List<String> command = Linux.commandAt(app, "/root/rea", guestEnvironment,
+                    "/usr/bin/node", "/root/rea/scripts/rea.mjs", "mcp");
+            File config = new File(runtimeDir, "rea-mcp.yaml");
+            RuntimeProfileWriter.writeReaProfile(config, REA_TUNNEL_ID, runtimeDir, cloudflared, command);
+            chmod(config, 0600, "REA runtime profile permissions could not be secured");
+            ensureSecureFile(new File(runtimeDir, "launcher.log"));
+            ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
+            process = createProcessBuilder(binary, config, runtimeDir).start();
+            handoffSecret(process, apiKeyFifo, apiKey);
+            cleanupSecretFiles(runtimeDir);
+            return process;
+        } catch (Exception e) {
+            if (process != null) process.destroyForcibly();
+            cleanupSecretFiles(runtimeDir);
+            throw e;
+        }
+    }
+
+    private static void handoffSecret(Process process, File fifo, String secret) throws IOException {
+        AtomicReference<IOException> failure = new AtomicReference<>();
+        Thread writer = writer(process, fifo, secret, failure);
+        writer.start();
+        long deadline = System.currentTimeMillis() + 15000;
+        while (writer.isAlive()) {
+            if (failure.get() != null) throw failure.get();
+            if (!process.isAlive()) throw new IOException("Tunnel Client exited during API key handoff");
+            if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client API key handoff timed out");
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Tunnel Client API key handoff interrupted", e);
+            }
+        }
+        if (failure.get() != null) throw failure.get();
+    }
+
     static ProcessBuilder createProcessBuilder(File binary, File config, File runtimeDir) {
         if (binary == null || config == null || runtimeDir == null) {
             throw new IllegalArgumentException("Runtime launch inputs are incomplete");
@@ -82,6 +142,14 @@ final class RuntimeProcessLauncher {
         env.put("PATH", binary.getParentFile().getAbsolutePath());
         // Go's Linux cert pool reads Android's system trust directory through this explicit override.
         env.put("SSL_CERT_DIR", "/system/etc/security/cacerts");
+        File prootTmp = new File(runtimeDir, "proot-tmp");
+        if (!prootTmp.isDirectory() && !prootTmp.mkdirs()) {
+            throw new IllegalStateException("Buddy PRoot temporary directory could not be created");
+        }
+        env.put("PROOT_LOADER", new File(binary.getParentFile(), "libproot-loader.so").getAbsolutePath());
+        env.put("PROOT_TMP_DIR", prootTmp.getAbsolutePath());
+        env.put("LD_LIBRARY_PATH", binary.getParentFile().getAbsolutePath());
+        env.put("MCP_STDIO_FAILURE_POLICY", "exit");
         // Credential values are handed over through one-shot FIFOs, never argv or environment.
         builder.redirectErrorStream(true);
         builder.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(runtimeDir, "launcher.log")));
