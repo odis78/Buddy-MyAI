@@ -379,6 +379,7 @@ public final class MainActivity extends Activity {
             JSONObject report = null;
             try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
             String state = report == null ? "invalid_stop_result" : report.optString("result");
+            if (!result.succeeded()) state = "stop_command_failed";
             if (result.succeeded() && ("stopped".equals(state) || "already_stopped".equals(state) || "stale_pid_file".equals(state))) {
                 buddyControlStatusView.setText("Остановка подтверждена: " + state + ". SIGKILL не применялся.");
                 saveProbeSnapshot("tunnel-client", ComponentStatus.STOPPED, "Buddy stop result: " + state);
