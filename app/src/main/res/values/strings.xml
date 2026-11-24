@@ -2371,7 +2371,7 @@
     <!-- Buddy-owned autonomous Tunnel Client runtime. -->
     <string name="runtime_settings_title">Buddy runtime</string>
     <string name="runtime_settings_subtitle">Maintain the ChatGPT connection without Termux</string>
-    <string name="runtime_settings_info">Runs the pinned Tunnel Client from Buddy's own app package. Your ChatGPT ↔ Buddy MCP endpoint remains 127.0.0.1:8766. A control-plane API key is required.</string>
+    <string name="runtime_settings_info">Runs the pinned Tunnel Client from Buddy\'s own app package. Your ChatGPT ↔ Buddy MCP endpoint remains 127.0.0.1:8766. A control-plane API key is required.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
     <string name="runtime_api_key_hint">Paste API key (stored with Android Keystore)</string>
     <string name="runtime_api_key_saved">A key is saved. Leave blank to keep it.</string>
@@ -2396,7 +2396,7 @@
     <string name="runtime_file_access_settings_unavailable">Android storage access settings could not be opened.</string>
     <string name="runtime_notification_title">Buddy runtime</string>
     <string name="runtime_notification_channel">Buddy runtime</string>
-    <string name="runtime_notification_channel_description">Keeps Buddy's authenticated ChatGPT tunnel available.</string>
+    <string name="runtime_notification_channel_description">Keeps Buddy\'s authenticated ChatGPT tunnel available.</string>
     <string name="runtime_notification_starting">Starting authenticated connection…</string>
     <string name="runtime_notification_ready">ChatGPT connection active</string>
     <string name="runtime_notification_rea_installing">Buddy connected. %1$s</string>
