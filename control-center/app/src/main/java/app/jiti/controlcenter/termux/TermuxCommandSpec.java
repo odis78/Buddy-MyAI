@@ -311,6 +311,56 @@ if identity_lost:
     finish({"result": "stop_identity_lost", "pid": pid}, 2)
 finish({"result": "stop_timeout", "pid": pid, "signal": "SIGTERM"}, 2)
 """;
+    private static final String MCP_ENDPOINT_AUDIT_SCRIPT = """
+import os
+import re
+
+HOME = os.path.expanduser("~")
+PROFILES = [
+    ("bridge", HOME + "/.config/tunnel-client-bridge-013/bridge-013.yaml"),
+    ("droidmcp", HOME + "/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"),
+    ("rea-android", HOME + "/.config/rea-tunnel/profile/rea-android.yaml"),
+]
+KEY_RE = re.compile(r"(?i)(mcp|server[-_]?url|listen|port|endpoint|command|args)")
+SENSITIVE_KEY = re.compile(r"(?i)(token|api[-_]?key|auth|secret|password|bearer|private|admin[-_]?key)")
+
+def redact(value):
+    value = re.sub(r"(?i)(authorization\\s*:\\s*)(?:bearer\\s+)?[^,}\\]]+", r"\\1[REDACTED]", value)
+    value = re.sub(r"(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]+", r"\\1[REDACTED]", value)
+    value = re.sub(r"(?i)(--(?:api-key|token|auth|password|secret)(?:=|\\s+))\\S+", r"\\1[REDACTED]", value)
+    value = re.sub(r"(?i)([?&](?:token|key|auth|secret|password)=)[^&\\s]+", r"\\1[REDACTED]", value)
+    value = re.sub(r"(?i)(https?://[^:/\\s]+):[^@/\\s]+@", r"\\1:[REDACTED]@", value)
+    return value
+
+total = 0
+for profile, path in PROFILES:
+    if os.path.islink(path):
+        print("[%s] config=symlink-blocked" % profile)
+        continue
+    if not os.path.isfile(path):
+        print("[%s] config=missing" % profile)
+        continue
+    try:
+        if os.path.getsize(path) > 262144:
+            print("[%s] config=too-large" % profile)
+            continue
+        print("[%s] config=present" % profile)
+        with open(path, "r", encoding="utf-8", errors="replace") as stream:
+            for line_number, line in enumerate(stream, 1):
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip().strip('"').strip("'")
+                if not KEY_RE.search(key) or SENSITIVE_KEY.search(key):
+                    continue
+                value = redact(value.strip())
+                print("  L%d %s: %s" % (line_number, key, value))
+                total += 1
+    except Exception:
+        print("[%s] config=unreadable" % profile)
+
+print("ENDPOINT_FIELDS=%d" % total)
+""";
     private static final String BUDDY_MCP_AUTH_PROBE_SCRIPT = """
 import json
 import os
@@ -557,6 +607,9 @@ else:
                 return new TermuxCommandSpec(operation, prefix + "/bin/curl", Arrays.asList("--version"));
             case PYTHON_VERSION:
                 return new TermuxCommandSpec(operation, prefix + "/bin/python", Arrays.asList("--version"));
+            case MCP_ENDPOINT_AUDIT:
+                return new TermuxCommandSpec(operation, prefix + "/bin/python",
+                        Arrays.asList("-c", MCP_ENDPOINT_AUDIT_SCRIPT));
             case BUDDY_ENV_SOURCE_AUDIT:
                 return new TermuxCommandSpec(operation, prefix + "/bin/grep",
                         Arrays.asList("-s", "-n", "-oE",
