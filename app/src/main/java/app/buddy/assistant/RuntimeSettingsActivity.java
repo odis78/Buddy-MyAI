@@ -23,6 +23,7 @@ public final class RuntimeSettingsActivity extends Screen {
     private Switch autoStart;
     private TextView savedKey;
     private TextView status;
+    private TextView reaStatus;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -73,6 +74,9 @@ public final class RuntimeSettingsActivity extends Screen {
         stateCard.addView(title(this, getString(R.string.runtime_status), 14));
         status = text(this, "", 13, MUTED);
         stateCard.addView(status, topGap(4));
+        stateCard.addView(sectionLabel(this, getString(R.string.runtime_rea_status_label)), topGap(12));
+        reaStatus = text(this, "", 13, MUTED);
+        stateCard.addView(reaStatus, topGap(4));
         body.addView(stateCard, topGap(18));
 
         Button start = button(this, getString(R.string.runtime_start), true);
@@ -160,5 +164,9 @@ public final class RuntimeSettingsActivity extends Screen {
         String detail = getSharedPreferences("runtime", MODE_PRIVATE).getString("detail", "");
         status.setText(getString(R.string.runtime_status_detail,
                 detail.isEmpty() ? state : state + " · " + detail));
+        String reaState = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_state", "NOT_STARTED");
+        String reaDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_detail", "");
+        reaStatus.setText(getString(R.string.runtime_rea_status_detail,
+                reaDetail.isEmpty() ? reaState : reaState + " · " + reaDetail));
     }
 }
