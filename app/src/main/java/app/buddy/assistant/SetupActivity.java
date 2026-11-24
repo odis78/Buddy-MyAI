@@ -539,37 +539,11 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                     + " && opencode mcp list";
         } else if ("agy".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
-                    + "{ BUDDY_MCP_URL=" + url + " python3 - <<'BUDDY_MCP_PY'\\n"
-                    + "import json, os, pathlib, re, tempfile\\n"
-                    + "path = pathlib.Path.home() / '.gemini' / 'config' / 'mcp_config.json'\\n"
-                    + "path.parent.mkdir(parents=True, exist_ok=True)\\n"
-                    + "token = (pathlib.Path.home() / '.config' / 'buddy-mcp' / 'token').read_text(encoding='ascii').strip()\\n"
-                    + "if not re.fullmatch(r'[0-9a-f]{48}', token): raise SystemExit('Invalid Buddy MCP token; config unchanged')\\n"
-                    + "if path.exists():\\n"
-                    + "    try: data = json.loads(path.read_text(encoding='utf-8'))\\n"
-                    + "    except Exception as exc: raise SystemExit('Existing Antigravity MCP config is not valid JSON; left unchanged: ' + str(exc))\\n"
-                    + "else: data = {}\\n"
-                    + "if not isinstance(data, dict): raise SystemExit('Antigravity MCP config root must be a JSON object')\\n"
-                    + "servers = data.setdefault('mcpServers', {})\\n"
-                    + "if not isinstance(servers, dict): raise SystemExit('mcpServers must be a JSON object')\\n"
-                    + "servers['phone'] = {'serverUrl': os.environ['BUDDY_MCP_URL'], 'headers': {'Authorization': 'Bearer ' + token}, 'timeoutSeconds': 600}\\n"
-                    + "fd, tmp = tempfile.mkstemp(prefix='.mcp_config.', dir=str(path.parent))\\n"
-                    + "try:\\n"
-                    + "    os.fchmod(fd, 0o600)\\n"
-                    + "    with os.fdopen(fd, 'w', encoding='utf-8') as out:\\n"
-                    + "        json.dump(data, out, ensure_ascii=False, indent=2); out.write('\\\\n'); out.flush(); os.fsync(out.fileno())\\n"
-                    + "    os.replace(tmp, path); os.chmod(path, 0o600)\\n"
-                    + "except BaseException:\\n"
-                    + "    try: os.close(fd)\\n"
-                    + "    except OSError: pass\\n"
-                    + "    try: os.unlink(tmp)\\n"
-                    + "    except OSError: pass\\n"
-                    + "    raise\\n"
-                    + "print('Antigravity MCP config updated:', path)\\n"
-                    + "BUDDY_MCP_PY\\n} && unset BUDDY_TOKEN";
+                    + "BUDDY_MCP_URL=" + url + " python3 -c \"$(printf '%s' 'aW1wb3J0IGpzb24sIG9zLCBwYXRobGliLCByZSwgdGVtcGZpbGUKcGF0aCA9IHBhdGhsaWIuUGF0aC5ob21lKCkgLyAiLmdlbWluaSIgLyAiY29uZmlnIiAvICJtY3BfY29uZmlnLmpzb24iCnBhdGgucGFyZW50Lm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSkKdG9rZW4gPSAocGF0aGxpYi5QYXRoLmhvbWUoKSAvICIuY29uZmlnIiAvICJidWRkeS1tY3AiIC8gInRva2VuIikucmVhZF90ZXh0KGVuY29kaW5nPSJhc2NpaSIpLnN0cmlwKCkKaWYgbm90IHJlLmZ1bGxtYXRjaChyIlswLTlhLWZdezQ4fSIsIHRva2VuKToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkludmFsaWQgQnVkZHkgTUNQIHRva2VuOyBjb25maWcgdW5jaGFuZ2VkIikKaWYgcGF0aC5leGlzdHMoKToKICAgIHRyeToKICAgICAgICBkYXRhID0ganNvbi5sb2FkcyhwYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZXhjOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkV4aXN0aW5nIEFudGlncmF2aXR5IE1DUCBjb25maWcgaXMgbm90IHZhbGlkIEpTT047IGxlZnQgdW5jaGFuZ2VkOiAiICsgc3RyKGV4YykpCmVsc2U6CiAgICBkYXRhID0ge30KaWYgbm90IGlzaW5zdGFuY2UoZGF0YSwgZGljdCk6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJBbnRpZ3Jhdml0eSBNQ1AgY29uZmlnIHJvb3QgbXVzdCBiZSBhIEpTT04gb2JqZWN0IikKc2VydmVycyA9IGRhdGEuc2V0ZGVmYXVsdCgibWNwU2VydmVycyIsIHt9KQppZiBub3QgaXNpbnN0YW5jZShzZXJ2ZXJzLCBkaWN0KToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIm1jcFNlcnZlcnMgbXVzdCBiZSBhIEpTT04gb2JqZWN0IikKc2VydmVyc1sicGhvbmUiXSA9IHsKICAgICJzZXJ2ZXJVcmwiOiBvcy5lbnZpcm9uWyJCVUREWV9NQ1BfVVJMIl0sCiAgICAiaGVhZGVycyI6IHsiQXV0aG9yaXphdGlvbiI6ICJCZWFyZXIgIiArIHRva2VufSwKICAgICJ0aW1lb3V0U2Vjb25kcyI6IDYwMCwKfQpmZCwgdGVtcG9yYXJ5ID0gdGVtcGZpbGUubWtzdGVtcChwcmVmaXg9Ii5tY3BfY29uZmlnLiIsIGRpcj1zdHIocGF0aC5wYXJlbnQpKQp0cnk6CiAgICBvcy5mY2htb2QoZmQsIDBvNjAwKQogICAgd2l0aCBvcy5mZG9wZW4oZmQsICJ3IiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgb3V0cHV0OgogICAgICAgIGpzb24uZHVtcChkYXRhLCBvdXRwdXQsIGVuc3VyZV9hc2NpaT1GYWxzZSwgaW5kZW50PTIpCiAgICAgICAgb3V0cHV0LndyaXRlKCJcbiIpCiAgICAgICAgb3V0cHV0LmZsdXNoKCkKICAgICAgICBvcy5mc3luYyhvdXRwdXQuZmlsZW5vKCkpCiAgICBvcy5yZXBsYWNlKHRlbXBvcmFyeSwgcGF0aCkKICAgIG9zLmNobW9kKHBhdGgsIDBvNjAwKQpleGNlcHQgQmFzZUV4Y2VwdGlvbjoKICAgIHRyeToKICAgICAgICBvcy5jbG9zZShmZCkKICAgIGV4Y2VwdCBPU0Vycm9yOgogICAgICAgIHBhc3MKICAgIHRyeToKICAgICAgICBvcy51bmxpbmsodGVtcG9yYXJ5KQogICAgZXhjZXB0IE9TRXJyb3I6CiAgICAgICAgcGFzcwogICAgcmFpc2UKcHJpbnQoIkFudGlncmF2aXR5IE1DUCBjb25maWcgdXBkYXRlZDoiLCBwYXRoKQo=' | base64 -d)\""
+                    + " && unset BUDDY_TOKEN";
         } else if ("grok".equals(mcpAgent)) {
             cmd = bootstrap + cleanup
-                    + "printf '%s\\\\n' '# >>> Buddy MCP managed >>>' 'export BUDDY_TOKEN=\\\"$(cat ~/.config/buddy-mcp/token)\\\"' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && "
+                    + "printf '%s\\\\n' '# >>> Buddy MCP managed >>>' 'export BUDDY_TOKEN=\"$(cat ~/.config/buddy-mcp/token)\"' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && "
                     + "grok mcp add --transport http phone " + url
                     + " --header 'Authorization: Bearer ${BUDDY_TOKEN}'"
                     + " && sed -i '/^\\\\[mcp_servers\\\\.phone\\\\]$/a tool_timeout_sec = 600' ~/.grok/config.toml"
