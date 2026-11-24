@@ -20,6 +20,7 @@ helper = read("app/src/main/java/app/buddy/assistant/Helper.java")
 mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 workflow = read(".github/workflows/build.yml")
+audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
 
 def match(pattern: str, value: str) -> str | None:
     found = re.search(pattern, value)
@@ -35,6 +36,15 @@ version_code = match(r'VERSION_CODE\s*=\s*(\d+)', version)
 compile_sdk = match(r'compileSdk\s*=\s*(\d+)', gradle)
 target_sdk = match(r'targetSdk\s*=\s*(\d+)', gradle)
 min_sdk = match(r'minSdk\s*=\s*(\d+)', gradle)
+
+chatgpt_invariant = all(term in audit_doc for term in [
+    "ГЛАВНЫЙ НЕИЗМЕНЯЕМЫЙ ИНВАРИАНТ: CHATGPT",
+    "ChatGPT остаётся отдельным, самостоятельным приложением",
+    "Критерий отказа:",
+    "фактического подключения из ChatGPT",
+])
+add("chatgpt_control_plane_compatibility", "PASS" if chatgpt_invariant else "FAIL",
+    "ChatGPT remains the external control plane; current MCP/auth/tool contract must pass end-to-end before cutover")
 
 add("version_metadata", "PASS" if version_name and version_code else "FAIL",
     f"versionName={version_name}; versionCode={version_code}")
