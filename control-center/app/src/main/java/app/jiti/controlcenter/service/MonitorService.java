@@ -30,6 +30,7 @@ import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
 import app.jiti.controlcenter.termux.TermuxOperation;
 import app.jiti.controlcenter.termux.TunnelProcessIdentity;
+import app.jiti.controlcenter.termux.TunnelProfileIdentity;
 
 public final class MonitorService extends Service {
     public static final String ACTION_STOP = "app.jiti.controlcenter.action.STOP_MONITOR";
@@ -38,6 +39,11 @@ public final class MonitorService extends Service {
     private static final int NOTIFICATION_ID = 4101;
     private static final long POLL_INTERVAL_MS = 60000L;
     private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L;
+    private static final TermuxOperation[] AUXILIARY_PROFILE_HEALTH = new TermuxOperation[]{
+            TermuxOperation.BRIDGE_TUNNEL_HEALTH,
+            TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
+            TermuxOperation.REA_ANDROID_TUNNEL_HEALTH
+    };
 
     public static volatile boolean running = false;
 
@@ -288,8 +294,7 @@ public final class MonitorService extends Service {
         if ("NOT_READY".equals(lastHealthState)) {
             TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
         } else {
-            inFlight = false;
-            scheduleNext();
+            runAuxiliaryProfileChecks(0);
         }
     }
 
@@ -326,8 +331,7 @@ public final class MonitorService extends Service {
             log("buddy-mcp-auth", "AUTHENTICATED_READY", detail);
             notificationText = "Buddy MCP authenticated • " + audit.reportedCount + " tools";
             updateNotification();
-            inFlight = false;
-            scheduleNext();
+            runAuxiliaryProfileChecks(0);
             return;
         }
 
@@ -376,8 +380,123 @@ public final class MonitorService extends Service {
                         + " termuxSeen=" + text.contains("termux")
                         + " buddySeen=" + text.contains("buddy"));
         // Aggregate process-name inventory is diagnostic only; it must not overwrite profile-specific PID identity.
-        inFlight = false;
-        scheduleNext();
+        runAuxiliaryProfileChecks(0);
+    }
+
+    private void runAuxiliaryProfileChecks(int index) {
+        if (!monitoring) {
+            inFlight = false;
+            return;
+        }
+        if (index >= AUXILIARY_PROFILE_HEALTH.length) {
+            inFlight = false;
+            updateNotification();
+            scheduleNext();
+            return;
+        }
+        TermuxOperation operation = AUXILIARY_PROFILE_HEALTH[index];
+        TermuxCommandClient.run(this, operation,
+                result -> checkAuxiliaryProfileIdentity(operation, result,
+                        () -> runAuxiliaryProfileChecks(index + 1)));
+    }
+
+    private void checkAuxiliaryProfileIdentity(TermuxOperation operation, TermuxCommandResult health,
+                                               Runnable next) {
+        if (!monitoring) return;
+        String componentId = profileComponentId(operation);
+        JSONObject report;
+        JSONObject process;
+        int pid;
+        boolean endpointsReady;
+        try {
+            report = new JSONObject(health.stdout);
+            process = report.optJSONObject("process");
+            if (process == null) {
+                ComponentStatus status = health.internalError != -1 || health.exitCode == 127
+                        ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
+                recordProfileStatus(componentId, status, 0, "Health report has no process object");
+                next.run();
+                return;
+            }
+            if (!process.optBoolean("running")) {
+                recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0),
+                        "Tunnel Client process is not running");
+                next.run();
+                return;
+            }
+            pid = process.optInt("pid", 0);
+            if (pid <= 0) {
+                recordProfileStatus(componentId, ComponentStatus.ERROR, 0,
+                        "Health report says running but PID is invalid");
+                next.run();
+                return;
+            }
+            endpointsReady = health.succeeded() && "ok".equals(report.optString("result"));
+        } catch (Exception e) {
+            ComponentStatus status = health.internalError != -1 || health.exitCode == 127
+                    ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
+            recordProfileStatus(componentId, status, 0, "Invalid health JSON");
+            next.run();
+            return;
+        }
+
+        final int targetPid = pid;
+        final boolean ready = endpointsReady;
+        TermuxCommandClient.runProcessExecutable(this, targetPid, executable -> {
+            if (!monitoring) return;
+            if (!executable.succeeded() || !TunnelProfileIdentity.matchesExecutable(executable.stdout)) {
+                recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid,
+                        "PID exists but Tunnel Client executable identity does not match");
+                next.run();
+                return;
+            }
+            TermuxCommandClient.runProcessCmdline(this, targetPid, commandLine -> {
+                if (!monitoring) return;
+                TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+                String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
+                boolean identity = commandLine.succeeded() && !home.isEmpty()
+                        && TunnelProfileIdentity.matchesProfile(executable.stdout, commandLine.stdout,
+                        home, profileConfigRelativePath(operation), profileConfigFlag(operation));
+                ComponentStatus status = !identity ? ComponentStatus.PID_PRESENT
+                        : ready ? ComponentStatus.READY : ComponentStatus.NOT_READY;
+                String detail = !identity
+                        ? "Tunnel Client executable matched but profile config identity did not"
+                        : ready ? "Health endpoints and exact profile process identity verified"
+                        : "Exact profile process identity verified; health endpoints are not ready";
+                recordProfileStatus(componentId, status, targetPid, detail);
+                next.run();
+            });
+        });
+    }
+
+    private String profileComponentId(TermuxOperation operation) {
+        switch (operation) {
+            case BRIDGE_TUNNEL_HEALTH: return "rea-bridge";
+            case DROIDMCP_TUNNEL_HEALTH: return "droidmcp";
+            case REA_ANDROID_TUNNEL_HEALTH: return "rea-android";
+            default: return "unknown-profile";
+        }
+    }
+
+    private String profileConfigRelativePath(TermuxOperation operation) {
+        switch (operation) {
+            case BRIDGE_TUNNEL_HEALTH: return "/.config/tunnel-client-bridge-013/bridge-013.yaml";
+            case DROIDMCP_TUNNEL_HEALTH: return "/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml";
+            case REA_ANDROID_TUNNEL_HEALTH: return "/.config/rea-tunnel/profile/rea-android.yaml";
+            default: return "";
+        }
+    }
+
+    private String profileConfigFlag(TermuxOperation operation) {
+        return operation == TermuxOperation.REA_ANDROID_TUNNEL_HEALTH ? "--profile-file" : "--config";
+    }
+
+    private void recordProfileStatus(String id, ComponentStatus status, int pid, String detail) {
+        RuntimeSnapshot previous = eventStore == null ? null : eventStore.snapshot(id);
+        saveSnapshot(id, status, detail, pid);
+        if (previous == null || previous.status != status) {
+            log(id, status.name(), detail);
+        }
     }
 
     private boolean hasProcessReport(String json) {
