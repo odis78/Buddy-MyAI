@@ -32,7 +32,11 @@ final class RuntimeArtifactInstaller {
         try (InputStream input = context.getAssets().open(ASSET_PATH)) {
             copyVerified(input, target, EXPECTED_SHA256);
         }
-        Os.chmod(target.getAbsolutePath(), 0700);
+        try {
+            Os.chmod(target.getAbsolutePath(), 0700);
+        } catch (android.system.ErrnoException e) {
+            throw new IOException("Could not make Tunnel Client runtime executable", e);
+        }
         return target;
     }
 
