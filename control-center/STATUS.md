@@ -43,7 +43,7 @@
 - Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45299172715 (commit 410d73f68086740a8d026173aede6cd6d8b0f60c).
+1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45300593498 (commit 6805ee25a36192720e72f442b49f83c882fec959).
 2. Resolve the Buddy MCP credential source using names-only diagnostics; until then, Buddy launch must remain blocked.
 3. Verify Termux RUN_COMMAND, all four tunnel PID/executable/config identity probes, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
 4. Validate the continuous four-profile monitor on Infinix, including poll cadence, Termux service timeouts, foreground-service survival, task swipe, process death, force-stop, and OEM battery behavior.
