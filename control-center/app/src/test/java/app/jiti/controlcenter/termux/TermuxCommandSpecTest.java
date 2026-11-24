@@ -44,6 +44,15 @@ public class TermuxCommandSpecTest {
         assertTrue(audit.isSafeFixedCommand());
     }
 
+    @Test public void tunnelsScriptHashProbeUsesOnlyTheFixedManagerPath() {
+        TermuxCommandSpec hash = TermuxCommandSpec.forOperation(TermuxOperation.TUNNELS_SCRIPT_SHA256,
+                "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
+        assertTrue(hash.executable.endsWith("/bin/sha256sum"));
+        assertEquals(java.util.Collections.singletonList(
+                "/data/data/com.termux/files/home/bin/tunnels"), hash.arguments);
+        assertTrue(hash.isSafeFixedCommand());
+    }
+
     @Test public void envAuditPrintsOnlyKeyNamesFromKnownFiles() {
         TermuxCommandSpec audit = TermuxCommandSpec.forOperation(TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
                 "/data/data/com.termux/files/usr", "/data/data/com.termux/files/home");
