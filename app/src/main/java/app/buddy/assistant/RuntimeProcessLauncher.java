@@ -138,36 +138,40 @@ final class RuntimeProcessLauncher {
 
     private static void writeSecretFifo(File fifo, String value, Process process) throws IOException {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        long deadline = System.currentTimeMillis() + 12000;
-        while (System.currentTimeMillis() < deadline) {
-            if (!process.isAlive()) throw new IOException("Tunnel Client exited before reading credential FIFO");
-            FileDescriptor fd = null;
-            try {
-                fd = Os.open(fifo.getAbsolutePath(), OsConstants.O_WRONLY | OsConstants.O_NONBLOCK, 0600);
-                int offset = 0;
-                while (offset < bytes.length) {
-                    int written = Os.write(fd, bytes, offset, bytes.length - offset);
-                    if (written <= 0) throw new IOException("Credential FIFO write made no progress");
-                    offset += written;
+        try {
+            long deadline = System.currentTimeMillis() + 12000;
+            while (System.currentTimeMillis() < deadline) {
+                if (!process.isAlive()) throw new IOException("Tunnel Client exited before reading credential FIFO");
+                FileDescriptor fd = null;
+                try {
+                    fd = Os.open(fifo.getAbsolutePath(), OsConstants.O_WRONLY | OsConstants.O_NONBLOCK, 0600);
+                    int offset = 0;
+                    while (offset < bytes.length) {
+                        int written = Os.write(fd, bytes, offset, bytes.length - offset);
+                        if (written <= 0) throw new IOException("Credential FIFO write made no progress");
+                        offset += written;
+                    }
+                    return;
+                } catch (android.system.ErrnoException e) {
+                    if (e.errno != OsConstants.ENXIO) {
+                        throw new IOException("Credential FIFO handoff failed", e);
+                    }
+                } finally {
+                    if (fd != null) {
+                        try { Os.close(fd); } catch (android.system.ErrnoException ignored) { }
+                    }
                 }
-                return;
-            } catch (android.system.ErrnoException e) {
-                if (e.errno != OsConstants.ENXIO) {
-                    throw new IOException("Credential FIFO handoff failed", e);
-                }
-            } finally {
-                if (fd != null) {
-                    try { Os.close(fd); } catch (android.system.ErrnoException ignored) { }
+                try {
+                    Thread.sleep(40);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Credential FIFO handoff interrupted", e);
                 }
             }
-            try {
-                Thread.sleep(40);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Credential FIFO handoff interrupted", e);
-            }
+            throw new IOException("Tunnel Client did not open its credential FIFO");
+        } finally {
+            java.util.Arrays.fill(bytes, (byte) 0);
         }
-        throw new IOException("Tunnel Client did not open its credential FIFO");
     }
 
     private static void ensureSecureFile(File file) throws IOException {
