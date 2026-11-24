@@ -84,7 +84,7 @@ secret_files_ok = all(term in runtime_launcher for term in [
 add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
     "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
 supervisor_ok = all(term in runtime_supervisor for term in [
-    "RuntimeProcessLauncher.startConfigured", "RuntimeHealthProbe.isReady", "process.isAlive", "destroyForcibly"
+    "RuntimeProcessLauncher.startConfigured", "RuntimeHealthProbe.isReady", "tunnelProcess.isAlive", "destroyForcibly"
 ])
 add("runtime_process_supervisor", "PASS" if supervisor_ok else "FAIL",
     "Supervisor owns an exact Process handle, gates on loopback MCP and health, and stops only that handle")
