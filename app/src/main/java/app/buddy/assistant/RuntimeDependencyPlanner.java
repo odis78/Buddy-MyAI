@@ -68,12 +68,15 @@ final class RuntimeDependencyPlanner {
 
     static List<String> groupsInOrder(List<RuntimeComponentSpec> all) {
         if (all == null) throw new IllegalArgumentException("components are required");
+        // Validate before sorting: Comparator dereferences each component.
+        for (RuntimeComponentSpec spec : all) {
+            if (spec == null) throw new IllegalArgumentException("Null component");
+        }
         List<RuntimeComponentSpec> sorted = new ArrayList<>(all);
         sorted.sort(Comparator.comparingInt((RuntimeComponentSpec s) -> s.startupOrder).thenComparing(s -> s.id));
         Set<String> seen = new HashSet<>();
         List<String> groups = new ArrayList<>();
         for (RuntimeComponentSpec spec : sorted) {
-            if (spec == null) throw new IllegalArgumentException("Null component");
             if (seen.add(spec.group)) groups.add(spec.group);
         }
         return Collections.unmodifiableList(groups);
