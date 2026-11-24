@@ -19,9 +19,9 @@ public class TunnelProfileIdentityTest {
                 "/.config/tunnel-client-bridge-013/bridge-013.yaml", "--config"));
 
         String droid = cmd(EXE, "run", "--config",
-                HOME + "/droidmcp-stage-v0.0.4/profile-dedicated/droidmcp-filesystem.yaml");
+                HOME + "/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml");
         assertTrue(TunnelProfileIdentity.matchesProfile(EXE, droid, HOME,
-                "/droidmcp-stage-v0.0.4/profile-dedicated/droidmcp-filesystem.yaml", "--config"));
+                "/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml", "--config"));
     }
 
     @Test public void reaAndroidUsesProfileFileFlag() {
