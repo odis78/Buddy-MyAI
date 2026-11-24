@@ -517,50 +517,89 @@ public class SetupActivity extends Screen implements Account.Listener, RemoteSes
                 }), topGap(12));
         String token = Prefs.token(this);
         String url = "http://127.0.0.1:" + McpServer.PORT + "/mcp";
-        // each agent gets a 10-minute tool timeout: an approval card may wait for the user (the default is a minute)
-        final String cmd = "codex".equals(mcpAgent)
-                // Codex reads the bearer token from an environment variable, so save it in ~/.bashrc too; `codex mcp
-                // add` has no timeout option, so that line goes under the table it just wrote
-                ? "codex mcp add phone --url " + url + " --bearer-token-env-var BUDDY_TOKEN"
-                + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.codex/config.toml"
-                + " && echo 'export BUDDY_TOKEN=" + token + "' >> ~/.bashrc && export BUDDY_TOKEN=" + token
-                : "opencode".equals(mcpAgent)
-                // OpenCode reads extra config from OPENCODE_CONFIG_CONTENT; keep it for every shell
-                ? "echo 'export OPENCODE_CONFIG_CONTENT='\\''{\"mcp\":{\"phone\":{\"type\":\"remote\",\"url\":\"" + url
-                + "\",\"oauth\":false,\"timeout\":600000,\"headers\":{\"Authorization\":\"Bearer " + token
-                + "\"}}}}'\\''' >> ~/.bashrc && . ~/.bashrc"
-                : "agy".equals(mcpAgent)
-                // Antigravity keeps it in ~/.gemini/config/mcp_config.json
-                ? "agy mcp add --header 'Authorization: Bearer " + token + "' phone " + url
-                : "grok".equals(mcpAgent)
-                // Grok keeps it in ~/.grok/config.toml; as for Codex, the timeout line goes under the table it just wrote
-                // (running it again rewrites the table, so the line is never doubled)
-                ? "grok mcp add --transport http phone " + url + " --header 'Authorization: Bearer " + token + "'"
-                + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.grok/config.toml"
-                // add-json refuses a name that's already there, so the earlier setup goes first (run again to update)
-                : "claude mcp remove -s user phone >/dev/null 2>&1; claude mcp add-json -s user phone '{\"type\":\"http\",\"url\":\"" + url
-                + "\",\"headers\":{\"Authorization\":\"Bearer " + token + "\"},\"timeout\":600000}'";
-        // the token is masked on screen so screenshots never leak it
-        mcp.addView(codeBlock(this, cmd.replace(token, token.substring(0, 4) + "••••••••")), topGap(12));
+        // The token is entered at a silent prompt, never embedded in a command or shell history.
+        String bootstrap = "umask 077 && [ ! -L ~/.config/buddy-mcp ] && mkdir -p ~/.config/buddy-mcp && chmod 700 ~/.config/buddy-mcp && [ ! -L ~/.config/buddy-mcp/token ] && "
+                + "read -rsp 'Paste Buddy MCP token: ' BUDDY_TOKEN && printf '\\n' && [[ \"$BUDDY_TOKEN\" =~ ^[0-9a-f]{48}$ ]] || { echo 'Invalid Buddy MCP token'; false; } && "
+                + "printf '%s' \"$BUDDY_TOKEN\" > ~/.config/buddy-mcp/token && chmod 600 ~/.config/buddy-mcp/token && ";
+        // Preserve user shell settings; only remove/rewrite Buddy-owned marked blocks.
+        String cleanup = "touch ~/.bashrc && tmp=$(mktemp) && awk '$0 == \"# >>> Buddy MCP managed >>>\" { inside=1; next } inside { if ($0 == \"# <<< Buddy MCP managed <<<\") inside=0; next } /^[[:space:]]*export BUDDY_TOKEN=.*~\\/\\.config\\/buddy-mcp\\/token/ { next } /^[[:space:]]*export OPENCODE_CONFIG_CONTENT=.*~\\/\\.config\\/buddy-mcp\\/token/ { next } { print } END { if (inside) { print \"Unclosed Buddy MCP block; ~/.bashrc left unchanged\" > \"/dev/stderr\"; exit 2 } }' ~/.bashrc > \"$tmp\" && cat \"$tmp\" > ~/.bashrc && rm -f \"$tmp\" && ";
+        final String cmd;
+        if ("codex".equals(mcpAgent)) {
+            cmd = bootstrap + cleanup
+                    + "printf '%s\\n' '# >>> Buddy MCP managed >>>' 'export BUDDY_TOKEN=\"$(cat ~/.config/buddy-mcp/token)\"' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && "
+                    + "{ codex mcp remove phone >/dev/null 2>&1 || true; } && "
+                    + "codex mcp add phone --url " + url + " --bearer-token-env-var BUDDY_TOKEN"
+                    + " && sed -i '/^\\[mcp_servers\\.phone\\]$/a tool_timeout_sec = 600' ~/.codex/config.toml";
+        } else if ("opencode".equals(mcpAgent)) {
+            cmd = bootstrap + cleanup
+                    + "opencode mcp add phone --global --url " + url
+                    + " --header 'Authorization=Bearer {file:~/.config/buddy-mcp/token}'"
+                    + " && { cfg=~/.config/opencode/opencode.json; [ -f \"$cfg\" ] || cfg=~/.config/opencode/opencode.jsonc; }"
+                    + " && sed -i '/\"phone\"[[:space:]]*:/,/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/ s/\"type\"[[:space:]]*:[[:space:]]*\"remote\"/\"type\": \"remote\",\\n            \"oauth\": false/' \"$cfg\""
+                    + " && opencode mcp list && unset BUDDY_TOKEN";
+        } else if ("agy".equals(mcpAgent)) {
+            cmd = bootstrap + cleanup
+                    + "BUDDY_MCP_URL=" + url + " python3 -c \"$(printf '%s' 'aW1wb3J0IGpzb24sIG9zLCBwYXRobGliLCByZSwgdGVtcGZpbGUKcGF0aCA9IHBhdGhsaWIuUGF0aC5ob21lKCkgLyAiLmdlbWluaSIgLyAiY29uZmlnIiAvICJtY3BfY29uZmlnLmpzb24iCnBhdGgucGFyZW50Lm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSkKdG9rZW4gPSAocGF0aGxpYi5QYXRoLmhvbWUoKSAvICIuY29uZmlnIiAvICJidWRkeS1tY3AiIC8gInRva2VuIikucmVhZF90ZXh0KGVuY29kaW5nPSJhc2NpaSIpLnN0cmlwKCkKaWYgbm90IHJlLmZ1bGxtYXRjaChyIlswLTlhLWZdezQ4fSIsIHRva2VuKToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkludmFsaWQgQnVkZHkgTUNQIHRva2VuOyBjb25maWcgdW5jaGFuZ2VkIikKaWYgcGF0aC5leGlzdHMoKToKICAgIHRyeToKICAgICAgICBkYXRhID0ganNvbi5sb2FkcyhwYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZXhjOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkV4aXN0aW5nIEFudGlncmF2aXR5IE1DUCBjb25maWcgaXMgbm90IHZhbGlkIEpTT047IGxlZnQgdW5jaGFuZ2VkOiAiICsgc3RyKGV4YykpCmVsc2U6CiAgICBkYXRhID0ge30KaWYgbm90IGlzaW5zdGFuY2UoZGF0YSwgZGljdCk6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJBbnRpZ3Jhdml0eSBNQ1AgY29uZmlnIHJvb3QgbXVzdCBiZSBhIEpTT04gb2JqZWN0IikKc2VydmVycyA9IGRhdGEuc2V0ZGVmYXVsdCgibWNwU2VydmVycyIsIHt9KQppZiBub3QgaXNpbnN0YW5jZShzZXJ2ZXJzLCBkaWN0KToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIm1jcFNlcnZlcnMgbXVzdCBiZSBhIEpTT04gb2JqZWN0IikKc2VydmVyc1sicGhvbmUiXSA9IHsKICAgICJzZXJ2ZXJVcmwiOiBvcy5lbnZpcm9uWyJCVUREWV9NQ1BfVVJMIl0sCiAgICAiaGVhZGVycyI6IHsiQXV0aG9yaXphdGlvbiI6ICJCZWFyZXIgIiArIHRva2VufSwKICAgICJ0aW1lb3V0U2Vjb25kcyI6IDYwMCwKfQpmZCwgdGVtcG9yYXJ5ID0gdGVtcGZpbGUubWtzdGVtcChwcmVmaXg9Ii5tY3BfY29uZmlnLiIsIGRpcj1zdHIocGF0aC5wYXJlbnQpKQp0cnk6CiAgICBvcy5mY2htb2QoZmQsIDBvNjAwKQogICAgd2l0aCBvcy5mZG9wZW4oZmQsICJ3IiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgb3V0cHV0OgogICAgICAgIGpzb24uZHVtcChkYXRhLCBvdXRwdXQsIGVuc3VyZV9hc2NpaT1GYWxzZSwgaW5kZW50PTIpCiAgICAgICAgb3V0cHV0LndyaXRlKCJcbiIpCiAgICAgICAgb3V0cHV0LmZsdXNoKCkKICAgICAgICBvcy5mc3luYyhvdXRwdXQuZmlsZW5vKCkpCiAgICBvcy5yZXBsYWNlKHRlbXBvcmFyeSwgcGF0aCkKICAgIG9zLmNobW9kKHBhdGgsIDBvNjAwKQpleGNlcHQgQmFzZUV4Y2VwdGlvbjoKICAgIHRyeToKICAgICAgICBvcy5jbG9zZShmZCkKICAgIGV4Y2VwdCBPU0Vycm9yOgogICAgICAgIHBhc3MKICAgIHRyeToKICAgICAgICBvcy51bmxpbmsodGVtcG9yYXJ5KQogICAgZXhjZXB0IE9TRXJyb3I6CiAgICAgICAgcGFzcwogICAgcmFpc2UKcHJpbnQoIkFudGlncmF2aXR5IE1DUCBjb25maWcgdXBkYXRlZDoiLCBwYXRoKQo=' | base64 -d)\""
+                    + " && unset BUDDY_TOKEN";
+        } else if ("grok".equals(mcpAgent)) {
+            cmd = bootstrap + cleanup
+                    + "printf '%s\\\\n' '# >>> Buddy MCP managed >>>' 'export BUDDY_TOKEN=\"$(cat ~/.config/buddy-mcp/token)\"' '# <<< Buddy MCP managed <<<' >> ~/.bashrc && . ~/.bashrc && "
+                    + "grok mcp add --transport http phone " + url
+                    + " --header 'Authorization: Bearer ${BUDDY_TOKEN}'"
+                    + " && sed -i '/^\\\\[mcp_servers\\\\.phone\\\\]$/a tool_timeout_sec = 600' ~/.grok/config.toml"
+                    + " && grok mcp doctor phone";
+        } else {
+            cmd = bootstrap + cleanup + "{ claude mcp remove -s user phone >/dev/null 2>&1 || true; } && "
+                    + "claude mcp add-json -s user phone \"$(printf '{\"type\":\"http\",\"url\":\"" + url
+                    + "\",\"headers\":{\"Authorization\":\"Bearer %s\"},\"timeout\":600000}' \"$BUDDY_TOKEN\")\""
+                    + " && unset BUDDY_TOKEN";
+        }
+        mcp.addView(codeBlock(this, cmd), topGap(12));
+        Button copyToken = button(this, getString(R.string.setup_copy_mcp_token), false);
+        copyToken.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ms_content_copy, 0, 0, 0);
+        copyToken.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(TEXT));
+        copyToken.setCompoundDrawablePadding(dp(this, 8));
+        copyToken.setOnClickListener(v -> {
+            ClipboardManager cm = getSystemService(ClipboardManager.class);
+            cm.setPrimaryClip(ClipData.newPlainText("Buddy MCP token", token));
+            Toast.makeText(this, R.string.setup_mcp_token_copied, Toast.LENGTH_SHORT).show();
+        });
+        LinearLayout.LayoutParams tokenParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(this, 44));
+        tokenParams.topMargin = dp(this, 12);
+        mcp.addView(copyToken, tokenParams);
+
         Button copy = button(this, getString(R.string.setup_copy_command), false);
         copy.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ms_content_copy, 0, 0, 0);
         copy.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(TEXT));
         copy.setCompoundDrawablePadding(dp(this, 8));
         copy.setOnClickListener(v -> {
             ClipboardManager cm = getSystemService(ClipboardManager.class);
-            cm.setPrimaryClip(ClipData.newPlainText("Buddy MCP", cmd));
+            cm.setPrimaryClip(ClipData.newPlainText("Buddy MCP setup", cmd));
             Toast.makeText(this, R.string.setup_command_copied, Toast.LENGTH_SHORT).show();
         });
         LinearLayout.LayoutParams cpp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(this, 44));
-        cpp.topMargin = dp(this, 12);
+        cpp.topMargin = dp(this, 8);
         mcp.addView(copy, cpp);
-        // those sessions on a hidden screen of their own, as a chat in background mode (issue #48)
+
+        Button rotate = button(this, getString(R.string.setup_rotate_mcp_token), false);
+        rotate.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.setup_rotate_mcp_token)
+                .setMessage(R.string.setup_rotate_mcp_token_warning)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.setup_rotate_mcp_token_confirm, (dialog, which) -> {
+                    BuddyService.rotateMcpToken(this);
+                    Toast.makeText(this, R.string.setup_mcp_token_rotated, Toast.LENGTH_LONG).show();
+                    render();
+                }).show());
+        LinearLayout.LayoutParams rotateParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(this, 44));
+        rotateParams.topMargin = dp(this, 8);
+        mcp.addView(rotate, rotateParams);
+
         mcp.addView(protect(switchRow(this, getString(R.string.setup_outside_background),
                 getString(R.string.setup_outside_background_info), Prefs.outsideBackground(this),
                 on -> Prefs.setOutsideBackground(this, on))), topGap(12));
         addCard(mcp);
         tailnetCard();
-
     }
 
     /**

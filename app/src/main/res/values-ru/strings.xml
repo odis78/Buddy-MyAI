@@ -1296,6 +1296,12 @@
     <!-- Button. -->
     <string name="setup_copy_command">Копировать команду</string>
     <string name="setup_command_copied">Скопировано. Вставьте команду в терминал.</string>
+    <string name="setup_copy_mcp_token">Копировать MCP-токен</string>
+    <string name="setup_mcp_token_copied">Токен скопирован. Вставьте его только в скрытый запрос терминала.</string>
+    <string name="setup_rotate_mcp_token">Сменить MCP-токен</string>
+    <string name="setup_rotate_mcp_token_warning">Текущий токен перестанет работать сразу. MCP-клиенты потребуется перенастроить с новым токеном. Чаты и сохранённые настройки останутся без изменений.</string>
+    <string name="setup_rotate_mcp_token_confirm">Сменить токен</string>
+    <string name="setup_mcp_token_rotated">Новый MCP-токен активен. Скопируйте его и выполните обновлённую команду настройки в каждом MCP-клиенте.</string>
     <string name="setup_outside_background">Работать в фоне</string>
     <string name="setup_outside_background_info">Агенты в ваших собственных сеансах работают на скрытом экране, как чат в фоновом режиме: вы продолжаете пользоваться телефоном, а они работают и при заблокированном. Карточки и вопросы по-прежнему приходят вам. Шаг, где нужны ваши глаза, например вход в аккаунт, выводит приложение на ваш экран. Нужен настроенный фоновый режим.</string>
     <string name="setup_tailnet">Инструменты телефона через Tailscale</string>
