@@ -79,7 +79,7 @@ profile_auth_ok = all(term in runtime_profile and term in profile_fixture for te
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
 secret_files_ok = all(term in runtime_launcher for term in [
-    "Secrets.get", "writeSecretFile", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600"
+    "Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600", "O_NONBLOCK"
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
 add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
     "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
