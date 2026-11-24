@@ -20,6 +20,8 @@ public class TunnelProcessIdentityTest {
         String wrongConfig = String.join(String.valueOf((char) 0), BIN, "run", "--config",
                 HOME + "/.config/rea-tunnel/profile/rea-android.yaml");
         assertFalse(TunnelProcessIdentity.matchesBuddy(BIN, wrongConfig, HOME));
+        String doctor = String.join(String.valueOf((char) 0), BIN, "doctor", "--config", CONFIG);
+        assertFalse(TunnelProcessIdentity.matchesBuddy(BIN, doctor, HOME));
     }
 
     @Test public void AndroidTermuxDataPathAliasesAreNormalized() {
