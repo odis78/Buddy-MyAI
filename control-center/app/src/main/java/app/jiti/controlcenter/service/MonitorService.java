@@ -492,11 +492,12 @@ public final class MonitorService extends Service {
     }
 
     private void recordProfileStatus(String id, ComponentStatus status, int pid, String detail) {
-        RuntimeSnapshot previous = eventStore == null ? null : eventStore.snapshot(id);
+        RuntimeSnapshot previous = null;
+        try {
+            previous = eventStore == null ? null : eventStore.snapshot(id);
+        } catch (Exception ignored) { }
         saveSnapshot(id, status, detail, pid);
-        if (previous == null || previous.status != status) {
-            log(id, status.name(), detail);
-        }
+        if (previous == null || previous.status != status) log(id, status.name(), detail);
     }
 
     private boolean hasProcessReport(String json) {
