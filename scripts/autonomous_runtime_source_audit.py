@@ -23,6 +23,8 @@ runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocato
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
 rea_runtime_installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
 rea_profile_fixture = read("app/src/test/resources/rea-mcp-tunnel-profile.yaml")
+bridge_asset = read("app/src/main/assets/runtime/termux-bridge-0.1.3.mjs")
+droidmcp_asset = read("app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs")
 runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
 runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
 runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
@@ -109,6 +111,24 @@ rea_profile_ok = (
 )
 add("rea_stdio_tunnel_profile", "PASS" if rea_profile_ok else "FAIL",
     "REA runs as a supervised stdio MCP child with compact tool schemas on its own tunnel identity")
+bridge_asset_ok = (
+    "const VERSION = '0.1.3'" in bridge_asset
+    and "app.buddy.myai.gt" in bridge_asset
+    and "launch_android_app" in bridge_asset
+    and "confirmed" in bridge_asset
+)
+add("bridge_013_asset", "PASS" if bridge_asset_ok else "FAIL",
+    "Bundled Bridge 0.1.3 keeps its fixed-command approval gate and targets only Buddy GT")
+
+droidmcp_asset_ok = (
+    'const VERSION = "0.4.0"' in droidmcp_asset
+    and droidmcp_asset.count('tool("') == 5
+    and "write_file" not in droidmcp_asset
+    and "delete_file" not in droidmcp_asset
+    and "Symbolic links are not followed" in droidmcp_asset
+)
+add("droidmcp_readonly_asset", "PASS" if droidmcp_asset_ok else "FAIL",
+    "Bundled DroidMCP exposes five bounded read-only filesystem tools and blocks symlinks")
 secret_files_ok = all(term in runtime_launcher for term in [
     "Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600", "O_NONBLOCK"
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
