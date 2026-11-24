@@ -11,7 +11,7 @@ from pathlib import Path
 
 SOURCE = Path("control-center/app/src/main/java/app/jiti/controlcenter/termux/TermuxCommandSpec.java")
 source = SOURCE.read_text(encoding="utf-8")
-names = ("BUDDY_MCP_AUTH_PROBE_SCRIPT", "BUDDY_LAUNCH_SCRIPT", "BUDDY_STOP_SCRIPT")
+names = ("BUDDY_MCP_AUTH_PROBE_SCRIPT", "BUDDY_LAUNCH_SCRIPT", "BUDDY_STOP_SCRIPT", "MCP_ENDPOINT_AUDIT_SCRIPT")
 scripts = {}
 for name in names:
     match = re.search(rf'{name} = """\n(.*?)\n""";', source, re.S)
@@ -25,6 +25,7 @@ for name in names:
 auth = scripts["BUDDY_MCP_AUTH_PROBE_SCRIPT"]
 launch = scripts["BUDDY_LAUNCH_SCRIPT"]
 stop = scripts["BUDDY_STOP_SCRIPT"]
+mcp_audit = scripts["MCP_ENDPOINT_AUDIT_SCRIPT"]
 
 assert "BUDDY_AUTH_HEADER" in auth and "BUDDY_TOKEN" in auth
 assert "ProxyHandler({})" in auth and "NoRedirect" in auth
@@ -53,6 +54,30 @@ def report(process):
             f"script did not emit one JSON report: rc={process.returncode}, "
             f"stdout={process.stdout!r}, stderr={process.stderr!r}"
         ) from exc
+
+# Endpoint discovery must expose useful local addresses while redacting auth values.
+with tempfile.TemporaryDirectory(prefix="jiti-mcp-endpoint-audit-") as root:
+    home = Path(root)
+    bridge = home / ".config" / "tunnel-client-bridge-013" / "bridge-013.yaml"
+    bridge.parent.mkdir(parents=True)
+    bridge.write_text(
+        "mcp:\\n"
+        "  server-url: http://127.0.0.1:8765/mcp?token=fixture-url-secret\\n"
+        "  command: mcp-server --token fixture-cli-secret\\n"
+        "  mcp.extra_headers: {Authorization: Bearer fixture-header-secret}\\n"
+        "  api-key: fixture-admin-secret\\n",
+        encoding="utf-8"
+    )
+    audited = execute(mcp_audit, home)
+    assert audited.returncode == 0, (audited.returncode, audited.stdout, audited.stderr)
+    assert "http://127.0.0.1:8765/mcp?token=[REDACTED]" in audited.stdout, audited.stdout
+    assert "fixture-url-secret" not in audited.stdout
+    assert "fixture-cli-secret" not in audited.stdout
+    assert "fixture-header-secret" not in audited.stdout
+    assert "fixture-admin-secret" not in audited.stdout
+    assert "[droidmcp] config=missing" in audited.stdout
+    assert "[rea-android] config=missing" in audited.stdout
+    assert "ENDPOINT_FIELDS=" in audited.stdout
 
 with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     home = Path(root)
