@@ -13,8 +13,6 @@ import java.nio.file.StandardCopyOption;
  */
 final class RuntimeProfileWriter {
     static final String MCP_URL = "http://127.0.0.1:8766/mcp";
-    static final String API_KEY_REFERENCE = "env:CONTROL_PLANE_API_KEY";
-    static final String AUTH_HEADER_REFERENCE = "env:BUDDY_AUTH_HEADER";
 
     private RuntimeProfileWriter() { }
 
