@@ -328,6 +328,6 @@ The candidate branch now contains the first two production-side runtime building
 - CI packages the runtime payload into the Android debug APK and verifies the embedded asset hash. A separate native ARM64 runner executes the binary version command before the Android packaging job proceeds.
 
 Pinned runtime binary SHA-256:
-`f0fd2c503ba66a7e9e92971dec36c20cd793ed1b766b560e6f22e31ff7dd2b44`
+`35638eb6293299cfdf20f8cc23e58551fed361477d72ff8fc7fd7095b4d6ba39`
 
 Important boundary: these additions do not yet start or supervise Tunnel Client, REA helper processes, or the Android MCP lifecycle. The persistent supervisor, secret-isolation design, foreground-service lifecycle, real PRoot/device smoke test, ChatGPT-originated end-to-end call, GT release package/signing, and update-over-update test remain mandatory gates. Do not describe this payload APK as the completed autonomous runtime or install it over the current Buddy.
