@@ -48,9 +48,10 @@ jobs:
           path: tunnel-client
       - name: Apply runtime procfs hardening patch
         run: python3 scripts/patch_tunnel_client_runtime.py tunnel-client
-      - name: Validate Buddy profile against pinned Tunnel Client schema
+      - name: Validate Buddy and REA profiles against pinned Tunnel Client schema
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
+          cp app/src/test/resources/rea-mcp-tunnel-profile.yaml tunnel-client/rea-profile-validation.yaml
           cat > tunnel-client/pkg/runtimeconfig/buddy_profile_validation_test.go <<'EOF'
           package runtimeconfig
 
@@ -59,13 +60,15 @@ jobs:
             "testing"
           )
 
-          func TestBuddyGeneratedProfileAcceptedByPinnedRuntime(t *testing.T) {
-            data, err := os.ReadFile("../../buddy-profile-validation.yaml")
-            if err != nil {
-              t.Fatalf("read Buddy profile fixture: %v", err)
-            }
-            if err := ValidateFullProfileBytes("buddy-profile-validation.yaml", data); err != nil {
-              t.Fatalf("pinned Tunnel Client rejected Buddy profile: %v", err)
+          func TestBuddyGeneratedProfilesAcceptedByPinnedRuntime(t *testing.T) {
+            for _, name := range []string{"buddy-profile-validation.yaml", "rea-profile-validation.yaml"} {
+              data, err := os.ReadFile("../../" + name)
+              if err != nil {
+                t.Fatalf("read profile fixture %s: %v", name, err)
+              }
+              if err := ValidateFullProfileBytes(name, data); err != nil {
+                t.Fatalf("pinned Tunnel Client rejected %s: %v", name, err)
+              }
             }
           }
           EOF
