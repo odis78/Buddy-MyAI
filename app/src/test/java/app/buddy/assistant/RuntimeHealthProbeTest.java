@@ -38,10 +38,12 @@ public class RuntimeHealthProbeTest {
 
 
     @Test public void checksBuddyMcpPortOnlyOnLoopback() throws Exception {
+        int port;
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-            assertTrue(RuntimeHealthProbe.isLoopbackPortOpen(server.getLocalPort()));
-            assertFalse(RuntimeHealthProbe.isLoopbackPortOpen(65535));
+            port = server.getLocalPort();
+            assertTrue(RuntimeHealthProbe.isLoopbackPortOpen(port));
         }
+        assertFalse(RuntimeHealthProbe.isLoopbackPortOpen(port));
     }
 
     @Test public void rejectsRemoteHealthUrlWithoutConnecting() throws Exception {
