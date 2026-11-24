@@ -8,7 +8,7 @@
 - Isolated project branch; protected Buddy checkpoint and main branch remain untouched.
 - Historical inventory and dependency/recovery design documented from 22–23 November evidence.
 - Android project and first debug APK build pipeline established.
-- Added typed component registry with 43 evidence-labelled rows, JITI controller/monitor, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services/packages, authenticated MCP probe, and dependency metadata.
+- Added typed component registry with 44 evidence-labelled rows, JITI controller/monitor, remote tunnel objects, ChatGPT connector, MCP servers, separate tool catalogs, optional Buddy services/packages, authenticated MCP probe, and dependency metadata.
 - Added dependency-aware startup/shutdown planner and scoped downstream restart planning.
 - Added bounded retry/backoff and circuit-breaker decision policy.
 - Added credential redaction utility.
@@ -24,6 +24,7 @@
 - Corrected UI success handling so nonzero process exit codes cannot be mistaken for successful identity or stop operations.
 - Audited the installed Tunnel Client health command against upstream v0.0.19 source; `health --url-file --pid-file --require-control-plane-poll --json` matches the supported CLI flags.
 - Added a read-only source audit and SHA-256 pin check for the existing `~/bin/tunnels` manager. It is never invoked or modified by diagnostics.
+- Added a redacted MCP endpoint configuration audit for the three REA profile YAMLs. It reports only MCP/server/listen/port/command fields, redacts bearer tokens and query credentials, and never reads runtime.env or key files; CI tests it with synthetic secrets.
 - Added read-only health probes for Buddy, REA-Termux-Bridge, DroidMCP-Filesystem, and REA-Termux-Android. Each profile is checked against its known PID/health URL, Tunnel Client executable, and exact `--config` or `--profile-file` argument.
 - Extended the foreground monitor to poll all four tunnel profiles sequentially after the Buddy MCP check; per-profile snapshots are persisted, and repeated identical failures no longer inflate error counters.
 - Added user-started Android 14 specialUse foreground monitor with persistent notification and stop action.
@@ -44,12 +45,12 @@
 - Multi-profile state-changing controls and automatic recovery remain disabled. Buddy-only lifecycle code is implemented but has not passed target-device acceptance; it must not be treated as production-ready.
 
 ## Next engineering gates
-1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45300593498 (commit 6805ee25a36192720e72f442b49f83c882fec959).
+1. JVM unit tests, isolated embedded-script safety harness, multi-profile health/identity tests, and debug APK build passed in GitHub Actions run 45301611114 (commit 03a1b0badd7e1664f2595af42054a2166ba7afa8).
 2. Resolve the Buddy MCP credential source using names-only diagnostics; until then, Buddy launch must remain blocked.
 3. Verify Termux RUN_COMMAND, all four tunnel PID/executable/config identity probes, Android 14 specialUse foreground start, notification stop action, and partial wake-lock behavior on Infinix X678B.
 4. Validate the continuous four-profile monitor on Infinix, including poll cadence, Termux service timeouts, foreground-service survival, task swipe, process death, force-stop, and OEM battery behavior.
 5. Recover and validate safe stop contracts for all profiles without changing live configuration.
-6. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
+6. Run the redacted endpoint audit on-device, reconcile the exact local MCP endpoints, then add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
 7. Only after device acceptance and contract validation, add guarded per-profile start/stop/restart and bounded recovery.
 
 ## Safety and acceptance boundary
