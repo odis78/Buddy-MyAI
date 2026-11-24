@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     # Symlinked environment files are rejected even if their target is mode 0600.
     external_env = home / "external-runtime.env"
     external_env.write_text(
-        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\nBUDDY_TOKEN=fixture-buddy-token\\n",
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\nBUDDY_TOKEN=fixture-buddy-token\n",
         encoding="utf-8"
     )
     external_env.chmod(0o600)
@@ -132,7 +132,7 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
     assert not marker.exists(), "environment parser executed shell syntax"
 
     env_file.write_text(
-        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\nBUDDY_TOKEN=$BUDDY_TOKEN\\n",
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\nBUDDY_TOKEN=$BUDDY_TOKEN\n",
         encoding="utf-8"
     )
     env_file.chmod(0o600)
@@ -141,8 +141,8 @@ with tempfile.TemporaryDirectory(prefix="jiti-termux-script-test-") as root:
 
     # An explicitly named Authorization header is normalized to its value.
     env_file.write_text(
-        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\\n"
-        "BUDDY_AUTH_HEADER=Authorization: Bearer fixture-buddy-token\\n",
+        "CONTROL_PLANE_API_KEY=fixture-control-plane-key\n"
+        "BUDDY_AUTH_HEADER=Authorization: Bearer fixture-buddy-token\n",
         encoding="utf-8"
     )
     env_file.chmod(0o600)
