@@ -150,15 +150,19 @@ jobs:
               REA_ROOT="$(npm root -g)/rea-agents"
               REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 node "$REA_ROOT/scripts/rea.mjs" mcp doctor --format json > /work/dist/rea-mcp-doctor.json
               node /work/scripts/verify_rea_mcp_doctor.mjs /work/dist/rea-mcp-doctor.json
+              cp /work/scripts/rea_tools_list_probe.mjs /root/rea/scripts/
+              node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
               node --version
               npm --version
               apk info -v nodejs-current
             '
-          sha256sum dist/rea-mcp-doctor.json
+          sha256sum dist/rea-mcp-doctor.json dist/rea-mcp-tools-probe.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: rea-agents-6.5.0-alpine-arm64-smoke
-          path: dist/rea-mcp-doctor.json
+          path: |
+            dist/rea-mcp-doctor.json
+            dist/rea-mcp-tools-probe.json
 
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
