@@ -31,6 +31,7 @@
 - Buddy launch preflight requires a mode-600 fixed env file with the Control Plane key and MCP auth token/header. Historical diagnostics show the MCP token is not in the documented runtime.env; until its source is safely resolved, launch intentionally returns BLOCKED. It does not source shell startup files or substitute the REA Control Plane key.
 - Buddy stop preflight is read-only; status-file writes occur only during the confirmed stop operation. Stop revalidates PID, executable, exact Buddy YAML and process start-time before SIGTERM, handles PID reuse and `/proc` teardown, and never sends SIGKILL.
 - The embedded-script CI harness exercises the fixed launch/stop paths against temporary fake files/processes; it does not touch the real phone or Termux configuration.
+- User-started read-only diagnostics now check health URL/PID and exact executable/config identity for Bridge, DroidMCP, and REA Android. The background monitor still polls Buddy only; these three snapshots become stale after two minutes.
 - UI success states require both a zero process exit code and a successful Termux result callback.
 - No automatic permission changes.
 
@@ -38,12 +39,13 @@ This is intentional. The RUN_COMMAND interface is powerful enough to execute arb
 
 ## Next implementation gates
 
-1. JVM tests, isolated Python lifecycle-script harness, and debug APK assembly passed in run 45296930671; target-device validation remains required.
+1. JVM tests, isolated Python lifecycle-script harness, multi-profile health/identity tests, and debug APK assembly passed in run 45298167747; target-device validation remains required.
 2. Prove Termux package/version/permission/external-app policy, result callbacks, output redaction, and /proc identity reads on Infinix X678B.
 3. Test Android 14 specialUse foreground start/stop, notification visibility, partial wake lock, task swipe, process death, force-stop, and OEM battery behavior.
 4. Recover exact profile metadata and start/stop contracts for all four Tunnel Client profiles without writing current configuration.
 5. Locate the Buddy token/header source by key names only; implement authenticated MCP initialize/tools/list only after the source is safely resolved.
-6. Add read-only probes for Bridge, DroidMCP, and REA Android profiles.
+7. Add authenticated MCP probes and reconcile tool catalogs for Bridge, DroidMCP, and REA Android.
+6. Extend continuous background monitoring to Bridge, DroidMCP, and REA Android; current checks run only during user-started preflight.
 7. Implement guarded per-profile controls and bounded recovery only after those contracts pass.
 8. Run repeated device acceptance tests and publish a signed-off APK only when functional criteria pass.
 
