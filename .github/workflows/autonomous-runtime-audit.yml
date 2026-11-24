@@ -132,6 +132,46 @@ jobs:
           test "$(dist/tunnel-client-runtime version)" = "0.0.19"
           dist/cloudflared --version | grep -F '2026.10.2'
 
+  rea-mcp-alpine-arm64-smoke:
+    name: REA 6.5.0 MCP smoke test on Alpine ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Install and validate pinned REA package in Alpine ARM64
+        run: |
+          mkdir -p dist
+          docker run --rm --platform linux/arm64 \
+            -v "$PWD:/work" -w /work \
+            node:26.13.1-alpine3.24 sh -c '
+              set -eu
+              apk add --no-cache python3 make g++ linux-headers git >/dev/null
+              mkdir -p /tmp/rea-package
+              npm pack rea-agents@6.5.0 --pack-destination /tmp/rea-package >/dev/null
+              mkdir -p /root/rea
+              tar -xzf /tmp/rea-package/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1
+              cd /root/rea
+              npm install --omit=dev --no-audit --no-fund
+              node scripts/rea.mjs mcp doctor --format json > /work/dist/rea-mcp-doctor.json
+              node -e "
+                const fs = require('fs');
+                const r = JSON.parse(fs.readFileSync('/work/dist/rea-mcp-doctor.json', 'utf8'));
+                if (!r.healthy) throw new Error('REA MCP doctor unhealthy');
+                if (r.inventory.tools.expected !== r.inventory.tools.observed) throw new Error('REA tool inventory mismatch');
+                if (r.inventory.prompts.expected !== r.inventory.prompts.observed) throw new Error('REA prompt inventory mismatch');
+                process.stdout.write(JSON.stringify({healthy:r.healthy,tools:r.inventory.tools,prompts:r.inventory.prompts,server:r.server})+'\\n');
+              "
+              cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
+              node --version
+              npm --version
+            '
+          sha256sum dist/rea-agents-6.5.0.tgz dist/rea-mcp-doctor.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: rea-agents-6.5.0-alpine-arm64-smoke
+          path: |
+            dist/rea-agents-6.5.0.tgz
+            dist/rea-mcp-doctor.json
+
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
     needs: [tunnel-client-runtime, tunnel-client-arm64-smoke]
