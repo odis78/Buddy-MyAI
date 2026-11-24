@@ -44,7 +44,7 @@ Implemented in JITI 0.2.0-alpha as a deny-by-default fixed operation set:
 - `PROCESS_LIST`: `/system/bin/ps -A`, with only Termux/Buddy/REA/Tunnel Client lines displayed.
 - `PROCESS_EXECUTABLE` and `PROCESS_CMDLINE`: dynamically constructed only from a positive PID parsed from the Buddy health JSON; they read `/proc/PID/exe` and `/proc/PID/cmdline` through `/system/bin/readlink` and `/system/bin/cat`. The app never displays or persists raw command-line content. It verifies both the v0.0.19 binary path and exact Buddy YAML path before marking the Buddy tunnel READY.
 
-No free-form command is accepted, no shell is invoked, and no start/stop/restart operation is currently in the allowlist. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
+No free-form command is accepted, no shell is invoked, and Buddy-only start/stop operations are now present as fixed, reviewed prototypes. They are not generic shell operations and do not enable global or multi-profile lifecycle control. Output is capped at 16 KB and redacted. The adapter is code-complete for these probes but remains unverified on the Infinix device.
 
 ## Android 11+ package visibility
 
@@ -84,4 +84,4 @@ Before enabling any command button on Infinix X678B:
 - test reboot separately;
 - test force-stop separately and record expected non-recoverability.
 
-No live device configuration was changed while documenting this contract.
+No live device configuration was changed while documenting this contract. Buddy lifecycle prototypes are not considered accepted until the exact Termux service contract, PID/config identity, start/stop behavior, and Android lifecycle are tested on the target Infinix device.
