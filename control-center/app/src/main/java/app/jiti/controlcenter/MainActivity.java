@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class MainActivity extends Activity {
+    private static final String EXPECTED_TUNNELS_SCRIPT_SHA256 = "1efc8db1cc8b7e91a7f16546e5adad1206a0649b036dcc2afa048a4a87056b54";
     private static final int BG = 0xFF10151D;
     private static final int CARD = 0xFF1B2430;
     private static final int FG = 0xFFF1F5F9;
@@ -423,6 +424,7 @@ public final class MainActivity extends Activity {
                 TermuxOperation.PYTHON_VERSION,
                 TermuxOperation.BUDDY_ENV_SOURCE_AUDIT,
                 TermuxOperation.TUNNELS_SCRIPT_AUDIT,
+                TermuxOperation.TUNNELS_SCRIPT_SHA256,
                 TermuxOperation.BUDDY_TUNNEL_HEALTH,
                 TermuxOperation.BRIDGE_TUNNEL_HEALTH,
                 TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
@@ -462,6 +464,7 @@ public final class MainActivity extends Activity {
             case PYTHON_VERSION: return "PYTHON VERSION";
             case BUDDY_ENV_SOURCE_AUDIT: return "BUDDY ENV SOURCE AUDIT (NAMES ONLY)";
             case TUNNELS_SCRIPT_AUDIT: return "EXISTING TUNNELS SCRIPT (READ ONLY)";
+            case TUNNELS_SCRIPT_SHA256: return "TUNNELS MANAGER SHA-256";
             case BUDDY_TUNNEL_HEALTH: return "BUDDY TUNNEL HEALTH";
             case BRIDGE_TUNNEL_HEALTH: return "REA-TERMUX-BRIDGE HEALTH";
             case DROIDMCP_TUNNEL_HEALTH: return "DROIDMCP HEALTH";
@@ -644,6 +647,14 @@ public final class MainActivity extends Activity {
                         ? ComponentStatus.UNAVAILABLE : ComponentStatus.NOT_READY;
                 saveProbeSnapshot("buddy-tunnel", tunnelState,
                         detail + "; authenticated readiness withheld until process identity verification");
+                break;
+            case TUNNELS_SCRIPT_SHA256:
+                boolean managerHashMatches = result.succeeded()
+                        && result.stdout.startsWith(EXPECTED_TUNNELS_SCRIPT_SHA256);
+                saveProbeSnapshot("tunnels-manager", !result.succeeded() ? ComponentStatus.UNAVAILABLE
+                                : managerHashMatches ? ComponentStatus.READY : ComponentStatus.NOT_READY,
+                        managerHashMatches ? "Existing tunnel manager matches the reviewed historical SHA-256"
+                                : "Existing tunnel manager hash differs from reviewed source or file is unavailable");
                 break;
             case BRIDGE_TUNNEL_HEALTH:
                 saveInitialProfileHealthSnapshot("rea-bridge", result);
