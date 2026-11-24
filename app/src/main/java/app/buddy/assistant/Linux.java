@@ -116,8 +116,14 @@ final class Linux {
         List<String> args = commandAt(c, workingDirectory, extraEnvironment, cmd);
         int workingDirectoryFlag = args.indexOf("-w");
         if (workingDirectoryFlag < 0) throw new IllegalStateException("PRoot working directory flag is missing");
-        args.add(workingDirectoryFlag, "/system");
-        args.add(workingDirectoryFlag, "-b");
+        String[] androidSystemBinds = {"/system", "/apex", "/vendor", "/product", "/system_ext"};
+        for (String bind : androidSystemBinds) {
+            if (new File(bind).isDirectory()) {
+                args.add(workingDirectoryFlag, bind);
+                args.add(workingDirectoryFlag, "-b");
+                workingDirectoryFlag += 2;
+            }
+        }
         return args;
     }
 
