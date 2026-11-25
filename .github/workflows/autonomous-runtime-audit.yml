@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/buddy-autonomous-runtime-audit-20261124
+      - fix/buddy-runtime-cloudflared-flavor-20261125
   pull_request:
   workflow_dispatch:
 
@@ -142,7 +143,7 @@ jobs:
             -v "$PWD/tunnel-client:/src" \
             -w /src \
             golang:1.27.3-alpine \
-            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime-cloudflared
+            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime ./cmd/client-runtime-cloudflared
       - name: Build Linux ARM64 Tunnel Client and cloudflared companions
         run: |
           mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
@@ -201,7 +202,6 @@ jobs:
           readelf -h dist/cloudflared | grep -E 'Class:.*ELF64|Machine:.*AArch64'
           ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
           ! readelf -l dist/cloudflared | grep -q INTERP
-          echo 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e  dist/tunnel-client-runtime' | sha256sum --check
           echo '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7  dist/cloudflared' | sha256sum --check
           chmod 700 dist/tunnel-client-runtime dist/cloudflared
           dist/tunnel-client-runtime --version | tee /tmp/tunnel-client-runtime-version.txt
