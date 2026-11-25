@@ -34,6 +34,7 @@ runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsAc
 manifest = read("app/src/main/AndroidManifest.xml")
 runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
+runtime_profile_test = read("app/src/test/java/app/buddy/assistant/RuntimeProfileWriterTest.java")
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
 runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
@@ -77,8 +78,11 @@ add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so"
     "Buddy has an app-private Alpine rootfs installer and PRoot command builder" if "ALPINE_SHA256" in linux and "libproot.so" in linux else "Required PRoot markers missing")
 add("child_process_launch", "PASS" if "Linux.builder(app, cmd).start()" in helper else "FAIL",
     "Existing Helper launches child processes inside Buddy Linux")
-add("local_mcp_server", "PASS" if "PORT = 8766" in mcp and "127.0.0.1" in mcp else "FAIL",
-    "Buddy local MCP endpoint source markers")
+add("local_mcp_server", "PASS" if "PORT = 8767" in mcp and "127.0.0.1" in mcp else "FAIL",
+    "Buddy GT local MCP endpoint is bound to loopback port 8767")
+side_by_side_port_ok = all(term in runtime_profile_test for term in ["assertEquals(8767, McpServer.PORT)", "RuntimeProfileWriter.MCP_URL"]) and "McpServer.PORT" in runtime_profile and "127.0.0.1:8767/mcp" in profile_fixture and "127.0.0.1:8766/mcp" not in runtime_profile
+add("legacy_loopback_port_isolation", "PASS" if side_by_side_port_ok else "FAIL",
+    "GT uses 127.0.0.1:8767 while legacy Buddy retains 127.0.0.1:8766; profile URL is derived from the server port")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
 add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "EXPECTED_CLOUDFLARED_SHA256", "nativeLibraryDir", "locateCloudflared", "MessageDigest"]) else "FAIL",
