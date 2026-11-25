@@ -16,15 +16,12 @@ final class RuntimeProfileWriter {
 
     private RuntimeProfileWriter() { }
 
-    static String renderBuddyProfile(String tunnelId, File runtimeDir, File cloudflaredBinary) {
+    static String renderBuddyProfile(String tunnelId, File runtimeDir) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
             throw new IllegalArgumentException("Invalid Buddy tunnel id");
         }
         if (runtimeDir == null || !runtimeDir.isAbsolute()) {
             throw new IllegalArgumentException("Absolute runtime directory is required");
-        }
-        if (cloudflaredBinary == null || !cloudflaredBinary.isAbsolute()) {
-            throw new IllegalArgumentException("Absolute cloudflared binary path is required");
         }
         String dir = runtimeDir.getAbsolutePath();
         if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
@@ -35,9 +32,6 @@ final class RuntimeProfileWriter {
                 + "  base_url: \"https://api.openai.com\"\n"
                 + "  tunnel_id: \"" + tunnelId + "\"\n"
                 + "  api_key: \"" + "file:" + yamlQuote(dir + "/control-plane-api-key") + "\"\n"
-                + "cloudflared:\n"
-                + "  managed: true\n"
-                + "  path: \"" + yamlQuote(cloudflaredBinary.getAbsolutePath()) + "\"\n"
                 + "health:\n"
                 + "  listen_addr: \"127.0.0.1:0\"\n"
                 + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
@@ -57,16 +51,13 @@ final class RuntimeProfileWriter {
                 + "    Authorization: \"" + "file:" + yamlQuote(dir + "/buddy-discovery-auth-header") + "\"\n";
     }
 
-    static String renderStdioProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
+    static String renderStdioProfile(String tunnelId, File runtimeDir,
                                      java.util.List<String> mcpCommand) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
             throw new IllegalArgumentException("Invalid stdio tunnel id");
         }
         if (runtimeDir == null || !runtimeDir.isAbsolute()) {
             throw new IllegalArgumentException("Absolute runtime directory is required");
-        }
-        if (cloudflaredBinary == null || !cloudflaredBinary.isAbsolute()) {
-            throw new IllegalArgumentException("Absolute cloudflared binary path is required");
         }
         if (mcpCommand == null || mcpCommand.isEmpty()) {
             throw new IllegalArgumentException("stdio MCP command is required");
@@ -88,9 +79,6 @@ final class RuntimeProfileWriter {
                 + "  base_url: \"https://api.openai.com\"\n"
                 + "  tunnel_id: \"" + tunnelId + "\"\n"
                 + "  api_key: \"file:" + yamlQuote(dir + "/control-plane-api-key") + "\"\n"
-                + "cloudflared:\n"
-                + "  managed: true\n"
-                + "  path: \"" + yamlQuote(cloudflaredBinary.getAbsolutePath()) + "\"\n"
                 + "health:\n"
                 + "  listen_addr: \"127.0.0.1:0\"\n"
                 + "  url_file: \"" + yamlQuote(dir + "/health.url") + "\"\n"
@@ -106,15 +94,15 @@ final class RuntimeProfileWriter {
                 + "      command: \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
-    static String renderReaProfile(String tunnelId, File runtimeDir, File cloudflaredBinary,
+    static String renderReaProfile(String tunnelId, File runtimeDir,
                                    java.util.List<String> mcpCommand) {
-        return renderStdioProfile(tunnelId, runtimeDir, cloudflaredBinary, mcpCommand);
+        return renderStdioProfile(tunnelId, runtimeDir, mcpCommand);
     }
 
     static void writeStdioProfile(File target, String tunnelId, File runtimeDir,
-                                  File cloudflaredBinary, java.util.List<String> mcpCommand) throws IOException {
+                                  java.util.List<String> mcpCommand) throws IOException {
         if (target == null) throw new IllegalArgumentException("stdio profile target is required");
-        byte[] bytes = renderStdioProfile(tunnelId, runtimeDir, cloudflaredBinary, mcpCommand)
+        byte[] bytes = renderStdioProfile(tunnelId, runtimeDir, mcpCommand)
                 .getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
@@ -136,13 +124,13 @@ final class RuntimeProfileWriter {
     }
 
     static void writeReaProfile(File target, String tunnelId, File runtimeDir,
-                                File cloudflaredBinary, java.util.List<String> mcpCommand) throws IOException {
-        writeStdioProfile(target, tunnelId, runtimeDir, cloudflaredBinary, mcpCommand);
+                                java.util.List<String> mcpCommand) throws IOException {
+        writeStdioProfile(target, tunnelId, runtimeDir, mcpCommand);
     }
 
-    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir, File cloudflaredBinary) throws IOException {
+    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir) throws IOException {
         if (target == null) throw new IllegalArgumentException("Profile target is required");
-        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir, cloudflaredBinary).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir).getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Tunnel Client profile directory is unavailable");
