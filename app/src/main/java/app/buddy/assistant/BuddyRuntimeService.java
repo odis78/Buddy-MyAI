@@ -158,32 +158,31 @@ public final class BuddyRuntimeService extends Service {
                             updateNotification(getString(R.string.runtime_notification_rea_installing, message));
                         }
                     });
-            // Stop may arrive while the installer is preparing assets. Never advance to
-            // another helper after cancellation; requestStop() performs final supervisor cleanup.
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
-            Boolean bridgeResult = helperLifecycle.startIfActive(() -> bridgeSupervisor.start());
-            if (bridgeResult == null) return;
-            boolean bridgeReady = bridgeResult;
+            // Helpers are independent after the shared Alpine/Node bootstrap. A permission or
+            // startup failure in one helper must not suppress the remaining MCP servers.
+            boolean bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
+                    () -> bridgeSupervisor.start(),
+                    (state, detail) -> setBridgePersistentState(state, detail),
+                    "6 tools; Bridge 0.1.3",
+                    () -> bridgeSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            setBridgePersistentState(bridgeReady ? "READY" : "WAITING",
-                    bridgeReady ? "6 tools; Bridge 0.1.3" : bridgeSupervisor.lastError());
 
+            boolean droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
+                    () -> droidMcpSupervisor.start(),
+                    (state, detail) -> setDroidPersistentState(state, detail),
+                    "5 read-only tools; DroidMCP 0.4.0",
+                    () -> droidMcpSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            Boolean droidResult = helperLifecycle.startIfActive(() -> droidMcpSupervisor.start());
-            if (droidResult == null) return;
-            boolean droidReady = droidResult;
-            if (stopping || Thread.currentThread().isInterrupted()) return;
-            setDroidPersistentState(droidReady ? "READY" : "WAITING",
-                    droidReady ? "5 read-only tools; DroidMCP 0.4.0" : droidMcpSupervisor.lastError());
 
+            boolean reaReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
+                    () -> reaSupervisor.start(),
+                    (state, detail) -> setReaPersistentState(state, detail),
+                    "207 tools; 6 prompts",
+                    () -> reaSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            Boolean reaResult = helperLifecycle.startIfActive(() -> reaSupervisor.start());
-            if (reaResult == null) return;
-            boolean reaReady = reaResult;
-            if (stopping || Thread.currentThread().isInterrupted()) return;
-            setReaPersistentState(reaReady ? "READY" : "WAITING",
-                    reaReady ? "207 tools; 6 prompts" : reaSupervisor.lastError());
+
             if (bridgeReady && droidReady && reaReady) {
                 reaRecovery.reset();
                 updateNotification(getString(R.string.runtime_notification_ready_with_rea));
