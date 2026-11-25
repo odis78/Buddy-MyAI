@@ -20,11 +20,12 @@ final class RuntimeHelperBootstrap {
         try {
             Boolean ready = lifecycle.startIfActive(action);
             if (ready == null) return false;
-            stateWriter.write(ready ? "READY" : "WAITING",
-                    ready ? readyDetail : safeDetail(waitingDetail));
-            return ready;
+            boolean recorded = lifecycle.runIfActive(() ->
+                    stateWriter.write(ready ? "READY" : "WAITING",
+                            ready ? readyDetail : safeDetail(waitingDetail)));
+            return recorded && ready;
         } catch (Exception e) {
-            stateWriter.write("ERROR", safeMessage(e));
+            lifecycle.runIfActive(() -> stateWriter.write("ERROR", safeMessage(e)));
             return false;
         }
     }

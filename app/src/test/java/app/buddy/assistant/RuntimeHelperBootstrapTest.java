@@ -59,4 +59,30 @@ public class RuntimeHelperBootstrapTest {
         assertEquals(0, starts.get());
         assertEquals(0, writes.get());
     }
+
+    @Test public void stateFromAnInFlightStartIsNotWrittenAfterStopWasRequested() {
+        RuntimeLifecycleGate gate = new RuntimeLifecycleGate();
+        AtomicInteger writes = new AtomicInteger();
+
+        boolean ready = RuntimeHelperBootstrap.startOne(gate,
+                () -> { gate.markStopping(); return true; },
+                (state, detail) -> writes.incrementAndGet(),
+                "helper ready", () -> "helper waiting");
+
+        assertFalse(ready);
+        assertEquals(0, writes.get());
+    }
+
+    @Test public void startupExceptionAfterStopDoesNotOverwriteStoppedState() {
+        RuntimeLifecycleGate gate = new RuntimeLifecycleGate();
+        AtomicInteger writes = new AtomicInteger();
+
+        boolean ready = RuntimeHelperBootstrap.startOne(gate,
+                () -> { gate.markStopping(); throw new IOException("cancelled"); },
+                (state, detail) -> writes.incrementAndGet(),
+                "helper ready", () -> "helper waiting");
+
+        assertFalse(ready);
+        assertEquals(0, writes.get());
+    }
 }

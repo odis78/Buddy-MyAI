@@ -13,6 +13,12 @@ final class RuntimeLifecycleGate {
 
     void markStopping() { stopping = true; }
 
+    synchronized boolean runIfActive(Runnable action) {
+        if (stopping) return false;
+        action.run();
+        return true;
+    }
+
     synchronized void cleanup(Runnable action) {
         stopping = true;
         action.run();

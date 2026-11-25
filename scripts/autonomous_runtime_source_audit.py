@@ -203,6 +203,7 @@ lifecycle_gate = (
     "RuntimeLifecycleGate" in runtime_service
     and "RuntimeHelperBootstrap.startOne" in runtime_service
     and "startIfActive" in runtime_helper_bootstrap
+    and "runIfActive" in runtime_helper_bootstrap
     and "helperLifecycle.cleanup" in runtime_service
     and (ROOT / "app/src/main/java/app/buddy/assistant/RuntimeLifecycleGate.java").is_file()
     and (ROOT / "app/src/test/java/app/buddy/assistant/RuntimeLifecycleGateTest.java").is_file()
