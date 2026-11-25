@@ -23,6 +23,7 @@ api_keys = read("app/src/main/java/app/buddy/assistant/ApiKeysActivity.java")
 mcp_servers = read("app/src/main/java/app/buddy/assistant/McpServers.java")
 tools_source = read("app/src/main/java/app/buddy/assistant/Tools.java")
 runtime_health = read("app/src/main/java/app/buddy/assistant/RuntimeHealthProbe.java")
+on_phone = read("app/src/main/java/app/buddy/assistant/OnPhone.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
@@ -253,7 +254,7 @@ local_http_scope_ok = (
     and 'b.startsWith("http://") && Providers.isLocal(b)' in api_keys
     and 'url.startsWith("http://") && Providers.isLocal(url)' in mcp_servers
     and 'path.matches("http://' in tools_source and "localhost" in tools_source and "127" in tools_source
-    and 'new URL("http://127.0.0.1:" + PORT + "/health")' in runtime_health
+    and 'new URL("http://127.0.0.1:" + PORT + "/health")' in on_phone
     and '"127.0.0.1:" + base.getPort() + "/readyz"' in runtime_health
 )
 add("user_configured_local_http_scope", "PASS" if local_http_scope_ok else "FAIL",
