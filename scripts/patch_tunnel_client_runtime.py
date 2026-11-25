@@ -4,10 +4,10 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1]).resolve()
-target = root / "cmd/client-runtime-cloudflared"
+target = root / "cmd/client-runtime"
 main = target / "main.go"
 if not main.is_file():
-    raise SystemExit("Tunnel Client cloudflared runtime entrypoint not found")
+    raise SystemExit("Tunnel Client runtime entrypoint not found")
 
 source = main.read_text(encoding="utf-8")
 needle = "func main() {\n"
@@ -19,7 +19,7 @@ injected = """func main() {
 """
 if "hardenProcess()" not in source:
     if source.count(needle) != 1:
-        raise SystemExit("unexpected cloudflared runtime entrypoint shape; refusing to patch")
+        raise SystemExit("unexpected runtime entrypoint shape; refusing to patch")
     source = source.replace(needle, injected, 1)
     main.write_text(source, encoding="utf-8")
 
