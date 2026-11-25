@@ -41,7 +41,7 @@ cloudflared_hardening = read("scripts/tunnel-client-runtime/cloudflared_dumpable
 cloudflared_hardening_test = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux_test.go")
 cloudflared_patch = read("scripts/patch_cloudflared_module.py")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
-workflow = read(".github/workflows/build.yml")
+runtime_workflow = read(".github/workflows/autonomous-runtime-audit.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
 
 def match(pattern: str, value: str) -> str | None:
@@ -83,6 +83,19 @@ add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and 
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
 add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "EXPECTED_CLOUDFLARED_SHA256", "nativeLibraryDir", "locateCloudflared", "MessageDigest"]) else "FAIL",
     "Pinned Tunnel Client and cloudflared Linux ARM64 executables are located in nativeLibraryDir and SHA-256 verified")
+
+cloudflared_runtime_ok = (
+    "cmd/client-runtime-cloudflared" in runtime_patch
+    and "Flavor=runtime-cloudflared" in runtime_workflow
+    and "./cmd/client-runtime-cloudflared" in runtime_workflow
+    and "flavor=runtime-cloudflared" in runtime_workflow
+    and "buddy_profile_flavor_test.go" in runtime_workflow
+    and "libtunnel-client.so" in runtime_workflow
+    and "libcloudflared.so" in runtime_workflow
+)
+add("cloudflared_runtime_flavor_and_packaging", "PASS" if cloudflared_runtime_ok else "FAIL",
+    "Buddy builds the cloudflared-enabled runtime flavor, tests the exact profile against both runtime flavors, and packages both pinned ARM64 executables into the side-by-side APK")
+
 profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
     "extra_headers:", "discovery_extra_headers:", "file:"
 ])
