@@ -202,7 +202,7 @@ add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
 add("release_signing_gate", "WARN",
     "Workflow has optional signing hooks, but actual release keystore availability and certificate identity are not verified")
 add("gt_package_line", "PASS" if app_id == "app.buddy.myai.gt" else "WARN",
-    f"Current baseline package is {app_id}; proposed GT package app.buddy.myai.gt is not applied")
+    f"GT package identity is correctly set to {app_id}" if app_id == "app.buddy.myai.gt" else f"Expected app.buddy.myai.gt, found {app_id}")
 report = {
     "schema": "buddy-autonomous-runtime-audit/v1",
     "source": "GitHub Actions workspace",
