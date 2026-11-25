@@ -83,6 +83,17 @@ Buddy уже содержит встроенную Linux-среду. Это не
 
 Нельзя автоматически копировать существующий Termux Android/arm64 бинарник в Alpine: ABI/динамические библиотеки и окружение могут отличаться. Нужен воспроизводимый build и реальный smoke-test именно в целевой среде Buddy.
 
+### Решение после сопоставления с рабочими профилями (2026-11-25)
+
+Для Buddy выбран **стандартный** `cmd/client-runtime` (`Flavor=runtime`), без Cloudflared-компаньона.
+
+Основания:
+- ранее проверенный рабочий профиль `~/.config/tunnel-client/termux-bridge.yaml` не содержал ключей `cloudflared`/`CLOUDFLARED`, а в его журнале не было событий запуска Cloudflared;
+- в прежнем Buddy-журнале виден lifecycle hook `cloudflared/runtime.(*Supervisor).Start`, но нет подтверждённого сообщения о запуске дочернего Cloudflared-процесса;
+- Buddy генерировал только `cloudflared.path`, без `cloudflared.managed` и без статического token reference. По upstream-коду это не включает supervisor, а лишь добавляет настройку, которую стандартный runtime отвергает.
+
+Поэтому ошибка `runtime configuration rejects cloudflared settings` устраняется удалением неиспользуемой секции `cloudflared` из всех профилей и сборкой стандартного runtime. **Не включать `cloudflared.managed: true` и не добавлять Cloudflare provisioning без отдельного подтверждения**, поскольку это добавило бы новую зависимость, которой нет в проверенном рабочем профиле.
+
 ## 4. Подтверждённая конфигурация работающей Termux-системы
 
 По recovery checkpoint и redacted GitHub report от 2026-11-24:
