@@ -82,6 +82,183 @@ jobs:
             -w /src \
             golang:1.27.4-alpine \
             go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime
+      - name: Verify static Bearer MCP with OAuth discovery disabled end-to-end
+        run: |
+          docker run --rm --cap-drop=SYS_PTRACE \\
+            -v "$PWD/tunnel-client:/src" \\
+            -w /src \\
+            golang:1.27.4-alpine \\
+            go test ./e2e -run '^TestStaticBearerWithOAuthDiscoveryDisabled        run: |
+          mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
+          docker run --rm --cap-drop=SYS_PTRACE \
+            -v "$PWD/tunnel-client:/src" \
+            -v "$PWD:/buddy" \
+            -v "$RUNNER_TEMP/tunnel-runtime:/out" \
+            -w /src \
+            -e CGO_ENABLED=0 \
+            -e GOOS=linux \
+            -e GOARCH=arm64 \
+            golang:1.27.4-alpine sh -c '
+              set -eu
+              go build -mod=readonly -trimpath -buildvcs=false -ldflags "-X github.com/openai/tunnel-client/pkg/version.Flavor=runtime -X github.com/openai/tunnel-client/pkg/version.GitSHA=714f2d67844b660af25754f1d19b0360b346b13b -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false" -o /out/tunnel-client-runtime ./cmd/client-runtime
+              go mod download github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a
+              MOD_DIR="$(go env GOPATH)/pkg/mod/github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a"
+              chmod -R u+w "$MOD_DIR"
+              apk add --no-cache python3 >/dev/null
+              python3 /buddy/scripts/patch_cloudflared_module.py "$MOD_DIR"
+              cd "$MOD_DIR"
+              GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test ./cmd/cloudflared -run "^TestCloudflaredHidesEnvironmentFromSameUidProcess$" -count=1
+              go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=2026.10.2 -X main.BuildTime=2026-11-24 -X main.BuildType=buddy" -o /out/cloudflared ./cmd/cloudflared
+            '
+          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
+          (cd "$RUNNER_TEMP/tunnel-runtime" && sha256sum tunnel-client-runtime cloudflared > SHA256SUMS.txt)
+          cat "$RUNNER_TEMP/tunnel-runtime/SHA256SUMS.txt"
+          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared" "$RUNNER_TEMP/tunnel-runtime/SHA256SUMS.txt" dist/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tunnel-client-v0.0.21-linux-arm64-runtime
+          path: |
+            dist/tunnel-client-runtime
+            dist/cloudflared
+            dist/SHA256SUMS.txt
+
+  tunnel-client-arm64-smoke:
+    name: Execute pinned Tunnel Client on native ARM64 runner
+    needs: tunnel-client-runtime
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: tunnel-client-v0.0.21-linux-arm64-runtime
+          path: dist
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: rea-agents-6.5.0-alpine-arm64-smoke
+          path: rea-dist
+      - name: Stage pinned REA package for first-run bootstrap
+        run: |
+          mkdir -p app/src/main/assets/runtime
+          cp rea-dist/rea-agents-6.5.0.tgz app/src/main/assets/runtime/
+      - name: Verify and execute native ARM64 runtime
+        run: |
+          file dist/tunnel-client-runtime dist/cloudflared
+          readelf -h dist/tunnel-client-runtime | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          readelf -h dist/cloudflared | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
+          ! readelf -l dist/cloudflared | grep -q INTERP
+          (cd dist && sha256sum --check SHA256SUMS.txt)
+          chmod 700 dist/tunnel-client-runtime dist/cloudflared
+          dist/tunnel-client-runtime --version | tee /tmp/tunnel-client-runtime-version.txt
+          grep -F '0.0.21' /tmp/tunnel-client-runtime-version.txt
+          grep -F '714f2d67844b660af25754f1d19b0360b346b13b' /tmp/tunnel-client-runtime-version.txt
+          dist/cloudflared --version | grep -F '2026.10.2'
+
+  rea-mcp-alpine-arm64-smoke:
+    name: REA 6.5.0 MCP smoke test on Alpine ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Install and validate pinned REA package in Alpine ARM64
+        run: |
+          mkdir -p dist
+          docker run --rm --platform linux/arm64 \
+            -v "$PWD:/work" -w /work \
+            alpine:3.24.2 sh -c '
+              set -eu
+              apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools >/dev/null
+              mkdir -p /tmp/rea-package /root/rea
+              npm pack rea-agents@6.5.0 --pack-destination /tmp/rea-package >/dev/null
+              tar -xzf /tmp/rea-package/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1
+              cd /root/rea
+              npm install --omit=dev --no-audit --no-fund
+              REA_ROOT=/root/rea
+              REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 node "$REA_ROOT/scripts/rea.mjs" mcp doctor --format json > /work/dist/rea-mcp-doctor.json
+              node /work/scripts/verify_rea_mcp_doctor.mjs /work/dist/rea-mcp-doctor.json
+              cp /work/scripts/rea_tools_list_probe.mjs /root/rea/scripts/
+              cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
+              node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
+              cp /work/app/src/main/assets/runtime/termux-bridge-0.1.3.mjs /root/rea/scripts/bridge.mjs
+              cp /work/app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs /root/rea/scripts/droidmcp.mjs
+              git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source
+              test "$(git -C /root/rea-source rev-parse HEAD)" = "3b79af28e80785afce9f5998d8f03289402a1847"
+              mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext
+              cp /root/rea/scripts/bridge.mjs /root/bridge/server/index.mjs
+              cp /root/rea/scripts/droidmcp.mjs /root/droidmcp/server/index.mjs
+              node --check /root/bridge/server/index.mjs
+              node --check /root/droidmcp/server/index.mjs
+              cp /work/scripts/helper_mcp_catalog_probe.mjs /root/rea/scripts/
+              node /root/rea/scripts/helper_mcp_catalog_probe.mjs /root/rea/scripts/bridge.mjs /root/rea/scripts/droidmcp.mjs > /work/dist/helper-mcp-probe.json
+              node --version
+              npm --version
+              java -version
+              adb version
+              apk info -v nodejs-current
+            '
+          sha256sum dist/rea-agents-6.5.0.tgz dist/rea-mcp-doctor.json dist/rea-mcp-tools-probe.json dist/helper-mcp-probe.json app/src/main/assets/runtime/termux-bridge-0.1.3.mjs app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: rea-agents-6.5.0-alpine-arm64-smoke
+          path: |
+            dist/rea-agents-6.5.0.tgz
+            dist/rea-mcp-doctor.json
+            dist/rea-mcp-tools-probe.json
+            dist/helper-mcp-probe.json
+
+  android-baseline-build:
+    name: Buddy Android baseline build with pinned runtime payload
+    needs: [tunnel-client-runtime, tunnel-client-arm64-smoke, rea-mcp-alpine-arm64-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: tunnel-client-v0.0.21-linux-arm64-runtime
+          path: dist
+      - name: Verify pinned runtime payload
+        run: |
+          (cd dist && sha256sum --check SHA256SUMS.txt)
+      - name: Stage runtime as Android native executables
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp dist/tunnel-client-runtime app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
+          cp dist/cloudflared app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - name: Run Buddy JVM unit tests
+        run: ./gradlew --no-daemon testGithubDebugUnitTest
+      - name: Build native libraries
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
+      - name: Assemble existing side-by-side debug APK
+        run: ./gradlew --no-daemon assembleGithubDebug
+      - name: Verify APK signature and package metadata
+        run: |
+          APK="$(find app/build/outputs/apk/github/debug -name '*.apk' -print -quit)"
+          test -s "$APK"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test219'"
+          echo "$BADGING" | grep -F "versionCode='217'"
+          TUNNEL_SHA="$(awk '$2=="tunnel-client-runtime" {print $1}' dist/SHA256SUMS.txt)"
+          CLOUDFLARED_SHA="$(awk '$2=="cloudflared" {print $1}' dist/SHA256SUMS.txt)"
+          test "$(unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | cut -d ' ' -f1)" = "$TUNNEL_SHA"
+          test "$(unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum | cut -d ' ' -f1)" = "$CLOUDFLARED_SHA"
+          mkdir -p dist
+          cp "$APK" dist/buddy-baseline-debug.apk
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: buddy-autonomous-runtime-baseline-debug
+          path: dist/buddy-baseline-debug.apk
+ -count=1
       - name: Build Linux ARM64 Tunnel Client and cloudflared companions
         run: |
           mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
