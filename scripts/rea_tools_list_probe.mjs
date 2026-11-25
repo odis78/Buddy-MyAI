@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -25,7 +26,9 @@ try {
     Math.max(largest, Buffer.byteLength(JSON.stringify(tool), "utf8")), 0);
   if (tools.length !== 207) throw new Error(`Expected 207 public REA 6.5.0 tools, got ${tools.length}`);
   if (bytes > 2 * 1024 * 1024) throw new Error(`Compact REA catalog too large: ${bytes} bytes`);
-  console.log(JSON.stringify({ tools: tools.length, catalogBytes: bytes, largestToolBytes }));
+  const toolNames = tools.map(tool => tool.name).sort();
+  const toolsSha256 = createHash("sha256").update(JSON.stringify(tools)).digest("hex");
+  console.log(JSON.stringify({ tools: tools.length, catalogBytes: bytes, largestToolBytes, toolsSha256, toolNames }));
 } finally {
   await client.close();
 }
