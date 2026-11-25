@@ -18,7 +18,7 @@ mcp:
   oauth_discovery: disabled
   server_urls:
     - channel: main
-      url: "http://127.0.0.1:8766/mcp"
+      url: "http://127.0.0.1:8767/mcp"
   extra_headers:
     Authorization: "file:/tmp/buddy-runtime/buddy-auth-header"
   discovery_extra_headers:
