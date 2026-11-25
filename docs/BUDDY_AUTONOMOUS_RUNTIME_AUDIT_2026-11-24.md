@@ -63,16 +63,16 @@ Buddy уже содержит встроенную Linux-среду. Это не
 
 Ограничение текущей базы: найденные `Linux.exec()` и `McpServers` сами по себе ещё не доказывают наличие постоянного supervisor, который запускает несколько MCP stdio-серверов и Tunnel Client, контролирует их PID/готовность и безопасно перезапускает. Такой слой предстоит спроектировать и покрыть тестами.
 
-## 3. Tunnel Client v0.0.19
+## 3. Tunnel Client v0.0.21
 
 Исходный tag `openai/tunnel-client v0.0.19` разрешён в commit:
 
-`01d67bb4da0d8359b808b4761f8db171ab682cd7`
+`714f2d67844b660af25754f1d19b0360b346b13b`
 
 Проверенные признаки:
 
 - Это Go-проект, а не Node.js-пакет.
-- `go.mod` требует Go 1.27 и toolchain 1.27.3.
+- `go.mod` требует Go 1.27 и toolchain 1.27.4.
 - В репозитории есть отдельный узкий runtime target `cmd/client-runtime`, помимо полного CLI.
 - Runtime Dockerfile собирает его с `CGO_ENABLED=0` для целевых GOOS/GOARCH.
 - В upstream есть тесты runtime supervisor, health, process handling, конфигурации и совместимости.
@@ -87,7 +87,7 @@ Buddy уже содержит встроенную Linux-среду. Это не
 
 По recovery checkpoint и redacted GitHub report от 2026-11-24:
 
-- Buddy tunnel: Tunnel Client 0.0.19, профиль `buddy-myai`, отдельный каталог `~/.config/tunnel-client-buddy/`.
+- Buddy tunnel: Tunnel Client 0.0.21, профиль `buddy-myai`, отдельный каталог `~/.config/tunnel-client-buddy/`.
 - Buddy MCP local health endpoint: порт 39073; проверка `/healthz=live`, `/readyz=ready`.
 - Buddy MCP после запуска сообщил authenticated и 44 tools.
 - Реальный read-only вызов Buddy `device_status` завершился успешно.
@@ -297,7 +297,7 @@ The documented graph separates Buddy from the three REA helper profiles:
 
 The three REA profiles are an operational sequence, but the docs explicitly warn not to invent hard dependency edges between them without downstream consumer/health evidence. The Buddy profile is independent of the three-profile REA group. A future RuntimeManifest must preserve these groups and distinguish proven dependencies from ordering constraints.
 
-### Critical Tunnel Client v0.0.19 compatibility finding
+### Critical Tunnel Client v0.0.21 compatibility finding
 
 The native `runtimes connect` profile generator for HTTP targets writes a `server_urls` entry but omits `extra_headers` and `discovery_extra_headers`. Buddy MCP requires a Bearer Authorization header. Therefore, a blind migration of Buddy to `runtimes connect` would generate an incomplete profile and break authenticated MCP forwarding.
 
