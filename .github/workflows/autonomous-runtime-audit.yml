@@ -115,6 +115,7 @@ jobs:
           path: |
             dist/tunnel-client-runtime
             dist/cloudflared
+            dist/SHA256SUMS.txt
 
   tunnel-client-arm64-smoke:
     name: Execute pinned Tunnel Client on native ARM64 runner
