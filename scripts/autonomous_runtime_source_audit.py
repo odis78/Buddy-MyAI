@@ -197,6 +197,21 @@ add("runtime_lifecycle_primitives", "PASS" if runtime_primitives else "FAIL",
 add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
     "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
 
+lifecycle_gate = (
+    "RuntimeLifecycleGate" in runtime_service
+    and "startIfActive" in runtime_service
+    and "helperLifecycle.cleanup" in runtime_service
+    and (ROOT / "app/src/main/java/app/buddy/assistant/RuntimeLifecycleGate.java").is_file()
+    and (ROOT / "app/src/test/java/app/buddy/assistant/RuntimeLifecycleGateTest.java").is_file()
+)
+add("helper_start_stop_serialization", "PASS" if lifecycle_gate else "FAIL",
+    "Helper starts are serialized against shutdown cleanup, with concurrent start/stop regression tests")
+
+cleartext_enabled = 'android:usesCleartextTraffic="true"' in manifest
+add("global_cleartext_policy", "WARN" if cleartext_enabled else "PASS",
+    "Application-wide cleartext HTTP is enabled; trace HTTP consumers and constrain exceptions to required local/user-configured endpoints" if cleartext_enabled
+    else "Application-wide cleartext HTTP is disabled")
+
 add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
     "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
 add("release_signing_gate", "WARN",
