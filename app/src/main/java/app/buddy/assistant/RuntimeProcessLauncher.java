@@ -280,9 +280,27 @@ final class RuntimeProcessLauncher {
                     fd = Os.open(fifo.getAbsolutePath(), OsConstants.O_WRONLY | OsConstants.O_NONBLOCK, 0600);
                     int offset = 0;
                     while (offset < bytes.length) {
-                        int written = Os.write(fd, bytes, offset, bytes.length - offset);
-                        if (written <= 0) throw new IOException("Credential FIFO write made no progress");
-                        offset += written;
+                        if (!process.isAlive()) {
+                            throw new IOException("Tunnel Client exited during credential FIFO write");
+                        }
+                        if (System.currentTimeMillis() >= deadline) {
+                            throw new IOException("Tunnel Client credential FIFO write timed out");
+                        }
+                        try {
+                            int written = Os.write(fd, bytes, offset, bytes.length - offset);
+                            if (written <= 0) throw new IOException("Credential FIFO write made no progress");
+                            offset += written;
+                        } catch (android.system.ErrnoException e) {
+                            if (e.errno != OsConstants.EAGAIN) {
+                                throw new IOException("Credential FIFO write failed", e);
+                            }
+                            try {
+                                Thread.sleep(20);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException("Credential FIFO handoff interrupted", interrupted);
+                            }
+                        }
                     }
                     return;
                 } catch (android.system.ErrnoException e) {
