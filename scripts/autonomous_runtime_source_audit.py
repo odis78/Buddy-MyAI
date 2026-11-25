@@ -41,7 +41,7 @@ cloudflared_hardening = read("scripts/tunnel-client-runtime/cloudflared_dumpable
 cloudflared_hardening_test = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux_test.go")
 cloudflared_patch = read("scripts/patch_cloudflared_module.py")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
-workflow = read(".github/workflows/build.yml")
+workflow = read(".github/workflows/autonomous-runtime-audit.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
 
 def match(pattern: str, value: str) -> str | None:
@@ -91,6 +91,14 @@ add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
 static_oauth_disabled = "oauth_discovery: disabled" in runtime_profile and "oauth_discovery: disabled" in profile_fixture
 add("static_credential_oauth_discovery", "PASS" if static_oauth_disabled else "FAIL",
     "Buddy tunnel explicitly disables OAuth discovery for its static Bearer credential MCP server")
+tunnel_v021_ok = all(term in workflow for term in [
+    "714f2d67844b660af25754f1d19b0360b346b13b",
+    "golang:1.27.4-alpine",
+    "tunnel-client-v0.0.21-linux-arm64-runtime",
+    "TestStaticBearerWithOAuthDiscoveryDisabled",
+])
+add("tunnel_client_v021_static_bearer_e2e", "PASS" if tunnel_v021_ok else "FAIL",
+    "Pinned Tunnel Client v0.0.21 build and static-Bearer OAuth-disabled E2E regression are required in CI")
 cloudflared_profile_ok = "cloudflared:" in runtime_profile and "cloudflared:" in profile_fixture and "cloudflaredBinary.getAbsolutePath()" in runtime_profile
 add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
     "Buddy profile points to the separately bundled, pinned cloudflared companion")
