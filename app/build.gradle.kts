@@ -18,7 +18,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.buddy.myai"
+        applicationId = "app.buddy.myai.gt"
         minSdk = 30
         targetSdk = 36
         versionCode = appVersionCode
