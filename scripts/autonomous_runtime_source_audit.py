@@ -219,11 +219,12 @@ runtime_tests = all((ROOT / p).is_file() for p in [
     "app/src/test/java/app/buddy/assistant/RuntimeDependencyPlannerTest.java",
     "app/src/test/java/app/buddy/assistant/RuntimeProcessIdentityTest.java",
     "app/src/test/java/app/buddy/assistant/RuntimeStateMachineTest.java",
+    "app/src/test/java/app/buddy/assistant/RuntimeSupervisorTest.java",
 ])
 add("runtime_lifecycle_primitives", "PASS" if runtime_primitives else "FAIL",
     "Dependency planning, process identity and lifecycle state machine sources are present")
 add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
-    "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
+    "Focused JVM tests cover dependency validation, PID reuse identity, lifecycle transitions and interrupted supervisor startup")
 
 lifecycle_gate = (
     "RuntimeLifecycleGate" in runtime_service
