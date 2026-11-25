@@ -4,6 +4,7 @@ control_plane:
   tunnel_id: "tunnel_6b0070cbe1508191b1b1463fa6ffeaa2"
   api_key: "file:/tmp/buddy-rea/control-plane-api-key"
 cloudflared:
+  managed: true
   path: "/tmp/libcloudflared.so"
 health:
   listen_addr: "127.0.0.1:0"
