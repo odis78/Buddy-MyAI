@@ -15,7 +15,7 @@ public class RuntimeProfileWriterTest {
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
         String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
-        assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
+        assertTrue(yaml.contains("url: \"" + RuntimeProfileWriter.MCP_URL + "\""));
         assertTrue(yaml.contains("oauth_discovery: disabled"));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
@@ -25,6 +25,11 @@ public class RuntimeProfileWriterTest {
         assertFalse(yaml.contains("api_key: \"sk-"));
     }
 
+
+    @Test public void gtUsesDedicatedLoopbackPortBesideLegacyBuddy() {
+        assertEquals(8767, McpServer.PORT);
+        assertEquals("http://127.0.0.1:" + McpServer.PORT + "/mcp", RuntimeProfileWriter.MCP_URL);
+    }
 
     @Test public void generatedProfileMatchesPinnedRuntimeFixture() throws Exception {
         java.io.InputStream input = getClass().getClassLoader()
