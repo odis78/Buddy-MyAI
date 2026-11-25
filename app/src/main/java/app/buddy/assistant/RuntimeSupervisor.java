@@ -79,6 +79,15 @@ final class RuntimeSupervisor {
             machine.transition(RuntimeStateMachine.State.UNHEALTHY);
             stopInternal();
             return false;
+        } catch (InterruptedException e) {
+            // Preserve cancellation even when Starter.start() is interrupted before returning a Process handle.
+            Thread.currentThread().interrupt();
+            lastError = safeMessage(e);
+            if (machine.state() == RuntimeStateMachine.State.STARTING) {
+                machine.transition(RuntimeStateMachine.State.UNHEALTHY);
+            }
+            stopInternal();
+            throw e;
         } catch (Exception e) {
             lastError = safeMessage(e);
             if (machine.state() == RuntimeStateMachine.State.STARTING) {
