@@ -120,7 +120,7 @@ jobs:
               t.Fatalf("runtime-cloudflared rejected Buddy profile: %v", err)
             }
             expectedPath := filepath.Join(dir, "libcloudflared.so")
-            if cloudConfig.Cloudflared.Path != expectedPath {
+            if !cloudConfig.Cloudflared.Managed {\n              t.Fatal("Buddy profile must enable managed Cloudflare runtime provisioning")\n            }\n            if cloudConfig.Cloudflared.Path != expectedPath {
               t.Fatalf("cloudflared path = %q, want %q", cloudConfig.Cloudflared.Path, expectedPath)
             }
 
