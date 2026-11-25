@@ -88,6 +88,9 @@ profile_auth_ok = all(term in runtime_profile and term in profile_fixture for te
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
+static_oauth_disabled = "oauth_discovery: disabled" in runtime_profile and "oauth_discovery: disabled" in profile_fixture
+add("static_credential_oauth_discovery", "PASS" if static_oauth_disabled else "FAIL",
+    "Buddy tunnel explicitly disables OAuth discovery for its static Bearer credential MCP server")
 cloudflared_profile_ok = "cloudflared:" in runtime_profile and "cloudflared:" in profile_fixture and "cloudflaredBinary.getAbsolutePath()" in runtime_profile
 add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
     "Buddy profile points to the separately bundled, pinned cloudflared companion")
