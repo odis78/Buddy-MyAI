@@ -78,11 +78,11 @@ add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so"
     "Buddy has an app-private Alpine rootfs installer and PRoot command builder" if "ALPINE_SHA256" in linux and "libproot.so" in linux else "Required PRoot markers missing")
 add("child_process_launch", "PASS" if "Linux.builder(app, cmd).start()" in helper else "FAIL",
     "Existing Helper launches child processes inside Buddy Linux")
-add("local_mcp_server", "PASS" if "PORT = 8767" in mcp and "127.0.0.1" in mcp else "FAIL",
-    "Buddy GT local MCP endpoint is bound to loopback port 8767")
-side_by_side_port_ok = all(term in runtime_profile_test for term in ["assertEquals(8767, McpServer.PORT)", "RuntimeProfileWriter.MCP_URL"]) and "McpServer.PORT" in runtime_profile and "127.0.0.1:8767/mcp" in profile_fixture and "127.0.0.1:8766/mcp" not in runtime_profile
+add("local_mcp_server", "PASS" if "PORT = 18766" in mcp and "127.0.0.1" in mcp else "FAIL",
+    "Buddy GT local MCP endpoint is bound to loopback port 18766")
+side_by_side_port_ok = all(term in runtime_profile_test for term in ["assertEquals(18766, McpServer.PORT)", "RuntimeProfileWriter.MCP_URL"]) and "McpServer.PORT" in runtime_profile and "127.0.0.1:18766/mcp" in profile_fixture and "127.0.0.1:8766/mcp" not in runtime_profile
 add("legacy_loopback_port_isolation", "PASS" if side_by_side_port_ok else "FAIL",
-    "GT uses 127.0.0.1:8767 while legacy Buddy retains 127.0.0.1:8766; profile URL is derived from the server port")
+    "GT uses 127.0.0.1:18766 while legacy Buddy retains 127.0.0.1:8766 and auxiliary listener 8767; profile URL is derived from the server port")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
 add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "EXPECTED_CLOUDFLARED_SHA256", "nativeLibraryDir", "locateCloudflared", "MessageDigest"]) else "FAIL",
