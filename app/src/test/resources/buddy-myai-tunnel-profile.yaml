@@ -15,6 +15,7 @@ log:
   format: json
   file: "/tmp/buddy-runtime/tunnel-client.log"
 mcp:
+  oauth_discovery: disabled
   server_urls:
     - channel: main
       url: "http://127.0.0.1:8766/mcp"
