@@ -281,7 +281,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
-      - name: Assemble existing side-by-side debug APK
+      - name: Assemble isolated side-by-side test220 debug APK
         run: ./gradlew --no-daemon assembleGithubDebug
       - name: Verify APK signature and package metadata
         run: |
@@ -290,35 +290,17 @@ jobs:
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test219'"
-          echo "$BADGING" | grep -F "versionCode='218'"
+          echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test220'"
+          echo "$BADGING" | grep -F "versionCode='219'"
           unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e'
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
-      - name: Download previous version 217 APK for signing comparison
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: buddy-autonomous-runtime-baseline-debug
-          run-id: 45564388262
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: previous-version
-      - name: Compare APK signing certificate with version 217
+      - name: Record isolated candidate signing identity
         run: |
-          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
-          OLD_APK="$(find previous-version -name '*.apk' | head -n 1)"
-          NEW_APK="$(find app/build/outputs/apk/github/debug -name '*.apk' | head -n 1)"
-          OLD_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$OLD_APK" | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}')"
-          NEW_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$NEW_APK" | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}')"
-          echo "Version 217 signer SHA-256: $OLD_CERT"
-          echo "Version 218 signer SHA-256: $NEW_CERT"
-          if [ "$OLD_CERT" = "$NEW_CERT" ]; then
-            echo "SIGNING_COMPATIBILITY=PASS"
-            echo "Version 218 is signed by the same certificate as the previous version 217 candidate." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::Version 218 signer differs from version 217. Do not install as an in-place update until the installed package certificate is checked."
-            echo "SIGNING_COMPATIBILITY=WARN"
-            echo "Version 218 signer differs from version 217. Device-side signature comparison is required before installation." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          APK="$(find app/build/outputs/apk/github/debug -name '*.apk' -print -quit)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | grep -E 'Verified using|certificate SHA-256 digest:'
+          echo "PACKAGE_ISOLATION=app.buddy.myai.gt.test220" >> "$GITHUB_STEP_SUMMARY"
+          echo "The candidate uses a new package ID and is installed side-by-side; it does not replace test219 or the production package." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: buddy-autonomous-runtime-baseline-debug
