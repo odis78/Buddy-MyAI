@@ -43,22 +43,69 @@ jobs:
         env:
           NDK_VERSION: 27.2.12479018
 
-      # Release signing is optional: add the BUDDY_KEYSTORE_BASE64 and BUDDY_KEYSTORE_PASSWORD
-      # repository secrets to get a signed APK; otherwise the APK is unsigned.
-      - name: Decode signing key
+      # A manually dispatched GT release build must never silently produce an unsigned APK.
+      # The certificate fingerprint is a separate secret so the configured key identity is pinned.
+      - name: Require GT release signing material
+        if: github.ref == 'refs/heads/experiment/tunnel-client-v0.0.21-oauth-20261125' && github.event_name == 'workflow_dispatch'
         env:
           KEYSTORE_BASE64: ${{ secrets.BUDDY_KEYSTORE_BASE64 }}
-        if: env.KEYSTORE_BASE64 != ''
+          KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ secrets.BUDDY_CERT_SHA256 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          echo "BUDDY_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          set -euo pipefail
+          [[ -n "$KEYSTORE_BASE64" ]] || { echo "::error::Missing secret BUDDY_KEYSTORE_BASE64"; exit 1; }
+          [[ -n "$KEYSTORE_PASSWORD" ]] || { echo "::error::Missing secret BUDDY_KEYSTORE_PASSWORD"; exit 1; }
+          [[ -n "$EXPECTED_CERT_SHA256" ]] || { echo "::error::Missing secret BUDDY_CERT_SHA256"; exit 1; }
+
+      - name: Decode and verify GT release signing key
+        if: github.ref == 'refs/heads/experiment/tunnel-client-v0.0.21-oauth-20261125' && github.event_name == 'workflow_dispatch'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BUDDY_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ secrets.BUDDY_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          test -s "$RUNNER_TEMP/release.jks"
+          alias="${KEY_ALIAS:-buddy}"
+          actual="$(keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$alias" 2>/dev/null | awk -F': ' '/SHA256:/{print $2; exit}' | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          [[ "$actual" =~ ^[0-9A-F]{64}$ ]] || { echo "::error::Could not read a SHA-256 certificate fingerprint from the configured keystore"; exit 1; }
+          [[ "$expected" =~ ^[0-9A-F]{64}$ ]] || { echo "::error::BUDDY_CERT_SHA256 must contain a  SHA-256 certificate fingerprint"; exit 1; }
+          [[ "$actual" == "$expected" ]] || { echo "::error::Release keystore certificate fingerprint does not match BUDDY_CERT_SHA256"; exit 1; }
+          {
+            echo "BUDDY_KEYSTORE=$RUNNER_TEMP/release.jks"
+            echo "BUDDY_KEY_ALIAS=$alias"
+            echo "BUDDY_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          echo "Verified configured release certificate fingerprint: $actual"
 
       # github: the release here. fdroid: F-Droid builds it from this source too, and ships this signed copy when its
       # own build comes out identical (reproducible builds), so users can switch between the two.
       - name: Build release APKs (GitHub and F-Droid)
         env:
           BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
+          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleGithubRelease assembleFdroidRelease
+
+      - name: Verify GT release APK signature and certificate identity
+        if: github.ref == 'refs/heads/experiment/tunnel-client-v0.0.21-oauth-20261125' && github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.BUDDY_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          export PATH="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1):$PATH"
+          apk="$(find app/build/outputs/apk/github/release -name '*.apk' | head -1)"
+          test -n "$apk"
+          apksigner verify --verbose "$apk"
+          actual="$(apksigner verify --print-certs "$apk" | awk -F': ' '/Signer #1 certificate SHA-256 digest:/{print $2; exit}' | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          [[ "$actual" == "$expected" ]] || { echo "::error::Signed APK certificate fingerprint does not match BUDDY_CERT_SHA256"; exit 1; }
+          echo "GT release APK signature and certificate fingerprint verified"
 
       - name: Build installable side-by-side test APK
         if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
