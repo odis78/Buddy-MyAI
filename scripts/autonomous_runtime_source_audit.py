@@ -43,6 +43,7 @@ cloudflared_hardening_test = read("scripts/tunnel-client-runtime/cloudflared_dum
 cloudflared_patch = read("scripts/patch_cloudflared_module.py")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
 workflow = read(".github/workflows/autonomous-runtime-audit.yml")
+build_workflow = read(".github/workflows/build.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
 
 def match(pattern: str, value: str) -> str | None:
@@ -245,8 +246,16 @@ add("global_cleartext_policy", "WARN" if cleartext_enabled else "PASS",
 
 add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
     "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
+gt_release_signing_gate = all(term in build_workflow for term in [
+    "BUDDY_KEYSTORE_BASE64", "BUDDY_KEYSTORE_PASSWORD", "BUDDY_CERT_SHA256",
+    "Require GT release signing material", "keytool -list -v",
+    "apksigner verify --print-certs",
+    "refs/heads/experiment/tunnel-client-v0.0.21-oauth-20261125",
+])
+add("gt_release_signing_identity_gate", "PASS" if gt_release_signing_gate else "FAIL",
+    "Manual GT release builds require a private keystore, store password and pinned SHA-256 certificate fingerprint; the built APK signature is checked against that fingerprint")
 add("release_signing_gate", "WARN",
-    "Workflow has optional signing hooks, but actual release keystore availability and certificate identity are not verified")
+    "Release signing workflow is fail-closed for manual GT builds, but repository secret availability and the actual certificate identity still require a successful signed release run")
 add("gt_package_line", "PASS" if app_id == "app.buddy.myai.gt" else "WARN",
     f"GT package identity is correctly set to {app_id}" if app_id == "app.buddy.myai.gt" else f"Expected app.buddy.myai.gt, found {app_id}")
 report = {
