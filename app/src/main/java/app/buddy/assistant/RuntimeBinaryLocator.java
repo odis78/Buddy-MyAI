@@ -15,7 +15,7 @@ import java.security.MessageDigest;
 final class RuntimeBinaryLocator {
     static final String LIBRARY_NAME = "libtunnel-client.so";
     static final String CLOUDFLARED_LIBRARY_NAME = "libcloudflared.so";
-    static final String EXPECTED_SHA256 = "f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e";
+    static final String EXPECTED_SHA256 = "f40615e3af90b9e3740c51f9dcd3664c301997dbd6c5549a1cfd26d2c28117ed";
     static final String EXPECTED_CLOUDFLARED_SHA256 = "2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7";
 
     private RuntimeBinaryLocator() { }
