@@ -239,8 +239,8 @@ jobs:
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='app.buddy.myai.test219'"
-          echo "$BADGING" | grep -F "versionCode='216'"
+          echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test219'"
+          echo "$BADGING" | grep -F "versionCode='217'"
           unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e'
           test "$(unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum | cut -d ' ' -f1)" = '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7'
           mkdir -p dist
