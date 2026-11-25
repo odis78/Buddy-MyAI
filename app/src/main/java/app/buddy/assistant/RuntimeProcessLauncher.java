@@ -142,19 +142,23 @@ final class RuntimeProcessLauncher {
         AtomicReference<IOException> failure = new AtomicReference<>();
         Thread writer = writer(process, fifo, secret, failure);
         writer.start();
-        long deadline = System.currentTimeMillis() + 15000;
-        while (writer.isAlive()) {
-            if (failure.get() != null) throw failure.get();
-            if (!process.isAlive()) throw new IOException("Tunnel Client exited during API key handoff");
-            if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client API key handoff timed out");
-            try {
-                Thread.sleep(40);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Tunnel Client API key handoff interrupted", e);
+        try {
+            long deadline = System.currentTimeMillis() + 15000;
+            while (writer.isAlive()) {
+                if (failure.get() != null) throw failure.get();
+                if (!process.isAlive()) throw new IOException("Tunnel Client exited during API key handoff");
+                if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client API key handoff timed out");
+                try {
+                    Thread.sleep(40);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Tunnel Client API key handoff interrupted", e);
+                }
             }
+            if (failure.get() != null) throw failure.get();
+        } finally {
+            stopWriters(writer);
         }
-        if (failure.get() != null) throw failure.get();
     }
 
     static ProcessBuilder createProcessBuilder(File binary, File config, File runtimeDir) {
@@ -207,19 +211,49 @@ final class RuntimeProcessLauncher {
         authWriter.start();
         discoveryWriter.start();
 
-        long deadline = System.currentTimeMillis() + 15000;
-        while (apiWriter.isAlive() || authWriter.isAlive() || discoveryWriter.isAlive()) {
+        try {
+            long deadline = System.currentTimeMillis() + 15000;
+            while (apiWriter.isAlive() || authWriter.isAlive() || discoveryWriter.isAlive()) {
+                if (failure.get() != null) throw failure.get();
+                if (!process.isAlive()) throw new IOException("Tunnel Client exited during credential handoff");
+                if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client credential handoff timed out");
+                try {
+                    Thread.sleep(40);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Tunnel Client credential handoff interrupted", e);
+                }
+            }
             if (failure.get() != null) throw failure.get();
-            if (!process.isAlive()) throw new IOException("Tunnel Client exited during credential handoff");
-            if (System.currentTimeMillis() >= deadline) throw new IOException("Tunnel Client credential handoff timed out");
-            try {
-                Thread.sleep(40);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Tunnel Client credential handoff interrupted", e);
+        } finally {
+            stopWriters(apiWriter, authWriter, discoveryWriter);
+        }
+    }
+
+    /**
+     * Ensure credential writers do not outlive the handoff attempt. FIFO opens are
+     * non-blocking and retry sleeps are interruptible, so cancellation is bounded.
+     */
+    private static void stopWriters(Thread... writers) {
+        for (Thread writer : writers) {
+            if (writer != null && writer.isAlive()) writer.interrupt();
+        }
+        boolean interrupted = false;
+        long deadline = System.currentTimeMillis() + 1000;
+        for (Thread writer : writers) {
+            if (writer == null) continue;
+            while (writer.isAlive()) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) break;
+                try {
+                    writer.join(Math.min(remaining, 100));
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                    break;
+                }
             }
         }
-        if (failure.get() != null) throw failure.get();
+        if (interrupted) Thread.currentThread().interrupt();
     }
 
     private static Thread writer(Process process, File fifo, String value,
