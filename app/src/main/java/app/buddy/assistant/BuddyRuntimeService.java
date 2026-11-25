@@ -38,6 +38,7 @@ public final class BuddyRuntimeService extends Service {
     private ScheduledFuture<?> reaRetryTask;
     private RuntimeRecoveryPolicy reaRecovery;
     private volatile boolean stopping;
+    private final RuntimeLifecycleGate helperLifecycle = new RuntimeLifecycleGate();
     private boolean retryScheduled;
     private boolean reaRetryScheduled;
 
@@ -161,19 +162,25 @@ public final class BuddyRuntimeService extends Service {
             // another helper after cancellation; requestStop() performs final supervisor cleanup.
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
-            boolean bridgeReady = bridgeSupervisor.start();
+            Boolean bridgeResult = helperLifecycle.startIfActive(() -> bridgeSupervisor.start());
+            if (bridgeResult == null) return;
+            boolean bridgeReady = bridgeResult;
             if (stopping || Thread.currentThread().isInterrupted()) return;
             setBridgePersistentState(bridgeReady ? "READY" : "WAITING",
                     bridgeReady ? "6 tools; Bridge 0.1.3" : bridgeSupervisor.lastError());
 
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            boolean droidReady = droidMcpSupervisor.start();
+            Boolean droidResult = helperLifecycle.startIfActive(() -> droidMcpSupervisor.start());
+            if (droidResult == null) return;
+            boolean droidReady = droidResult;
             if (stopping || Thread.currentThread().isInterrupted()) return;
             setDroidPersistentState(droidReady ? "READY" : "WAITING",
                     droidReady ? "5 read-only tools; DroidMCP 0.4.0" : droidMcpSupervisor.lastError());
 
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            boolean reaReady = reaSupervisor.start();
+            Boolean reaResult = helperLifecycle.startIfActive(() -> reaSupervisor.start());
+            if (reaResult == null) return;
+            boolean reaReady = reaResult;
             if (stopping || Thread.currentThread().isInterrupted()) return;
             setReaPersistentState(reaReady ? "READY" : "WAITING",
                     reaReady ? "207 tools; 6 prompts" : reaSupervisor.lastError());
@@ -236,6 +243,7 @@ public final class BuddyRuntimeService extends Service {
 
     private void requestStop() {
         stopping = true;
+        helperLifecycle.markStopping();
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
         if (reaMonitorTask != null) reaMonitorTask.cancel(true);
@@ -250,9 +258,11 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
-            if (bridgeSupervisor != null) bridgeSupervisor.stop();
-            if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
-            if (reaSupervisor != null) reaSupervisor.stop();
+            helperLifecycle.cleanup(() -> {
+                if (bridgeSupervisor != null) bridgeSupervisor.stop();
+                if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
+                if (reaSupervisor != null) reaSupervisor.stop();
+            });
             setPersistentState("STOPPED", "");
             setBridgePersistentState("STOPPED", "");
             setDroidPersistentState("STOPPED", "");
@@ -348,14 +358,17 @@ public final class BuddyRuntimeService extends Service {
 
     @Override public void onDestroy() {
         stopping = true;
+        helperLifecycle.markStopping();
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
         if (reaMonitorTask != null) reaMonitorTask.cancel(true);
         if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
-        if (bridgeSupervisor != null) bridgeSupervisor.stop();
-        if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
-        if (reaSupervisor != null) reaSupervisor.stop();
+        helperLifecycle.cleanup(() -> {
+            if (bridgeSupervisor != null) bridgeSupervisor.stop();
+            if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
+            if (reaSupervisor != null) reaSupervisor.stop();
+        });
         if (executor != null) executor.shutdownNow();
         if (helperExecutor != null) helperExecutor.shutdownNow();
         super.onDestroy();
