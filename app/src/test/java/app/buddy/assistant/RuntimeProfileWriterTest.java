@@ -16,6 +16,7 @@ public class RuntimeProfileWriterTest {
     @Test public void profilePreservesBothBearerHeaderMaps() {
         String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
+        assertFalse(yaml.contains("cloudflared:"));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
         assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-discovery-auth-header\""));
@@ -46,6 +47,7 @@ public class RuntimeProfileWriterTest {
         assertTrue(yaml.contains("commands:\n    - channel: main\n      command: \"" + REA_COMMAND + "\""));
         assertTrue(yaml.contains("REA_MCP_INPUT_SCHEMA_PROFILE=compact"));
         assertTrue(yaml.contains("REA_MCP_OUTPUT_SCHEMA_PROFILE=off"));
+        assertFalse(yaml.contains("cloudflared:"));
         assertFalse(yaml.contains("server_urls:"));
         assertFalse(yaml.contains("Bearer "));
     }
