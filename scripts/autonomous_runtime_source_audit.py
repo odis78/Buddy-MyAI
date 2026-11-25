@@ -255,7 +255,7 @@ local_http_scope_ok = (
     and 'url.startsWith("http://") && Providers.isLocal(url)' in mcp_servers
     and 'path.matches("http://' in tools_source and "localhost" in tools_source and "127" in tools_source
     and 'new URL("http://127.0.0.1:" + PORT + "/health")' in on_phone
-    and '"127.0.0.1:" + base.getPort() + "/readyz"' in runtime_health
+    and 'new URL("http://127.0.0.1:" + base.getPort() + "/readyz")' in runtime_health
 )
 add("user_configured_local_http_scope", "PASS" if local_http_scope_ok else "FAIL",
     "HTTP custom AI and MCP endpoints are accepted only for HTTPS or classified local hosts; APK fetching and runtime readiness HTTP are loopback-only. Dynamic private-LAN/Tailscale/.local support prevents a safe static domain allowlist without breaking local models")
