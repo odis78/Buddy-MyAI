@@ -123,7 +123,7 @@ jobs:
               t.Fatalf("standard runtime rejected Buddy profile: %v", err)
             }
 
-            unsupported := strings.Replace(string(data), "health:\\n", "cloudflared:\\n  path: /tmp/cloudflared\\nhealth:\\n", 1)
+            unsupported := strings.Replace(string(data), "health:\n", "cloudflared:\n  path: /tmp/cloudflared\nhealth:\n", 1)
             unsupported = strings.ReplaceAll(unsupported, "/tmp/buddy-runtime", dir)
             if err := os.WriteFile(configPath, []byte(unsupported), 0o600); err != nil {
               t.Fatal(err)
