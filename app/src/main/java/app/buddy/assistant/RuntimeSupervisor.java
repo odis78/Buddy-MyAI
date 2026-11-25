@@ -13,7 +13,6 @@ final class RuntimeSupervisor {
 
     interface Starter { Process start() throws Exception; }
 
-    private final Context app;
     private final RuntimeStateMachine machine = new RuntimeStateMachine();
     private final Starter starter;
     private final boolean requireBuddyMcp;
@@ -22,12 +21,15 @@ final class RuntimeSupervisor {
     private String lastError = "";
 
     RuntimeSupervisor(Context context) {
-        this(context, new File(context.getApplicationContext().getFilesDir(), "runtime/tunnel-client"),
+        this(new File(context.getApplicationContext().getFilesDir(), "runtime/tunnel-client"),
                 () -> RuntimeProcessLauncher.startConfigured(context.getApplicationContext()), true);
     }
 
     RuntimeSupervisor(Context context, File runtimeDirectory, Starter processStarter, boolean requiresBuddyMcp) {
-        this.app = context.getApplicationContext();
+        this(runtimeDirectory, processStarter, requiresBuddyMcp);
+    }
+
+    RuntimeSupervisor(File runtimeDirectory, Starter processStarter, boolean requiresBuddyMcp) {
         if (runtimeDirectory == null || processStarter == null) {
             throw new IllegalArgumentException("Runtime supervisor inputs are incomplete");
         }
