@@ -34,6 +34,9 @@ runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsAc
 manifest = read("app/src/main/AndroidManifest.xml")
 runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
+stdio_profile_fixtures = [read("app/src/test/resources/" + name) for name in [
+    "rea-mcp-tunnel-profile.yaml", "bridge-mcp-tunnel-profile.yaml", "droidmcp-tunnel-profile.yaml"
+]]
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
 runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
@@ -101,7 +104,9 @@ profile_auth_ok = all(term in runtime_profile and term in profile_fixture for te
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
-cloudflared_profile_ok = "cloudflared:" in runtime_profile and "cloudflared:" in profile_fixture and "cloudflaredBinary.getAbsolutePath()" in runtime_profile and "managed: true" in runtime_profile and "managed: true" in profile_fixture
+cloudflared_profile_ok = ("cloudflared:" in runtime_profile and "cloudflaredBinary.getAbsolutePath()" in runtime_profile
+    and "managed: true" in runtime_profile and "managed: true" in profile_fixture
+    and all("managed: true" in fixture for fixture in stdio_profile_fixtures))
 add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
     "Buddy profile points to the separately bundled, pinned cloudflared companion")
 rea_runtime_ok = (
