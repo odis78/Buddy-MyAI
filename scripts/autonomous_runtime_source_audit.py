@@ -162,6 +162,10 @@ supervisor_ok = all(term in runtime_supervisor for term in [
 ])
 add("runtime_process_supervisor", "PASS" if supervisor_ok else "FAIL",
     "Supervisor owns an exact Process handle, gates on loopback MCP and health, and stops only that handle")
+
+port_diagnostic_ok = '"Buddy MCP listener on 127.0.0.1:" + McpServer.PORT' in runtime_supervisor
+add("runtime_port_diagnostic_consistency", "PASS" if port_diagnostic_ok else "FAIL",
+    "Runtime readiness errors derive the displayed MCP port from the same constant used by the listener and profile")
 fgs_ok = (
     "FOREGROUND_SERVICE_TYPE_SPECIAL_USE" in runtime_service
     and "foregroundServiceType=\"specialUse\"" in manifest
