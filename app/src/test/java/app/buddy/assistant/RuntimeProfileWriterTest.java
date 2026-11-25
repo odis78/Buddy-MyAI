@@ -27,7 +27,7 @@ public class RuntimeProfileWriterTest {
 
 
     @Test public void gtUsesDedicatedLoopbackPortBesideLegacyBuddy() {
-        assertEquals(8767, McpServer.PORT);
+        assertEquals(18766, McpServer.PORT);
         assertEquals("http://127.0.0.1:" + McpServer.PORT + "/mcp", RuntimeProfileWriter.MCP_URL);
     }
 
