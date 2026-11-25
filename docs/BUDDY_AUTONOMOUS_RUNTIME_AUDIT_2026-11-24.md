@@ -345,3 +345,13 @@ Still mandatory: real Android-device execution and reboot tests, ChatGPT-origina
 - The REA server is launched as a stdio child through the app's bundled PRoot executable. It does not require Termux.
 - The REA tunnel uses the route identity recovered from the Termux checkpoint. Its MCP environment sets `REA_MCP_INPUT_SCHEMA_PROFILE=compact` and `REA_MCP_OUTPUT_SCHEMA_PROFILE=off` to reduce catalog payload size and mitigate the earlier ChatGPT observation-result limit.
 - CI on Alpine ARM64 confirmed the public 6.5.0 package is healthy with **207 tools and 6 prompts**. The prior Termux environment reported 208 tools and 6 prompts, so one local-only tool is not present in the public npm release. Do not claim exact 208-tool parity until that extra local tool is identified and ported. Buddy's own MCP catalog remains a separate channel.
+
+
+## 3A. Проверенный экспериментальный runtime v0.0.21
+
+- Upstream commit: `714f2d67844b660af25754f1d19b0360b346b13b`.
+- Go toolchain: `1.27.4`.
+- Static MCP Bearer profile explicitly sets `mcp.oauth_discovery: disabled`; normal MCP initialization and Bearer forwarding remain enabled.
+- Linux ARM64 runtime SHA-256: `146528159cefb43166f15483f99c3fece76b7f61d95f9dc7b1b94f3ad9bfbe16`.
+- cloudflared 2026.10.2 SHA-256: `a6518f32fda8e4ba417c7a18f770be4487b98ffb77437404f1b17df01ce23277`.
+- These hashes are pinned in `RuntimeBinaryLocator.java`; they must be regenerated and re-verified if the upstream commit or build inputs change.
