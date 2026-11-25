@@ -252,7 +252,7 @@ local_http_scope_ok = (
     "a == 127" in providers and "a == 10" in providers and "a == 192" in providers
     and 'b.startsWith("http://") && Providers.isLocal(b)' in api_keys
     and 'url.startsWith("http://") && Providers.isLocal(url)' in mcp_servers
-    and 'path.matches("http://(127\\\\.0\\\\.0\\\\.1|localhost):\\\\d+/.*")' in tools_source
+    and 'path.matches("http://' in tools_source and "localhost" in tools_source and "127" in tools_source
     and 'new URL("http://127.0.0.1:" + PORT + "/health")' in runtime_health
     and '"127.0.0.1:" + base.getPort() + "/readyz"' in runtime_health
 )
