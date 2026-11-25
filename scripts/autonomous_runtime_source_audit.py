@@ -18,6 +18,11 @@ version = read("app/src/main/java/app/buddy/assistant/BuildInfo.java")
 linux = read("app/src/main/java/app/buddy/assistant/Linux.java")
 helper = read("app/src/main/java/app/buddy/assistant/Helper.java")
 mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
+providers = read("app/src/main/java/app/buddy/assistant/Providers.java")
+api_keys = read("app/src/main/java/app/buddy/assistant/ApiKeysActivity.java")
+mcp_servers = read("app/src/main/java/app/buddy/assistant/McpServers.java")
+tools_source = read("app/src/main/java/app/buddy/assistant/Tools.java")
+runtime_health = read("app/src/main/java/app/buddy/assistant/RuntimeHealthProbe.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
@@ -241,8 +246,18 @@ add("helper_startup_failure_isolation", "PASS" if helper_failure_isolation else 
 
 cleartext_enabled = 'android:usesCleartextTraffic="true"' in manifest
 add("global_cleartext_policy", "WARN" if cleartext_enabled else "PASS",
-    "Application-wide cleartext HTTP is enabled; trace HTTP consumers and constrain exceptions to required local/user-configured endpoints" if cleartext_enabled
+    "Application-wide cleartext HTTP remains enabled for user-configured local AI/MCP servers on dynamic private-LAN, Tailscale and .local addresses; this is a documented compatibility trade-off, not a loopback-only policy" if cleartext_enabled
     else "Application-wide cleartext HTTP is disabled")
+local_http_scope_ok = (
+    "a == 127" in providers and "a == 10" in providers and "a == 192" in providers
+    and 'b.startsWith("http://") && Providers.isLocal(b)' in api_keys
+    and 'url.startsWith("http://") && Providers.isLocal(url)' in mcp_servers
+    and 'path.matches("http://(127\\\\.0\\\\.0\\\\.1|localhost):\\\\d+/.*")' in tools_source
+    and 'new URL("http://127.0.0.1:" + PORT + "/health")' in runtime_health
+    and '"127.0.0.1:" + base.getPort() + "/readyz"' in runtime_health
+)
+add("user_configured_local_http_scope", "PASS" if local_http_scope_ok else "FAIL",
+    "HTTP custom AI and MCP endpoints are accepted only for HTTPS or classified local hosts; APK fetching and runtime readiness HTTP are loopback-only. Dynamic private-LAN/Tailscale/.local support prevents a safe static domain allowlist without breaking local models")
 
 add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
     "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
