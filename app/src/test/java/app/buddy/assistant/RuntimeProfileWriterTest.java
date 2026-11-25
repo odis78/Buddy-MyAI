@@ -16,6 +16,7 @@ public class RuntimeProfileWriterTest {
     @Test public void profilePreservesBothBearerHeaderMaps() {
         String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
+        assertTrue(yaml.contains("oauth_discovery: disabled"));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
         assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-discovery-auth-header\""));
@@ -119,6 +120,7 @@ public class RuntimeProfileWriterTest {
             String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
             assertTrue(yaml.contains(TUNNEL));
             assertTrue(yaml.contains("discovery_extra_headers"));
+            assertTrue(yaml.contains("oauth_discovery: disabled"));
             assertFalse(new File(dir, "buddy-myai.yaml.installing").exists());
         } finally {
             target.delete();
