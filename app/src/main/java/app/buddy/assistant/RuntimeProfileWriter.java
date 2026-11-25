@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Writes Buddy's Tunnel Client profile directly instead of using the v0.0.19 connect-profile generator.
+ * Writes Buddy's Tunnel Client profile directly instead of using the upstream connect-profile generator.
  * Both authenticated MCP header maps are explicit and credentials remain app-private file references.
  */
 final class RuntimeProfileWriter {
@@ -47,6 +47,7 @@ final class RuntimeProfileWriter {
                 + "  format: json\n"
                 + "  file: \"" + yamlQuote(dir + "/tunnel-client.log") + "\"\n"
                 + "mcp:\n"
+                + "  oauth_discovery: disabled\n"
                 + "  server_urls:\n"
                 + "    - channel: main\n"
                 + "      url: \"" + MCP_URL + "\"\n"
