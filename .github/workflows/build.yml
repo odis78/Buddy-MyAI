@@ -104,8 +104,8 @@ jobs:
       - name: Build release APKs (GitHub and F-Droid)
         env:
           BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
-          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
-          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
+          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS || 'buddy' }}
+          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD || secrets.BUDDY_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon assembleGithubRelease assembleFdroidRelease
 
       - name: Verify GT release APK signature and certificate identity
