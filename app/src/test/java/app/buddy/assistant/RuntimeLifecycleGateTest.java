@@ -14,12 +14,15 @@ public class RuntimeLifecycleGateTest {
         CountDownLatch releaseStart = new CountDownLatch(1);
         AtomicBoolean cleanupRan = new AtomicBoolean(false);
         AtomicBoolean cleanupOverlappedStart = new AtomicBoolean(false);
+        AtomicBoolean startActionActive = new AtomicBoolean(false);
 
         Thread starter = new Thread(() -> {
             try {
                 gate.startIfActive(() -> {
+                    startActionActive.set(true);
                     startEntered.countDown();
                     if (!releaseStart.await(3, TimeUnit.SECONDS)) throw new AssertionError("start release timed out");
+                    startActionActive.set(false);
                     return true;
                 });
             } catch (Exception e) { throw new AssertionError(e); }
@@ -29,7 +32,7 @@ public class RuntimeLifecycleGateTest {
 
         gate.markStopping();
         Thread cleanup = new Thread(() -> gate.cleanup(() -> {
-            cleanupOverlappedStart.set(starter.isAlive());
+            cleanupOverlappedStart.set(startActionActive.get());
             cleanupRan.set(true);
         }));
         cleanup.start();
