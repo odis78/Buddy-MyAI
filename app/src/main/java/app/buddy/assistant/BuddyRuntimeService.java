@@ -147,14 +147,29 @@ public final class BuddyRuntimeService extends Service {
         if (stopping || reaSupervisor == null) return;
         try {
             ReaRuntimeInstaller.ensureReady(getApplicationContext(),
-                    message -> updateNotification(getString(R.string.runtime_notification_rea_installing, message)));
+                    message -> {
+                        if (!stopping) {
+                            updateNotification(getString(R.string.runtime_notification_rea_installing, message));
+                        }
+                    });
+            // Stop may arrive while the installer is preparing assets. Never advance to
+            // another helper after cancellation; requestStop() performs final supervisor cleanup.
+            if (stopping || Thread.currentThread().isInterrupted()) return;
+
             boolean bridgeReady = bridgeSupervisor.start();
+            if (stopping || Thread.currentThread().isInterrupted()) return;
             setBridgePersistentState(bridgeReady ? "READY" : "WAITING",
                     bridgeReady ? "6 tools; Bridge 0.1.3" : bridgeSupervisor.lastError());
+
+            if (stopping || Thread.currentThread().isInterrupted()) return;
             boolean droidReady = droidMcpSupervisor.start();
+            if (stopping || Thread.currentThread().isInterrupted()) return;
             setDroidPersistentState(droidReady ? "READY" : "WAITING",
                     droidReady ? "5 read-only tools; DroidMCP 0.4.0" : droidMcpSupervisor.lastError());
+
+            if (stopping || Thread.currentThread().isInterrupted()) return;
             boolean reaReady = reaSupervisor.start();
+            if (stopping || Thread.currentThread().isInterrupted()) return;
             setReaPersistentState(reaReady ? "READY" : "WAITING",
                     reaReady ? "207 tools; 6 prompts" : reaSupervisor.lastError());
             if (bridgeReady && droidReady && reaReady) {
