@@ -40,9 +40,6 @@ stdio_profile_fixtures = [read("app/src/test/resources/" + name) for name in [
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
 runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
-cloudflared_hardening = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux.go")
-cloudflared_hardening_test = read("scripts/tunnel-client-runtime/cloudflared_dumpable_linux_test.go")
-cloudflared_patch = read("scripts/patch_cloudflared_module.py")
 runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
 runtime_workflow = read(".github/workflows/autonomous-runtime-audit.yml")
 audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
@@ -84,31 +81,31 @@ add("local_mcp_server", "PASS" if "PORT = 8766" in mcp and "127.0.0.1" in mcp el
     "Buddy local MCP endpoint source markers")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
-add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "EXPECTED_CLOUDFLARED_SHA256", "nativeLibraryDir", "locateCloudflared", "MessageDigest"]) else "FAIL",
-    "Pinned Tunnel Client and cloudflared Linux ARM64 executables are located in nativeLibraryDir and SHA-256 verified")
+add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "nativeLibraryDir", "MessageDigest"]) and "CLOUDFLARED" not in runtime_binary else "FAIL",
+    "The standard pinned Tunnel Client Linux ARM64 executable is located in nativeLibraryDir and SHA-256 verified")
 
-cloudflared_runtime_ok = (
-    "cmd/client-runtime-cloudflared" in runtime_patch
-    and "Flavor=runtime-cloudflared" in runtime_workflow
-    and "./cmd/client-runtime-cloudflared" in runtime_workflow
-    and "flavor=runtime-cloudflared" in runtime_workflow
-    and "buddy_profile_flavor_test.go" in runtime_workflow
+standard_runtime_ok = (
+    "cmd/client-runtime" in runtime_patch
+    and "Flavor=runtime " in runtime_workflow
+    and "./cmd/client-runtime" in runtime_workflow
+    and "flavor=runtime" in runtime_workflow
+    and "buddy_profile_runtime_test.go" in runtime_workflow
     and "libtunnel-client.so" in runtime_workflow
-    and "libcloudflared.so" in runtime_workflow
+    and "libcloudflared.so" not in runtime_workflow
 )
-add("cloudflared_runtime_flavor_and_packaging", "PASS" if cloudflared_runtime_ok else "FAIL",
-    "Buddy builds the cloudflared-enabled runtime flavor, tests the exact profile against both runtime flavors, and packages both pinned ARM64 executables into the side-by-side APK")
+add("standard_runtime_profile_compatibility", "PASS" if standard_runtime_ok else "FAIL",
+    "Buddy builds the standard runtime matching existing no-Cloudflared tunnel profiles and tests acceptance plus rejection of injected Cloudflared settings")
+
 
 profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
     "extra_headers:", "discovery_extra_headers:", "file:"
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
-cloudflared_profile_ok = ("cloudflared:" in runtime_profile and "cloudflaredBinary.getAbsolutePath()" in runtime_profile
-    and "managed: true" in runtime_profile and "managed: true" in profile_fixture
-    and all("managed: true" in fixture for fixture in stdio_profile_fixtures))
-add("buddy_cloudflared_profile", "PASS" if cloudflared_profile_ok else "FAIL",
-    "Buddy profile points to the separately bundled, pinned cloudflared companion")
+buddy_profile_mode_ok = ("cloudflared:" not in runtime_profile and "cloudflared:" not in profile_fixture
+    and all("cloudflared:" not in fixture for fixture in stdio_profile_fixtures))
+add("buddy_profile_matches_existing_tunnel_mode", "PASS" if buddy_profile_mode_ok else "FAIL",
+    "Buddy, REA, Bridge, and DroidMCP profiles do not enable an unconfigured Cloudflared dependency")
 rea_runtime_ok = (
     "nodejs-current" in rea_runtime_installer
     and "openjdk21-jre-headless" in rea_runtime_installer
@@ -185,14 +182,6 @@ hardening_ok = (
 )
 add("tunnel_runtime_procfs_hardening", "PASS" if hardening_ok else "FAIL",
     "Pinned Tunnel Client build is patched to deny same-UID procfs access to its environment, with a regression test")
-cloudflared_hardening_ok = (
-    "PR_SET_DUMPABLE" in cloudflared_hardening
-    and "hardenCloudflaredProcess" in cloudflared_hardening
-    and "hardenCloudflaredProcess()" in cloudflared_patch
-    and "TestCloudflaredHidesEnvironmentFromSameUidProcess" in cloudflared_hardening_test
-)
-add("cloudflared_token_procfs_hardening", "PASS" if cloudflared_hardening_ok else "FAIL",
-    "Pinned cloudflared companion hardens the managed-token process and has a same-UID procfs regression test")
 test_dirs = [ROOT / "app/src/test", ROOT / "app/src/androidTest"]
 has_tests = any(p.exists() for p in test_dirs)
 add("app_java_test_coverage", "PASS" if has_tests else "WARN",
