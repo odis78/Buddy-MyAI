@@ -145,7 +145,7 @@ jobs:
           chmod 700 dist/tunnel-client-runtime dist/cloudflared
           dist/tunnel-client-runtime --version | tee /tmp/tunnel-client-runtime-version.txt
           grep -F '0.0.21' /tmp/tunnel-client-runtime-version.txt
-grep -F '714f2d67844b660af25754f1d19b0360b346b13b' /tmp/tunnel-client-runtime-version.txt
+          grep -F '714f2d67844b660af25754f1d19b0360b346b13b' /tmp/tunnel-client-runtime-version.txt
           dist/cloudflared --version | grep -F '2026.10.2'
 
   rea-mcp-alpine-arm64-smoke:
@@ -242,8 +242,8 @@ grep -F '714f2d67844b660af25754f1d19b0360b346b13b' /tmp/tunnel-client-runtime-ve
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test219'"
           echo "$BADGING" | grep -F "versionCode='217'"
-          TUNNEL_SHA="$(awk '$2==\"tunnel-client-runtime\" {print $1}' dist/SHA256SUMS.txt)"
-          CLOUDFLARED_SHA="$(awk '$2==\"cloudflared\" {print $1}' dist/SHA256SUMS.txt)"
+          TUNNEL_SHA="$(awk '$2=="tunnel-client-runtime" {print $1}' dist/SHA256SUMS.txt)"
+          CLOUDFLARED_SHA="$(awk '$2=="cloudflared" {print $1}' dist/SHA256SUMS.txt)"
           test "$(unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | cut -d ' ' -f1)" = "$TUNNEL_SHA"
           test "$(unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum | cut -d ' ' -f1)" = "$CLOUDFLARED_SHA"
           mkdir -p dist
