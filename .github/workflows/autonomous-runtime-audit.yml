@@ -37,7 +37,7 @@ jobs:
         run: bash linux/test/run.sh
 
   tunnel-client-runtime:
-    name: Pinned Tunnel Client cloudflared runtime tests and Linux ARM64 build
+    name: Pinned standard Tunnel Client runtime tests and Linux ARM64 build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,7 +49,7 @@ jobs:
           path: tunnel-client
       - name: Apply runtime procfs hardening patch
         run: python3 scripts/patch_tunnel_client_runtime.py tunnel-client
-      - name: Validate Buddy profiles against pinned cloudflared runtime schema
+      - name: Validate Buddy and helper profiles against pinned standard runtime schema
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
           cp app/src/test/resources/rea-mcp-tunnel-profile.yaml tunnel-client/rea-profile-validation.yaml
@@ -75,7 +75,7 @@ jobs:
             }
           }
           EOF
-          cat > tunnel-client/pkg/runtimeconfig/buddy_profile_flavor_test.go <<'EOF'
+          cat > tunnel-client/pkg/runtimeconfig/buddy_profile_runtime_test.go <<'EOF'
           package runtimeconfig
 
           import (
@@ -87,10 +87,13 @@ jobs:
             "github.com/spf13/pflag"
           )
 
-          func TestBuddyProfileRequiresCloudflaredRuntimeFlavor(t *testing.T) {
+          func TestBuddyProfileUsesStandardRuntimeWithoutCloudflared(t *testing.T) {
             data, err := os.ReadFile("../../buddy-profile-validation.yaml")
             if err != nil {
               t.Fatal(err)
+            }
+            if strings.Contains(string(data), "cloudflared:") {
+              t.Fatal("Buddy profile must match the working no-cloudflared tunnel configuration")
             }
             dir := t.TempDir()
             profile := strings.ReplaceAll(string(data), "/tmp/buddy-runtime", dir)
@@ -108,35 +111,31 @@ jobs:
               t.Fatal(err)
             }
 
-            cloudFlags := pflag.NewFlagSet("runtime-cloudflared", pflag.ContinueOnError)
-            RegisterFlags(cloudFlags, FlavorRuntimeCloudflared)
-            if err := cloudFlags.Parse([]string{"--config", configPath}); err != nil {
+            flags := pflag.NewFlagSet("runtime", pflag.ContinueOnError)
+            RegisterFlags(flags, FlavorRuntime)
+            if err := flags.Parse([]string{"--config", configPath}); err != nil {
               t.Fatal(err)
             }
-            cloudConfig, err := LoadCloudflaredFromFlagSet(cloudFlags, func(string) (string, bool) {
+            if _, err := LoadFromFlagSet(flags, func(string) (string, bool) {
               return "", false
-            })
-            if err != nil {
-              t.Fatalf("runtime-cloudflared rejected Buddy profile: %v", err)
-            }
-            expectedPath := filepath.Join(dir, "libcloudflared.so")
-            if !cloudConfig.Cloudflared.Managed {
-              t.Fatal("Buddy profile must enable managed Cloudflare runtime provisioning")
-            }
-            if cloudConfig.Cloudflared.Path != expectedPath {
-              t.Fatalf("cloudflared path = %q, want %q", cloudConfig.Cloudflared.Path, expectedPath)
+            }); err != nil {
+              t.Fatalf("standard runtime rejected Buddy profile: %v", err)
             }
 
-            normalFlags := pflag.NewFlagSet("runtime", pflag.ContinueOnError)
-            RegisterFlags(normalFlags, FlavorRuntime)
-            if err := normalFlags.Parse([]string{"--config", configPath}); err != nil {
+            unsupported := strings.Replace(string(data), "health:\n", "cloudflared:\n  path: /tmp/cloudflared\nhealth:\n", 1)
+            unsupported = strings.ReplaceAll(unsupported, "/tmp/buddy-runtime", dir)
+            if err := os.WriteFile(configPath, []byte(unsupported), 0o600); err != nil {
               t.Fatal(err)
             }
-            _, err = LoadFromFlagSet(normalFlags, func(string) (string, bool) {
+            badFlags := pflag.NewFlagSet("runtime-cloudflared-settings-rejected", pflag.ContinueOnError)
+            RegisterFlags(badFlags, FlavorRuntime)
+            if err := badFlags.Parse([]string{"--config", configPath}); err != nil {
+              t.Fatal(err)
+            }
+            if _, err := LoadFromFlagSet(badFlags, func(string) (string, bool) {
               return "", false
-            })
-            if err == nil || !strings.Contains(err.Error(), "runtime configuration rejects cloudflared settings") {
-              t.Fatalf("standard runtime should reject the Buddy cloudflared profile, got: %v", err)
+            }); err == nil || !strings.Contains(err.Error(), "runtime configuration rejects cloudflared settings") {
+              t.Fatalf("standard runtime should reject an injected cloudflared setting, got: %v", err)
             }
           }
           EOF
@@ -146,13 +145,12 @@ jobs:
             -v "$PWD/tunnel-client:/src" \
             -w /src \
             golang:1.27.3-alpine \
-            go test ./pkg/cloudflared/runtime ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime ./cmd/client-runtime-cloudflared
-      - name: Build Linux ARM64 Tunnel Client and cloudflared companions
+            go test ./pkg/runtimeconfig ./pkg/runtimehealth ./pkg/mcpclient ./pkg/mcpserverinfo ./cmd/client-runtime
+      - name: Build Linux ARM64 standard Tunnel Client runtime
         run: |
           mkdir -p "$RUNNER_TEMP/tunnel-runtime" dist
           docker run --rm --cap-drop=SYS_PTRACE \
             -v "$PWD/tunnel-client:/src" \
-            -v "$PWD:/buddy" \
             -v "$RUNNER_TEMP/tunnel-runtime:/out" \
             -w /src \
             -e CGO_ENABLED=0 \
@@ -160,25 +158,15 @@ jobs:
             -e GOARCH=arm64 \
             golang:1.27.3-alpine sh -c '
               set -eu
-              go build -mod=readonly -trimpath -buildvcs=false -ldflags "-X github.com/openai/tunnel-client/pkg/version.Flavor=runtime-cloudflared -X github.com/openai/tunnel-client/pkg/version.GitSHA=01d67bb4da0d8359b808b4761f8db171ab682cd7 -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false" -o /out/tunnel-client-runtime ./cmd/client-runtime-cloudflared
-              go mod download github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a
-              MOD_DIR="$(go env GOPATH)/pkg/mod/github.com/cloudflare/cloudflared@v0.0.0-20261020083048-002a5ccaf75a"
-              chmod -R u+w "$MOD_DIR"
-              apk add --no-cache python3 >/dev/null
-              python3 /buddy/scripts/patch_cloudflared_module.py "$MOD_DIR"
-              cd "$MOD_DIR"
-              GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test ./cmd/cloudflared -run "^TestCloudflaredHidesEnvironmentFromSameUidProcess$" -count=1
-              go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=2026.10.2 -X main.BuildTime=2026-11-24 -X main.BuildType=buddy" -o /out/cloudflared ./cmd/cloudflared
+              go build -mod=readonly -trimpath -buildvcs=false -ldflags "-X github.com/openai/tunnel-client/pkg/version.Flavor=runtime -X github.com/openai/tunnel-client/pkg/version.GitSHA=01d67bb4da0d8359b808b4761f8db171ab682cd7 -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false" -o /out/tunnel-client-runtime ./cmd/client-runtime
             '
-          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
-          sha256sum "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared"
-          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" "$RUNNER_TEMP/tunnel-runtime/cloudflared" dist/
+          file "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
+          sha256sum "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime"
+          cp "$RUNNER_TEMP/tunnel-runtime/tunnel-client-runtime" dist/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: tunnel-client-v0.0.19-linux-arm64-runtime
-          path: |
-            dist/tunnel-client-runtime
-            dist/cloudflared
+          path: dist/tunnel-client-runtime
 
   tunnel-client-arm64-smoke:
     name: Execute pinned Tunnel Client on native ARM64 runner
@@ -200,17 +188,14 @@ jobs:
           cp rea-dist/rea-agents-6.5.0.tgz app/src/main/assets/runtime/
       - name: Verify and execute native ARM64 runtime
         run: |
-          file dist/tunnel-client-runtime dist/cloudflared
+          file dist/tunnel-client-runtime
           readelf -h dist/tunnel-client-runtime | grep -E 'Class:.*ELF64|Machine:.*AArch64'
-          readelf -h dist/cloudflared | grep -E 'Class:.*ELF64|Machine:.*AArch64'
           ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
-          ! readelf -l dist/cloudflared | grep -q INTERP
-          echo '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7  dist/cloudflared' | sha256sum --check
-          chmod 700 dist/tunnel-client-runtime dist/cloudflared
+          echo 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e  dist/tunnel-client-runtime' | sha256sum --check
+          chmod 700 dist/tunnel-client-runtime
           dist/tunnel-client-runtime --version | tee /tmp/tunnel-client-runtime-version.txt
           grep -F '0.0.19' /tmp/tunnel-client-runtime-version.txt
-          grep -F 'flavor=runtime-cloudflared' /tmp/tunnel-client-runtime-version.txt
-          dist/cloudflared --version | grep -F '2026.10.2'
+          grep -F 'flavor=runtime' /tmp/tunnel-client-runtime-version.txt
 
   rea-mcp-alpine-arm64-smoke:
     name: REA 6.5.0 MCP smoke test on Alpine ARM64
@@ -277,14 +262,13 @@ jobs:
           path: dist
       - name: Verify pinned runtime payload
         run: |
-          echo 'f40615e3af90b9e3740c51f9dcd3664c301997dbd6c5549a1cfd26d2c28117ed  dist/tunnel-client-runtime' | sha256sum --check
-          sha256sum dist/cloudflared
+          echo 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e  dist/tunnel-client-runtime' | sha256sum --check
+          sha256sum dist/tunnel-client-runtime
       - name: Stage runtime as Android native executables
         run: |
           mkdir -p app/src/main/jniLibs/arm64-v8a
           cp dist/tunnel-client-runtime app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
-          cp dist/cloudflared app/src/main/jniLibs/arm64-v8a/libcloudflared.so
-          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so app/src/main/jniLibs/arm64-v8a/libcloudflared.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
@@ -308,7 +292,6 @@ jobs:
           echo "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test219'"
           echo "$BADGING" | grep -F "versionCode='218'"
           unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'f40615e3af90b9e3740c51f9dcd3664c301997dbd6c5549a1cfd26d2c28117ed'
-          test "$(unzip -p "$APK" lib/arm64-v8a/libcloudflared.so | sha256sum | cut -d ' ' -f1)" = '2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7'
           mkdir -p dist
           cp "$APK" dist/buddy-baseline-debug.apk
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
