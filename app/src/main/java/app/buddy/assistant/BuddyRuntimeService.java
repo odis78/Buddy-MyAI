@@ -83,7 +83,12 @@ public final class BuddyRuntimeService extends Service {
             requestStop();
             return START_NOT_STICKY;
         }
-        stopping = false;
+        // A stop request owns this Service instance until its supervisors are torn
+        // down. Never revive a shut-down helperExecutor in the same instance.
+        if (stopping) {
+            stopSelfResult(startId);
+            return START_NOT_STICKY;
+        }
         promoteToForeground(getString(R.string.runtime_notification_starting));
         scheduleAttempt(0);
         return START_STICKY;
