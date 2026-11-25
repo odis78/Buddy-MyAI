@@ -83,6 +83,17 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "Verified configured release certificate fingerprint: $actual"
 
+      # Preserve the upstream optional-signing behavior for non-GT manual builds and normal tagged releases.
+      - name: Decode optional signing key for standard builds
+        if: !(github.ref == 'refs/heads/experiment/tunnel-client-v0.0.21-oauth-20261125' && github.event_name == 'workflow_dispatch') && env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BUDDY_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "BUDDY_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
       # github: the release here. fdroid: F-Droid builds it from this source too, and ships this signed copy when its
       # own build comes out identical (reproducible builds), so users can switch between the two.
       - name: Build release APKs (GitHub and F-Droid)
