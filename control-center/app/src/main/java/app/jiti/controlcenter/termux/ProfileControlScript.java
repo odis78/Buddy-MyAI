@@ -185,10 +185,29 @@ def health_ok(profile):
     except Exception:
         return False
 
-def full_health_ok(profile):
+def find_health_number(value, wanted):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized = str(key).lower().replace("_", "").replace("-", "")
+            if normalized in wanted:
+                try:
+                    return int(item)
+                except Exception:
+                    pass
+            found = find_health_number(item, wanted)
+            if found >= 0:
+                return found
+    elif isinstance(value, list):
+        for item in value:
+            found = find_health_number(item, wanted)
+            if found >= 0:
+                return found
+    return -1
+
+def full_health_report(profile):
     env, env_state = load_environment(profile)
     if env is None:
-        return False
+        return {"ok": False, "reason": env_state, "http_status": 0, "retry_after_ms": -1}
     argv = [
         BINARY, "health",
         "--url-file", profile["url"],
@@ -202,9 +221,16 @@ def full_health_ok(profile):
             text=True, timeout=5, check=False
         )
         report = json.loads(result.stdout.strip().splitlines()[-1])
-        return result.returncode == 0 and report.get("result") == "ok"
+        http_status = find_health_number(report, {"httpstatus", "statuscode", "httpstatuscode"})
+        retry_after_ms = find_health_number(report, {"retryafterms", "retryaftermillis"})
+        return {
+            "ok": result.returncode == 0 and report.get("result") == "ok",
+            "reason": str(report.get("reason", ""))[:120],
+            "http_status": max(0, http_status),
+            "retry_after_ms": retry_after_ms,
+        }
     except Exception:
-        return False
+        return {"ok": False, "reason": "full_health_probe_failed", "http_status": 0, "retry_after_ms": -1}
 
 def preflight(profile):
     if os.path.islink(BINARY) or not os.path.isfile(BINARY) or not os.access(BINARY, os.X_OK):
@@ -240,9 +266,13 @@ def preflight(profile):
         if os.path.exists("/proc/%d" % pid):
             if not process_identity(pid, profile):
                 return {"result": "blocked", "reason": "pid_identity_mismatch", "pid": pid}
-            if health_ok(profile) and full_health_ok(profile):
-                return {"result": "already_running", "pid": pid}
-            return {"result": "process_running_not_ready", "pid": pid}
+            if health_ok(profile):
+                full = full_health_report(profile)
+                if full["ok"]:
+                    return {"result": "already_running", "pid": pid}
+                return {"result": "process_running_not_ready", "pid": pid,
+                        "http_status": full["http_status"], "retry_after_ms": full["retry_after_ms"],
+                        "reason": full["reason"]}
         stale = True
         stale_pid = pid
     matches = find_matching(profile)
@@ -314,9 +344,11 @@ def start_profile(profile):
         if not process_identity(pid, profile):
             return {"result": "process_identity_lost_during_readiness", "pid": pid}
         if health_ok(profile):
-            if full_health_ok(profile):
+            full = full_health_report(profile)
+            if full["ok"]:
                 return {"result": "started_ready", "pid": pid}
-            return {"result": "started_not_ready", "reason": "control_plane_or_full_health_not_ready",
+            return {"result": "started_not_ready", "reason": full["reason"] or "control_plane_or_full_health_not_ready",
+                    "http_status": full["http_status"], "retry_after_ms": full["retry_after_ms"],
                     "pid": pid, "log": profile["log"]}
         time.sleep(1)
     return {"result": "started_not_ready", "reason": "local_readyz_timeout",
