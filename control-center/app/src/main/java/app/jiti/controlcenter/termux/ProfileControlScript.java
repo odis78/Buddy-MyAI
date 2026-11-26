@@ -296,15 +296,18 @@ def preflight(profile):
         if os.path.exists("/proc/%d" % pid):
             if not process_identity(pid, profile):
                 return {"result": "blocked", "reason": "pid_identity_mismatch", "pid": pid}
-            if health_ok(profile):
-                full = full_health_report(profile)
-                if full["ok"]:
-                    return {"result": "already_running", "pid": pid}
-                return {"result": "process_running_not_ready", "pid": pid,
-                        "http_status": full["http_status"], "retry_after_ms": full["retry_after_ms"],
-                        "reason": full["reason"]}
+            local_ready = health_ok(profile)
+            # Always obtain the structured full-health result for a running
+            # process. Local readyz must not hide a remote 401/403/429/5xx.
+            full = full_health_report(profile)
+            if local_ready and full["ok"]:
+                return {"result": "already_running", "pid": pid}
+            reason = full["reason"] or (
+                "local_readyz_not_ready" if not local_ready else "full_health_not_ready"
+            )
             return {"result": "process_running_not_ready", "pid": pid,
-                    "http_status": 0, "retry_after_ms": -1, "reason": "local_readyz_not_ready"}
+                    "http_status": full["http_status"], "retry_after_ms": full["retry_after_ms"],
+                    "reason": reason}
         stale = True
         stale_pid = pid
     matches = find_matching(profile)
