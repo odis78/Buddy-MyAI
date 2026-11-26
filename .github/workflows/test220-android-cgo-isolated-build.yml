@@ -294,8 +294,8 @@ jobs:
           if not needed or unexpected:
               raise SystemExit(f"unexpected Android DT_NEEDED set: {needed}")
 
-          getaddrinfo_visible = bool(re.search(r"\\bgetaddrinfo\\b", symbols))
-          prctl_visible = bool(re.search(r"\\bprctl\\b", symbols))
+          getaddrinfo_visible = bool(re.search(r"\bgetaddrinfo\b", symbols))
+          prctl_visible = bool(re.search(r"\bprctl\b", symbols))
           (report / "elf-acceptance-summary.txt").write_text(
               "ELF64 little-endian AArch64 ET_DYN PIE: PASS\n"
               "PT_INTERP: /system/bin/linker64\n"
