@@ -39,6 +39,21 @@ public class RecoverySupervisorTest {
         assertEquals(0, supervisor.attempts("bridge"));
     }
 
+    @Test public void transientControlPlaneFailureSchedulesRecheckWithoutRestart() {
+        RecoverySupervisor supervisor = new RecoverySupervisor();
+        supervisor.setEnabled(true);
+        RecoverySupervisor.Plan first = supervisor.plan("bridge",
+                RecoveryPolicy.ErrorClass.TRANSIENT, "http_503", 1000L, true, 0L, 0.5);
+        assertEquals(RecoverySupervisor.Action.RECHECK_ONLY, first.action);
+        assertEquals(5000L, first.delayMillis);
+        assertEquals(0, first.attempts);
+
+        RecoverySupervisor.Plan duringCooldown = supervisor.plan("bridge",
+                RecoveryPolicy.ErrorClass.TRANSIENT, "http_503", 2000L, true, 0L, 0.5);
+        assertEquals(RecoverySupervisor.Action.WAIT_FOR_COOLDOWN, duringCooldown.action);
+        assertEquals(0, supervisor.attempts("bridge"));
+    }
+
     @Test public void repeatedIdenticalProcessFailuresOpenCircuit() {
         RecoverySupervisor supervisor = new RecoverySupervisor();
         supervisor.setEnabled(true);
