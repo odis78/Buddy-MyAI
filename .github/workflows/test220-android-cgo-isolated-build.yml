@@ -22,9 +22,9 @@ jobs:
       TUNNEL_SOURCE_COMMIT: 01d67bb4da0d8359b808b4761f8db171ab682cd7
       GO_VERSION: 1.27.3
       NDK_VERSION: 27.2.12479018
-      REPORT_DIR: ${{ runner.temp }}/android-cgo-report
-      TUNNEL_SOURCE: ${{ runner.temp }}/tunnel-client
-      RUNTIME_OUT: ${{ runner.temp }}/android-cgo-runtime/libtunnel-client.so
+      REPORT_DIR: ${{ github.workspace }}/.test220-android-cgo-report
+      TUNNEL_SOURCE: ${{ github.workspace }}/.test220-tunnel-client
+      RUNTIME_OUT: ${{ github.workspace }}/.test220-android-cgo-runtime/libtunnel-client.so
 
     steps:
       - name: Initialize diagnostics directory
