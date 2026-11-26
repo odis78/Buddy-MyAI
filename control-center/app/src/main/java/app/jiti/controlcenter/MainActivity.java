@@ -70,6 +70,7 @@ public final class MainActivity extends Activity {
             Collections.synchronizedSet(new HashSet<>());
     private final OperationCoordinator profileOperationCoordinator = OperationCoordinator.shared();
     private boolean manualReceiverRegistered;
+    private boolean activityResumed;
     private final BroadcastReceiver manualOperationReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             dispatchActiveManualRequest();
@@ -727,6 +728,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        activityResumed = true;
         refreshEventLog();
         refreshLiveStatuses();
         refreshTermuxControls();
@@ -736,6 +738,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        activityResumed = false;
         uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
         super.onPause();
     }
@@ -1338,8 +1341,44 @@ public final class MainActivity extends Activity {
 
     private void completeProfileOperation(long requestId) {
         OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
+        DISPATCHED_MANUAL_REQUESTS.remove(requestId);
         refreshTermuxControls();
-        if (next != null) {
+        if (next != null) dispatchManualRequest(next);
+    }
+
+    private void dispatchActiveManualRequest() {
+        if (!activityResumed || isFinishing() || isDestroyed()) return;
+        OperationCoordinator.Request active = profileOperationCoordinator.activeRequest();
+        if (active != null && active.kind == OperationCoordinator.Kind.MANUAL) {
+            dispatchManualRequest(active);
+        }
+    }
+
+    private void dispatchManualRequest(OperationCoordinator.Request request) {
+        if (request == null || request.kind != OperationCoordinator.Kind.MANUAL
+                || !activityResumed || isFinishing() || isDestroyed()) return;
+        if (!DISPATCHED_MANUAL_REQUESTS.add(request.id)) return;
+        String operation = request.operation == null ? "manual" : request.operation;
+        String target = request.componentId;
+        if ("profile.status".equals(operation)) {
+            String profileId = target.endsWith("-status")
+                    ? target.substring(0, target.length() - "-status".length()) : target;
+            TextView status = liveStatusViews.get(componentIdForProfile(profileId));
+            executeProfileStatus(profileId, status == null ? globalControlStatusView : status, request.id);
+        } else if ("profile.logs".equals(operation)) {
+            String profileId = target.endsWith("-logs")
+                    ? target.substring(0, target.length() - "-logs".length()) : target;
+            TextView status = liveStatusViews.get(componentIdForProfile(profileId));
+            executeProfileLogs(profileId, status == null ? globalControlStatusView : status, request.id);
+        } else if (operation.startsWith("profile.")) {
+            String mode = operation.substring("profile.".length());
+            TextView status = liveStatusViews.get(componentIdForProfile(target));
+            executeProfileOperation(target, mode, status == null ? globalControlStatusView : status, request.id);
+        } else if (operation.startsWith("stack.")) {
+            confirmAndRunProfileStack(operation.substring("stack.".length()), request.id);
+        } else {
+            logControlEvent(target, "MANUAL_REQUEST_REJECTED", "Unknown queued operation " + operation);
+            completeProfileOperation(request.id);
         }
     }
 
