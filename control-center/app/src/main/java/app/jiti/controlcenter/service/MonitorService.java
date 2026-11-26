@@ -163,12 +163,23 @@ public final class MonitorService extends Service {
         if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
                 && !"rea-android".equals(profileId)) return;
         context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
-                .edit().putBoolean("manual_hold." + profileId, hold).apply();
+                .edit()
+                .putBoolean("manual_hold." + profileId, hold)
+                .putBoolean("manual_hold_pending." + profileId, false)
+                .apply();
+    }
+
+    public static void setManualHoldPending(Context context, String profileId, boolean pending) {
+        if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
+                && !"rea-android".equals(profileId)) return;
+        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean("manual_hold_pending." + profileId, pending).apply();
     }
 
     private boolean isManualHold(String profileId) {
         return recoveryPreferences != null
-                && recoveryPreferences.getBoolean("manual_hold." + profileId, false);
+                && (recoveryPreferences.getBoolean("manual_hold." + profileId, false)
+                || recoveryPreferences.getBoolean("manual_hold_pending." + profileId, false));
     }
 
     private void syncRecoverySettings() {
