@@ -1065,6 +1065,310 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private String profileIdForComponent(String componentId) {
+        if ("rea-bridge".equals(componentId)) return "bridge";
+        if ("droidmcp".equals(componentId)) return "droidmcp";
+        if ("rea-android".equals(componentId)) return "rea-android";
+        return null;
+    }
+
+    private String componentIdForProfile(String profileId) {
+        if ("bridge".equals(profileId)) return "rea-bridge";
+        if ("droidmcp".equals(profileId)) return "droidmcp";
+        if ("rea-android".equals(profileId)) return "rea-android";
+        return "rea-stack";
+    }
+
+    private String profileTitle(String profileId) {
+        if ("bridge".equals(profileId)) return "REA-Termux-Bridge 0.1.3";
+        if ("droidmcp".equals(profileId)) return "DroidMCP-Filesystem";
+        if ("rea-android".equals(profileId)) return "REA-Termux-Android";
+        return "REA tunnel stack";
+    }
+
+    private JSONObject profileReport(TermuxCommandResult result) {
+        try {
+            String output = result.stdout == null ? "" : result.stdout.trim();
+            int newline = output.lastIndexOf('\n');
+            if (newline >= 0) output = output.substring(newline + 1).trim();
+            return new JSONObject(output);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private ComponentStatus profileComponentStatus(String result) {
+        if ("started_ready".equals(result) || "already_running".equals(result)) return ComponentStatus.READY;
+        if ("stopped".equals(result) || "already_stopped".equals(result)) return ComponentStatus.STOPPED;
+        if ("process_running_not_ready".equals(result) || "started_not_ready".equals(result)) return ComponentStatus.NOT_READY;
+        if ("blocked".equals(result) || "restart_aborted".equals(result)) return ComponentStatus.BLOCKED;
+        return ComponentStatus.ERROR;
+    }
+
+    private String profileReportDetail(JSONObject report, TermuxCommandResult command) {
+        if (report == null) return "Profile command returned no structured result; exit=" + command.exitCode;
+        StringBuilder detail = new StringBuilder(report.optString("result", "unknown"));
+        String reason = report.optString("reason", "");
+        if (!reason.isEmpty()) detail.append(" • ").append(reason);
+        int pid = report.optInt("pid", report.optInt("spawned_pid", 0));
+        if (pid > 0) detail.append(" • PID ").append(pid);
+        if (report.optBoolean("stale_pid_file", false)) detail.append(" • stale PID metadata retained/checked");
+        return detail.toString();
+    }
+
+    private void runProfileStatus(String profileId, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("LIVE: проверка недоступна. Сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        statusView.setText("LIVE: проверка процесса, профиля и полной готовности…");
+        TermuxCommandClient.runProfileControl(this, profileId, "status", result -> {
+            if (isFinishing() || isDestroyed()) return;
+            JSONObject report = profileReport(result);
+            String state = report == null ? "error" : report.optString("result", "unknown");
+            String detail = profileReportDetail(report, result);
+            String componentId = componentIdForProfile(profileId);
+            saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+            statusView.setText(liveStatusLabel(componentId));
+            logControlEvent(componentId, "PROFILE_STATUS", detail);
+            refreshTermuxControls();
+        });
+    }
+
+    private void requestProfileOperation(String profileId, String mode, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("Управление недоступно: сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId);
+        if (!submission.accepted()) {
+            statusView.setText("Другая операция уже выполняется. Новая команда не отправлена.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> executeProfileOperation(profileId, mode, statusView, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            queuedManualActions.put(requestId, action);
+            statusView.setText("Ручная команда поставлена в приоритетную очередь. Текущий автоматический шаг завершится первым.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void executeProfileOperation(String profileId, String mode, TextView statusView, long requestId) {
+        String componentId = componentIdForProfile(profileId);
+        statusView.setText("ПРЕДПРОВЕРКА: " + profileTitle(profileId) + " • " + mode);
+        TermuxCommandClient.runProfileControl(this, profileId, "preflight", preflight -> {
+            if (isFinishing() || isDestroyed()) {
+                completeProfileOperation(requestId);
+                return;
+            }
+            JSONObject report = profileReport(preflight);
+            String state = report == null ? "unknown" : report.optString("result", "unknown");
+            boolean stopped = "ready_to_start".equals(state);
+            boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
+            if (report == null || "blocked".equals(state) || "unknown".equals(state)
+                    || ("start".equals(mode) && !stopped)
+                    || ("stop".equals(mode) && !running)
+                    || ("restart".equals(mode) && !(stopped || running))) {
+                String detail = profileReportDetail(report, preflight);
+                statusView.setText("ОПЕРАЦИЯ НЕ ЗАПУЩЕНА: " + detail);
+                saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+                logControlEvent(componentId, "PROFILE_PREFLIGHT_BLOCKED", detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if ("start".equals(mode) && "already_running".equals(state)) {
+                String detail = "Процесс уже запущен и полная готовность подтверждена.";
+                statusView.setText(detail);
+                saveProbeSnapshot(componentId, ComponentStatus.READY, detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if ("stop".equals(mode) && stopped) {
+                String detail = report.optBoolean("stale_pid_file", false)
+                        ? "Процесс не найден; устаревший PID сохранён для безопасной ручной проверки."
+                        : "Профиль уже остановлен. Никакой сигнал не отправлялся.";
+                statusView.setText(detail);
+                saveProbeSnapshot(componentId, ComponentStatus.STOPPED, detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            String actionLabel = "start".equals(mode) ? "запустить" : "stop".equals(mode) ? "остановить" : "перезапустить";
+            String message = "Подтверждаете " + actionLabel + " только «" + profileTitle(profileId) + "»?\n\n"
+                    + "Другие профили и Buddy не затрагиваются. Перед остановкой повторно проверяется точная идентичность PID, бинарника и YAML. "
+                    + "Используется только SIGTERM; SIGKILL не применяется.";
+            new AlertDialog.Builder(this)
+                    .setTitle("Ручное управление туннелем")
+                    .setMessage(message)
+                    .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
+                    .setPositiveButton("Подтвердить", (dialog, which) -> {
+                        if (!commandGate.mayExecute("profile." + mode, true, true, true)) {
+                            statusView.setText("Команда заблокирована политикой безопасности.");
+                            completeProfileOperation(requestId);
+                            return;
+                        }
+                        statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
+                        TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
+                            if (isFinishing() || isDestroyed()) {
+                                completeProfileOperation(requestId);
+                                return;
+                            }
+                            JSONObject finalReport = profileReport(command);
+                            String finalState = finalReport == null ? "error"
+                                    : finalReport.optString("result", "unknown");
+                            String detail = profileReportDetail(finalReport, command);
+                            saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
+                            statusView.setText(detail);
+                            logControlEvent(componentId, "PROFILE_" + mode.toUpperCase(java.util.Locale.ROOT), detail);
+                            completeProfileOperation(requestId);
+                            if ("started_ready".equals(finalState) || "stopped".equals(finalState)) {
+                                MonitorService.pollNow(this);
+                            }
+                        });
+                    })
+                    .setOnCancelListener(dialog -> completeProfileOperation(requestId))
+                    .show();
+        });
+    }
+
+    private void completeProfileOperation(long requestId) {
+        OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
+        refreshTermuxControls();
+        if (next != null) {
+            Runnable queued = queuedManualActions.remove(next.id);
+            if (queued != null) queued.run();
+        }
+    }
+
+    private void requestProfileStackOperation(String mode) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            if (globalControlStatusView != null) globalControlStatusView.setText("Сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual("rea-stack");
+        if (!submission.accepted()) {
+            globalControlStatusView.setText("Другая операция уже выполняется. Повторная команда отклонена.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> confirmAndRunProfileStack(mode, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            queuedManualActions.put(requestId, action);
+            globalControlStatusView.setText("Ручная команда поставлена выше следующих автоматических попыток.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void confirmAndRunProfileStack(String mode, long requestId) {
+        String label = "start".equals(mode) ? "запустить" : "stop".equals(mode) ? "остановить" : "перезапустить";
+        String order = "start".equals(mode) ? ProfileStackPlanner.startOrder().toString()
+                : "stop".equals(mode) ? ProfileStackPlanner.stopOrder().toString()
+                : "обратная остановка, затем запуск в штатном порядке";
+        String message = "Подтверждаете " + label + " все три REA-профиля?\n\n"
+                + "Порядок: " + order + ".\n"
+                + "Buddy исключён из этой операции и останется нетронутым. "
+                + "Каждый профиль проходит отдельную проверку процесса и полной готовности. "
+                + "При первой ошибке последовательность останавливается; бесконечных повторов нет.";
+        new AlertDialog.Builder(this)
+                .setTitle("Ручное управление REA-туннелями")
+                .setMessage(message)
+                .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
+                .setPositiveButton("Подтвердить", (dialog, which) -> {
+                    List<ProfileStackPlanner.Step> steps = new ArrayList<>();
+                    if ("start".equals(mode)) {
+                        for (String profile : ProfileStackPlanner.startOrder())
+                            steps.add(new ProfileStackPlanner.Step(profile, "start"));
+                    } else if ("stop".equals(mode)) {
+                        for (String profile : ProfileStackPlanner.stopOrder())
+                            steps.add(new ProfileStackPlanner.Step(profile, "stop"));
+                    } else {
+                        steps.addAll(ProfileStackPlanner.restartOrder());
+                    }
+                    runProfileStackStep(steps, 0, requestId);
+                })
+                .setOnCancelListener(dialog -> completeProfileOperation(requestId))
+                .show();
+    }
+
+    private void runProfileStackStep(List<ProfileStackPlanner.Step> steps, int index, long requestId) {
+        if (index >= steps.size()) {
+            globalControlStatusView.setText("Готово: все шаги REA-стека завершены. Buddy не затрагивался.");
+            logControlEvent("rea-stack", "STACK_OPERATION_COMPLETE", "All requested profile steps completed");
+            completeProfileOperation(requestId);
+            return;
+        }
+        ProfileStackPlanner.Step step = steps.get(index);
+        String componentId = componentIdForProfile(step.profileId);
+        globalControlStatusView.setText("Проверка " + profileTitle(step.profileId) + " • " + step.operation);
+        TermuxCommandClient.runProfileControl(this, step.profileId, "preflight", preflight -> {
+            if (isFinishing() || isDestroyed()) {
+                completeProfileOperation(requestId);
+                return;
+            }
+            JSONObject report = profileReport(preflight);
+            String state = report == null ? "unknown" : report.optString("result", "unknown");
+            boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
+            boolean stopped = "ready_to_start".equals(state);
+            if (report == null || "blocked".equals(state)
+                    || ("start".equals(step.operation) && "process_running_not_ready".equals(state))
+                    || ("start".equals(step.operation) && !running && !stopped)
+                    || ("stop".equals(step.operation) && !running && !stopped)) {
+                String detail = profileReportDetail(report, preflight);
+                globalControlStatusView.setText("ОСТАНОВЛЕНО НА ШАГЕ " + profileTitle(step.profileId) + ": " + detail);
+                saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+                logControlEvent("rea-stack", "STACK_STEP_BLOCKED", step.profileId + " " + detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if (("start".equals(step.operation) && "already_running".equals(state))
+                    || ("stop".equals(step.operation) && stopped)) {
+                globalControlStatusView.setText(profileTitle(step.profileId) + ": шаг уже выполнен, продолжаю…");
+                runProfileStackStep(steps, index + 1, requestId);
+                return;
+            }
+            if (!commandGate.mayExecute("profile." + step.operation, true, true, true)) {
+                globalControlStatusView.setText("Шаг заблокирован CommandGate: " + profileTitle(step.profileId));
+                completeProfileOperation(requestId);
+                return;
+            }
+            globalControlStatusView.setText("ВЫПОЛНЯЕТСЯ " + step.operation + ": " + profileTitle(step.profileId));
+            TermuxCommandClient.runProfileControl(this, step.profileId, step.operation, command -> {
+                if (isFinishing() || isDestroyed()) {
+                    completeProfileOperation(requestId);
+                    return;
+                }
+                JSONObject finalReport = profileReport(command);
+                String finalState = finalReport == null ? "error" : finalReport.optString("result", "unknown");
+                boolean success = command.succeeded()
+                        && (("start".equals(step.operation) && ("started_ready".equals(finalState) || "already_running".equals(finalState)))
+                        || ("stop".equals(step.operation) && ("stopped".equals(finalState) || "already_stopped".equals(finalState))));
+                String detail = profileReportDetail(finalReport, command);
+                saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
+                logControlEvent("rea-stack", success ? "STACK_STEP_OK" : "STACK_STEP_FAILED",
+                        step.profileId + " " + step.operation + " • " + detail);
+                if (!success) {
+                    globalControlStatusView.setText("ПОСЛЕДОВАТЕЛЬНОСТЬ ОСТАНОВЛЕНА: " + profileTitle(step.profileId) + " • " + detail);
+                    completeProfileOperation(requestId);
+                    return;
+                }
+                globalControlStatusView.setText("Подтверждено: " + profileTitle(step.profileId) + " • " + detail);
+                runProfileStackStep(steps, index + 1, requestId);
+            });
+        });
+    }
+
     private void addComponentCard(LinearLayout parent, ComponentSpec item) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
