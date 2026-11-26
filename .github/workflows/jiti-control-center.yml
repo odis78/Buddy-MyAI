@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - project/jiti-control-center
+      - fix/jiti-control-center-manual-recovery-20261126
     paths:
       - "control-center/**"
       - ".github/workflows/jiti-control-center.yml"
