@@ -169,11 +169,12 @@ public final class MonitorService extends Service {
                 .apply();
     }
 
-    public static void setManualHoldPending(Context context, String profileId, boolean pending) {
+    public static boolean setManualHoldPending(Context context, String profileId, boolean pending) {
         if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
-                && !"rea-android".equals(profileId)) return;
-        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
-                .edit().putBoolean("manual_hold_pending." + profileId, pending).apply();
+                && !"rea-android".equals(profileId)) return false;
+        // A stop command must not be sent until the intent is durably stored.
+        return context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean("manual_hold_pending." + profileId, pending).commit();
     }
 
     private boolean isManualHold(String profileId) {
