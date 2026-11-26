@@ -142,7 +142,7 @@ public final class MainActivity extends Activity {
         scroll.addView(page);
 
         page.addView(text("JITI CONTROL CENTER", 22, FG, true));
-        addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
+        addTop(page, text("Реестр инфраструктуры • 0.2.1-alpha", 13, MUTED, false), 5);
         addCard(page, text("РУЧНОЕ И АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ. Автовосстановление REA-профилей включается отдельно. Ручные команды имеют приоритет и выполняются после завершения уже отправленного автоматического шага. Buddy исключён из автоматического восстановления.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
