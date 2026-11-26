@@ -167,6 +167,36 @@ def manager_is_active():
             return True
     return False
 
+def send_sigterm_with_pidfd(pid, expected_start, profile):
+    pidfd_open = getattr(os, "pidfd_open", None)
+    pidfd_send_signal = getattr(signal, "pidfd_send_signal", None)
+    if not callable(pidfd_open) or not callable(pidfd_send_signal):
+        return "blocked", "pidfd_signal_unsupported"
+    try:
+        pidfd = pidfd_open(pid, 0)
+    except ProcessLookupError:
+        return "exited", ""
+    except Exception as exc:
+        return "blocked", "pidfd_open_" + type(exc).__name__
+    try:
+        # pidfd pins the process object. Revalidate after opening it so a PID
+        # reused between the earlier /proc check and pidfd_open is never signalled.
+        if process_start_time(pid) != expected_start or not process_identity(pid, profile):
+            return "blocked", "process_identity_changed_before_signal"
+        # Recheck external managers after acquiring the process handle. They
+        # do not share JITI's flock, so any observed manager activity is fatal.
+        if manager_is_active():
+            return "blocked", "existing_tunnel_manager_busy"
+        try:
+            pidfd_send_signal(pidfd, signal.SIGTERM)
+            return "signaled", ""
+        except ProcessLookupError:
+            return "exited", ""
+        except Exception as exc:
+            return "blocked", "pidfd_signal_" + type(exc).__name__
+    finally:
+        os.close(pidfd)
+
 def health_ok(profile):
     path = profile["url"]
     if os.path.islink(path) or not os.path.isfile(path):
@@ -379,19 +409,9 @@ def stop_profile(profile):
         return {"result": "blocked", "reason": "pid_identity_mismatch", "pid": pid}
     if manager_is_active():
         return {"result": "blocked", "reason": "existing_tunnel_manager_busy"}
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        try:
-            if not os.path.exists("/proc/%d" % pid) and open(pid_path, "r", encoding="utf-8").read().strip() == str(pid):
-                os.unlink(pid_path)
-                if os.path.isfile(profile["url"]) and not os.path.islink(profile["url"]):
-                    os.unlink(profile["url"])
-        except Exception:
-            pass
-        return {"result": "stopped", "pid": pid}
-    except Exception as exc:
-        return {"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}
+    signal_state, signal_reason = send_sigterm_with_pidfd(pid, initial_start, profile)
+    if signal_state == "blocked":
+        return {"result": "blocked", "reason": signal_reason, "pid": pid}
     deadline = time.time() + 15
     while time.time() < deadline:
         if not os.path.exists("/proc/%d" % pid) or process_state(pid) in ("Z", "X"):
