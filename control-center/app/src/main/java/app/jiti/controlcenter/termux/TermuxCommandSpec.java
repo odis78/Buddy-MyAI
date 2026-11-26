@@ -724,6 +724,18 @@ else:
                 Arrays.asList("/proc/" + pid + "/cmdline"));
     }
 
+    public static TermuxCommandSpec forProfileControl(String prefix, String profileId, String mode) {
+        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..")
+                || !("bridge".equals(profileId) || "droidmcp".equals(profileId)
+                || "rea-android".equals(profileId))
+                || !("preflight".equals(mode) || "status".equals(mode) || "start".equals(mode)
+                || "stop".equals(mode) || "restart".equals(mode))) {
+            throw new IllegalArgumentException("fixed profile id, mode, and absolute Termux prefix required");
+        }
+        return new TermuxCommandSpec(TermuxOperation.PROFILE_CONTROL, prefix + "/bin/python",
+                Arrays.asList("-c", ProfileControlScript.SCRIPT, mode, profileId));
+    }
+
     public boolean isSafeFixedCommand() {
         if (executable == null || !executable.startsWith("/") || executable.contains("..")) return false;
         if (executable.endsWith("/sh") || executable.endsWith("/bash")) return false;
@@ -731,6 +743,16 @@ else:
             return executable.endsWith("/bin/python") && arguments.size() == 2
                     && "-c".equals(arguments.get(0))
                     && MCP_ENDPOINT_AUDIT_SCRIPT.equals(arguments.get(1));
+        }
+        if (operation == TermuxOperation.PROFILE_CONTROL) {
+            return executable.endsWith("/bin/python") && arguments.size() == 4
+                    && "-c".equals(arguments.get(0))
+                    && ProfileControlScript.SCRIPT.equals(arguments.get(1))
+                    && ("preflight".equals(arguments.get(2)) || "status".equals(arguments.get(2))
+                    || "start".equals(arguments.get(2)) || "stop".equals(arguments.get(2))
+                    || "restart".equals(arguments.get(2)))
+                    && ("bridge".equals(arguments.get(3)) || "droidmcp".equals(arguments.get(3))
+                    || "rea-android".equals(arguments.get(3)));
         }
         if (operation == TermuxOperation.BUDDY_MCP_AUTH_PROBE) {
             return executable.endsWith("/bin/python") && arguments.size() == 3
