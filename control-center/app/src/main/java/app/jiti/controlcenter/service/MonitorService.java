@@ -7,6 +7,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
@@ -19,11 +23,17 @@ import org.json.JSONArray;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
+import java.util.concurrent.ThreadLocalRandom;
 
 import app.jiti.controlcenter.MainActivity;
 import app.jiti.controlcenter.core.DiagnosticEvent;
 import app.jiti.controlcenter.core.ComponentStatus;
 import app.jiti.controlcenter.core.RuntimeSnapshot;
+import app.jiti.controlcenter.core.OperationCoordinator;
+import app.jiti.controlcenter.core.RecoveryErrorClassifier;
+import app.jiti.controlcenter.core.RecoveryPolicy;
+import app.jiti.controlcenter.core.RecoverySupervisor;
 import app.jiti.controlcenter.core.ToolCatalogAudit;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
@@ -39,6 +49,9 @@ public final class MonitorService extends Service {
     private static final int NOTIFICATION_ID = 4101;
     private static final long POLL_INTERVAL_MS = 60000L;
     private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L;
+    private static final String RECOVERY_PREFS = "jiti_auto_recovery";
+    private static final String PREF_AUTO_ENABLED = "enabled";
+    private static final String[] AUTO_RECOVERY_PROFILES = {"bridge", "droidmcp", "rea-android"};
     private static final TermuxOperation[] AUXILIARY_PROFILE_HEALTH = new TermuxOperation[]{
             TermuxOperation.BRIDGE_TUNNEL_HEALTH,
             TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
@@ -49,6 +62,8 @@ public final class MonitorService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private EventStore eventStore;
+    private SharedPreferences recoveryPreferences;
+    private final RecoverySupervisor recoverySupervisor = new RecoverySupervisor();
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
     private boolean inFlight;
@@ -64,6 +79,9 @@ public final class MonitorService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         eventStore = new EventStore(this);
+        recoveryPreferences = getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE);
+        restoreRecoveryState();
+        syncRecoverySettings();
         createNotificationChannel();
     }
 
@@ -75,6 +93,7 @@ public final class MonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_POLL_NOW.equals(intent.getAction())) {
+            syncRecoverySettings();
             if (!monitoring) {
                 stopSelf(startId);
                 return START_NOT_STICKY;
