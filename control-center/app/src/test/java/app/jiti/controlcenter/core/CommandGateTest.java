@@ -9,18 +9,14 @@ public class CommandGateTest {
     @Test public void defaultGateDeniesEverything() {
         assertFalse(CommandGate.locked().mayExecute("buddy.start", true, true, true));
     }
-    @Test public void buddyStartAndStopAreExplicitlyAllowlisted() {
-        HashSet<String> enabled = new HashSet<>();
-        enabled.add("buddy.start");
-        enabled.add("buddy.stop");
-        CommandGate gate = new CommandGate(enabled);
-        assertTrue(gate.mayExecute("buddy.start", true, true, true));
-        assertTrue(gate.mayExecute("buddy.stop", true, true, true));
-        assertFalse(gate.mayExecute("buddy.start", true, false, true));
-        assertFalse(gate.mayExecute("buddy.stop", true, true, false));
+    @Test public void buddyLifecycleCommandsRemainDenied() {
+        CommandGate gate = CommandGate.locked();
+        assertFalse(gate.mayExecute("buddy.start", true, true, true));
+        assertFalse(gate.mayExecute("buddy.stop", true, true, true));
+        assertFalse(gate.mayExecute("profile.restart", true, true, true));
     }
     @Test public void allIndependentGuardsMustPass() {
-        HashSet<String> enabled = new HashSet<>(Collections.singletonList("buddy.restart"));
+        HashSet<String> enabled = new HashSet<>(Collections.singletonList("profile.restart"));
         CommandGate gate = new CommandGate(enabled);
         assertTrue(gate.mayExecute("buddy.restart", true, true, true));
         assertFalse(gate.mayExecute("buddy.restart", false, true, true));
