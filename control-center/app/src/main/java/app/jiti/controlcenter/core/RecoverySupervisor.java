@@ -34,6 +34,16 @@ public final class RecoverySupervisor {
         }
     }
 
+    public static final class Snapshot {
+        public final int attempts;
+        public final long nextAllowedAt;
+
+        private Snapshot(int attempts, long nextAllowedAt) {
+            this.attempts = attempts;
+            this.nextAllowedAt = nextAllowedAt;
+        }
+    }
+
     private static final class ProfileState {
         final CircuitBreaker breaker = new CircuitBreaker(2, 300000L);
         int attempts;
@@ -86,16 +96,17 @@ public final class RecoverySupervisor {
                     "non_retryable_" + error.name().toLowerCase(java.util.Locale.ROOT));
         }
 
-        if (error == RecoveryPolicy.ErrorClass.RATE_LIMITED) {
-            long delay = RecoveryErrorClassifier.boundedRetryAfterMillis(
-                    retryAfterMillis, 60000L, 900000L);
-            state.nextAllowedAt = Math.max(state.nextAllowedAt, nowMillis + delay);
-            return new Plan(Action.RECHECK_ONLY, delay, state.attempts, "http_429_rate_limited_no_process_restart");
-        }
-
         if (nowMillis < state.nextAllowedAt) {
             return new Plan(Action.WAIT_FOR_COOLDOWN, state.nextAllowedAt - nowMillis,
                     state.attempts, "profile_cooldown");
+        }
+
+        if (error == RecoveryPolicy.ErrorClass.RATE_LIMITED) {
+            long delay = RecoveryErrorClassifier.boundedRetryAfterMillis(
+                    retryAfterMillis, 60000L, 900000L);
+            state.nextAllowedAt = Math.max(state.nextAllowedAt, nowMillis + Math.max(1000L, delay));
+            return new Plan(Action.RECHECK_ONLY, state.nextAllowedAt - nowMillis,
+                    state.attempts, "http_429_rate_limited_no_process_restart");
         }
         if (!state.breaker.mayProbe(nowMillis)) {
             return new Plan(Action.CIRCUIT_OPEN, 0L, state.attempts, "circuit_breaker_open");
@@ -103,6 +114,7 @@ public final class RecoverySupervisor {
 
         state.breaker.recordFailure(signature, nowMillis);
         if (state.breaker.state() == CircuitBreaker.State.OPEN) {
+            state.attempts = Math.min(policy.maxAttempts(), state.attempts + 1);
             return new Plan(Action.CIRCUIT_OPEN, 0L, state.attempts, "repeated_identical_failure");
         }
 
@@ -114,6 +126,23 @@ public final class RecoverySupervisor {
         long delay = RecoveryPolicy.applyJitter(decision.delayMillis, 20, jitterSample);
         state.nextAllowedAt = nowMillis + delay;
         return new Plan(Action.RECOVER, delay, state.attempts, "bounded_recovery_attempt");
+    }
+
+    public synchronized Snapshot snapshot(String profileId) {
+        requireProfile(profileId);
+        ProfileState state = state(profileId);
+        return new Snapshot(state.attempts, state.nextAllowedAt);
+    }
+
+    public synchronized void restore(String profileId, Snapshot snapshot) {
+        requireProfile(profileId);
+        if (snapshot == null || snapshot.attempts < 0 || snapshot.attempts > policy.maxAttempts()
+                || snapshot.nextAllowedAt < 0L) {
+            throw new IllegalArgumentException("invalid recovery snapshot");
+        }
+        ProfileState state = state(profileId);
+        state.attempts = snapshot.attempts;
+        state.nextAllowedAt = snapshot.nextAllowedAt;
     }
 
     public synchronized void recordSuccess(String profileId) {
