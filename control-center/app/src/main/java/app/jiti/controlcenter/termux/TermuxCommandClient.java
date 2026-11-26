@@ -160,6 +160,22 @@ public final class TermuxCommandClient {
         }
     }
 
+    public static void runProfileControl(Context context, String profileId, String mode, Callback callback) {
+        InstallState state = inspect(context);
+        if (!state.canInvoke()) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
+            return;
+        }
+        try {
+            String prefix = state.dataDir + "/files/usr";
+            TermuxCommandSpec spec = TermuxCommandSpec.forProfileControl(prefix, profileId, mode);
+            runSpec(context, state, spec, TermuxOperation.PROFILE_CONTROL, callback);
+        } catch (Exception e) {
+            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
+                    "Profile control request rejected: " + e.getClass().getSimpleName(), false));
+        }
+    }
+
     private static void startBackgroundTask(Context context, InstallState state, TermuxCommandSpec spec,
                                             String commandLabel, String description) {
         if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
