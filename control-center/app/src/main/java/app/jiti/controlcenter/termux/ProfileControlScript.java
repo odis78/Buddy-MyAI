@@ -195,6 +195,7 @@ def preflight(profile):
     if os.path.islink(profile["pid"]) or os.path.islink(profile["url"]) or os.path.islink(profile["log"]):
         return {"result": "blocked", "reason": "runtime_file_symlink_not_allowed"}
     stale = False
+    stale_pid = 0
     if os.path.exists(profile["pid"]):
         try:
             raw_pid = open(profile["pid"], "r", encoding="utf-8").read().strip()
@@ -210,10 +211,11 @@ def preflight(profile):
                 return {"result": "already_running", "pid": pid}
             return {"result": "process_running_not_ready", "pid": pid}
         stale = True
+        stale_pid = pid
     matches = find_matching(profile)
     if matches:
         return {"result": "blocked", "reason": "untracked_process", "pid": matches[0]}
-    return {"result": "ready_to_start", "stale_pid_file": stale}
+    return {"result": "ready_to_start", "stale_pid_file": stale, "stale_pid": stale_pid}
 
 def start_profile(profile):
     checked = preflight(profile)
@@ -224,9 +226,16 @@ def start_profile(profile):
     if manager_is_active():
         return {"result": "blocked", "reason": "existing_tunnel_manager_busy"}
     if checked.get("stale_pid_file"):
+        old_pid = checked.get("stale_pid", 0)
+        if old_pid and os.path.exists("/proc/%d" % old_pid):
+            return {"result": "blocked", "reason": "stale_pid_reused", "pid": old_pid}
+        if find_matching(profile):
+            return {"result": "blocked", "reason": "untracked_process"}
         for path in (profile["pid"], profile["url"]):
             if os.path.exists(path) and not os.path.islink(path):
                 os.unlink(path)
+    if find_matching(profile):
+        return {"result": "blocked", "reason": "untracked_process"}
     env, env_state = load_environment(profile)
     if env is None:
         return {"result": "blocked", "reason": env_state}
