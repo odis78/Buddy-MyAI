@@ -177,12 +177,12 @@ def health_ok(profile):
         return False
 
 def preflight(profile):
-    if not os.path.isfile(BINARY) or not os.access(BINARY, os.X_OK):
-        return {"result": "blocked", "reason": "tunnel_binary_missing"}
+    if os.path.islink(BINARY) or not os.path.isfile(BINARY) or not os.access(BINARY, os.X_OK):
+        return {"result": "blocked", "reason": "tunnel_binary_missing_or_symlink"}
     if not regular_file(profile["config"]):
         return {"result": "blocked", "reason": "profile_missing_or_symlink"}
-    if not os.path.isdir(STATE) or not os.access(STATE, os.W_OK):
-        return {"result": "blocked", "reason": "runtime_state_directory_unavailable"}
+    if os.path.islink(STATE) or not os.path.isdir(STATE) or not os.access(STATE, os.W_OK):
+        return {"result": "blocked", "reason": "runtime_state_directory_unavailable_or_symlink"}
     try:
         config_text = open(profile["config"], "r", encoding="utf-8").read()
     except Exception:
@@ -308,7 +308,14 @@ def stop_profile(profile):
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
-        return {"result": "stopped"}
+        try:
+            if not os.path.exists("/proc/%d" % pid) and open(pid_path, "r", encoding="utf-8").read().strip() == str(pid):
+                os.unlink(pid_path)
+                if os.path.isfile(profile["url"]) and not os.path.islink(profile["url"]):
+                    os.unlink(profile["url"])
+        except Exception:
+            pass
+        return {"result": "stopped", "pid": pid}
     except Exception as exc:
         return {"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}
     deadline = time.time() + 15
