@@ -1228,7 +1228,7 @@ public final class MainActivity extends Activity {
         statusView.setText("LIVE: проверка процесса, профиля и полной готовности…");
         TermuxCommandClient.runProfileControl(this, profileId, "status", result -> {
             if (isFinishing() || isDestroyed()) {
-                completeProfileOperation(requestId);
+                completeProfileOperationAfterActivityGone(requestId);
                 return;
             }
             JSONObject report = profileReport(result);
@@ -1269,7 +1269,7 @@ public final class MainActivity extends Activity {
         statusView.setText("Чтение последних строк журнала с локальным редактированием секретов…");
         TermuxCommandClient.runProfileControl(this, profileId, "logs", result -> {
             if (isFinishing() || isDestroyed()) {
-                completeProfileOperation(requestId);
+                completeProfileOperationAfterActivityGone(requestId);
                 return;
             }
             JSONObject report = profileReport(result);
@@ -1580,11 +1580,6 @@ public final class MainActivity extends Activity {
                     globalControlStatusView.setText("ПОСЛЕДОВАТЕЛЬНОСТЬ ОСТАНОВЛЕНА: " + profileTitle(step.profileId) + " • " + detail);
                     completeProfileOperation(requestId);
                     return;
-                }
-                if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
-                    MonitorService.setManualHold(this, step.profileId, true);
-                } else if ("start".equals(step.operation)) {
-                    MonitorService.setManualHold(this, step.profileId, false);
                 }
                 globalControlStatusView.setText("Подтверждено: " + profileTitle(step.profileId) + " • " + detail);
                 runProfileStackStep(steps, index + 1, requestId, requestedMode);
