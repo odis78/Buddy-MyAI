@@ -122,6 +122,14 @@ def process_start_time(pid):
     except Exception:
         return None
 
+def process_state(pid):
+    try:
+        raw = open("/proc/%d/stat" % pid, "r", encoding="utf-8").read()
+        fields = raw[raw.rfind(")") + 2:].split()
+        return fields[0] if fields else None
+    except Exception:
+        return None
+
 def process_identity(pid, profile):
     try:
         executable = os.readlink("/proc/%d/exe" % pid)
@@ -326,7 +334,7 @@ def stop_profile(profile):
         return {"result": "stop_failed", "reason": type(exc).__name__, "pid": pid}
     deadline = time.time() + 15
     while time.time() < deadline:
-        if not os.path.exists("/proc/%d" % pid):
+        if not os.path.exists("/proc/%d" % pid) or process_state(pid) in ("Z", "X"):
             try:
                 if open(pid_path, "r", encoding="utf-8").read().strip() == str(pid):
                     os.unlink(pid_path)
