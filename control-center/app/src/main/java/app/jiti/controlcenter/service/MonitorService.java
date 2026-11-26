@@ -208,11 +208,42 @@ public final class MonitorService extends Service {
         return Math.max(0, findNumericField(report, "httpstatus", "statuscode", "httpstatuscode"));
     }
 
+    private long findLongField(JSONObject object, String... names) {
+        if (object == null) return -1L;
+        Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = object.opt(key);
+            String normalized = key.toLowerCase(java.util.Locale.ROOT)
+                    .replace("_", "").replace("-", "");
+            for (String name : names) {
+                if (normalized.equals(name)) {
+                    if (value instanceof Number) return ((Number) value).longValue();
+                    try { return Long.parseLong(String.valueOf(value)); } catch (Exception ignored) { }
+                }
+            }
+            if (value instanceof JSONObject) {
+                long nested = findLongField((JSONObject) value, names);
+                if (nested >= 0L) return nested;
+            } else if (value instanceof JSONArray) {
+                JSONArray array = (JSONArray) value;
+                for (int i = 0; i < array.length(); i++) {
+                    Object item = array.opt(i);
+                    if (item instanceof JSONObject) {
+                        long nested = findLongField((JSONObject) item, names);
+                        if (nested >= 0L) return nested;
+                    }
+                }
+            }
+        }
+        return -1L;
+    }
+
     private long findRetryAfterMillis(JSONObject report) {
-        int millis = findNumericField(report, "retryafterms", "retryaftermillis");
-        if (millis >= 0) return Math.min(millis, 900000L);
-        int seconds = findNumericField(report, "retryafterseconds", "retryafter");
-        if (seconds >= 0) return Math.min(seconds * 1000L, 900000L);
+        long millis = findLongField(report, "retryafterms", "retryaftermillis");
+        if (millis >= 0L) return Math.min(millis, 900000L);
+        long seconds = findLongField(report, "retryafterseconds", "retryafter");
+        if (seconds >= 0L) return seconds >= 900L ? 900000L : seconds * 1000L;
         return -1L;
     }
 
