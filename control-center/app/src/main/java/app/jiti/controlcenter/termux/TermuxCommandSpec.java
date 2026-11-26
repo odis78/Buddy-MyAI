@@ -689,22 +689,6 @@ else:
         }
     }
 
-    public static TermuxCommandSpec forBuddyLaunch(String prefix, String mode) {
-        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..")
-                || !("preflight".equals(mode) || "start".equals(mode)))
-            throw new IllegalArgumentException("valid absolute prefix and launch mode required");
-        return new TermuxCommandSpec(TermuxOperation.BUDDY_LAUNCH, prefix + "/bin/python",
-                Arrays.asList("-c", BUDDY_LAUNCH_SCRIPT, mode));
-    }
-
-    public static TermuxCommandSpec forBuddyStop(String prefix, String mode) {
-        if (prefix == null || !prefix.startsWith("/") || prefix.contains("..")
-                || !("preflight".equals(mode) || "stop".equals(mode)))
-            throw new IllegalArgumentException("valid absolute prefix and stop mode required");
-        return new TermuxCommandSpec(TermuxOperation.BUDDY_STOP, prefix + "/bin/python",
-                Arrays.asList("-c", BUDDY_STOP_SCRIPT, mode));
-    }
-
     public static TermuxCommandSpec forBuddyMcpAuthProbe(String prefix, int pid) {
         if (prefix == null || !prefix.startsWith("/") || prefix.contains("..") || pid <= 0)
             throw new IllegalArgumentException("valid absolute prefix and positive PID required");
@@ -759,18 +743,6 @@ else:
                     && "-c".equals(arguments.get(0))
                     && BUDDY_MCP_AUTH_PROBE_SCRIPT.equals(arguments.get(1))
                     && arguments.get(2).matches("[1-9][0-9]*");
-        }
-        if (operation == TermuxOperation.BUDDY_LAUNCH) {
-            return executable.endsWith("/bin/python") && arguments.size() == 3
-                    && "-c".equals(arguments.get(0))
-                    && BUDDY_LAUNCH_SCRIPT.equals(arguments.get(1))
-                    && ("preflight".equals(arguments.get(2)) || "start".equals(arguments.get(2)));
-        }
-        if (operation == TermuxOperation.BUDDY_STOP) {
-            return executable.endsWith("/bin/python") && arguments.size() == 3
-                    && "-c".equals(arguments.get(0))
-                    && BUDDY_STOP_SCRIPT.equals(arguments.get(1))
-                    && ("preflight".equals(arguments.get(2)) || "stop".equals(arguments.get(2)));
         }
         for (String arg : arguments) {
             if (arg == null || arg.contains("\n") || arg.contains("\r")) return false;
