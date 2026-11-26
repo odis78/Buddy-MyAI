@@ -198,7 +198,7 @@ def full_health_ok(profile):
         result = subprocess.run(
             argv, cwd=HOME, env=env, stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            text=True, timeout=8, check=False
+            text=True, timeout=5, check=False
         )
         report = json.loads(result.stdout.strip().splitlines()[-1])
         return result.returncode == 0 and report.get("result") == "ok"
@@ -312,10 +312,14 @@ def start_profile(profile):
     while time.time() < deadline:
         if not process_identity(pid, profile):
             return {"result": "process_identity_lost_during_readiness", "pid": pid}
-        if health_ok(profile) and full_health_ok(profile):
-            return {"result": "started_ready", "pid": pid}
+        if health_ok(profile):
+            if full_health_ok(profile):
+                return {"result": "started_ready", "pid": pid}
+            return {"result": "started_not_ready", "reason": "control_plane_or_full_health_not_ready",
+                    "pid": pid, "log": profile["log"]}
         time.sleep(1)
-    return {"result": "started_not_ready", "pid": pid, "log": profile["log"]}
+    return {"result": "started_not_ready", "reason": "local_readyz_timeout",
+            "pid": pid, "log": profile["log"]}
 
 def stop_profile(profile):
     pid_path = profile["pid"]
