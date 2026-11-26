@@ -358,8 +358,11 @@ public final class MonitorService extends Service {
             handler.removeCallbacks(poll);
             handler.post(poll);
         } else if (!startAsForegroundSafely()) {
+            sessionGeneration.invalidate();
             monitoring = false;
             running = false;
+            if (poll != null) handler.removeCallbacks(poll);
+            poll = null;
             releaseWakeLock();
             stopSelf(startId);
             return START_NOT_STICKY;
@@ -918,7 +921,18 @@ public final class MonitorService extends Service {
         updateNotification();
         log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_STARTED",
                 "Attempt " + pending.attempt + "; " + pending.reason);
-        runProfileControlForCurrentSession( pending.profileId, pending.mode, result -> {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProfileControl(this, pending.profileId, pending.mode, result -> {
+            if (!isCurrentSession(generation)) {
+                // The OS command may already have completed after stop/destroy.
+                // Release only its own coordinator slot; never publish stale state.
+                OperationCoordinator.Request next = coordinator.complete(requestId);
+                if (next != null && next.kind == OperationCoordinator.Kind.MANUAL) {
+                    sendBroadcast(new Intent(MainActivity.ACTION_MANUAL_REQUEST_READY)
+                            .setPackage(getPackageName()));
+                }
+                return;
+            }
             JSONObject report = null;
             String state = "invalid_result";
             try {
