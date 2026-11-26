@@ -111,6 +111,16 @@ public final class RecoverySupervisor {
             return new Plan(Action.RECHECK_ONLY, state.nextAllowedAt - nowMillis,
                     state.attempts, "http_429_rate_limited_no_process_restart");
         }
+        // A transient network/control-plane failure is not evidence that the
+        // local process is broken. Back off and recheck; never restart it.
+        if (error == RecoveryPolicy.ErrorClass.TRANSIENT) {
+            int exponent = Math.min(state.consecutiveFailures, 4);
+            long delay = Math.min(60000L, 5000L << exponent);
+            state.consecutiveFailures++;
+            state.nextAllowedAt = Math.max(state.nextAllowedAt, nowMillis + delay);
+            return new Plan(Action.RECHECK_ONLY, state.nextAllowedAt - nowMillis,
+                    state.attempts, "transient_failure_recheck_without_process_restart");
+        }
         if (!state.breaker.mayProbe(nowMillis)) {
             return new Plan(Action.CIRCUIT_OPEN, 0L, state.attempts, "circuit_breaker_open");
         }
