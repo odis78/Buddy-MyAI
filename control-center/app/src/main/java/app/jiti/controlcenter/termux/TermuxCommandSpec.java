@@ -750,7 +750,7 @@ else:
                     && ProfileControlScript.SCRIPT.equals(arguments.get(1))
                     && ("preflight".equals(arguments.get(2)) || "status".equals(arguments.get(2))
                     || "start".equals(arguments.get(2)) || "stop".equals(arguments.get(2))
-                    || "restart".equals(arguments.get(2)))
+                    || "restart".equals(arguments.get(2)) || "logs".equals(arguments.get(2)))
                     && ("bridge".equals(arguments.get(3)) || "droidmcp".equals(arguments.get(3))
                     || "rea-android".equals(arguments.get(3)));
         }
