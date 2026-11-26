@@ -308,6 +308,16 @@ jobs:
           print((report / "elf-acceptance-summary.txt").read_text())
           PY
 
+      - name: Upload Android cgo runtime candidate for later physical test
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test220-android-cgo-runtime-candidate
+          path: |
+            ${{ runner.temp }}/android-cgo-runtime/libtunnel-client.so
+            ${{ runner.temp }}/android-cgo-report/runtime-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload diagnostics only
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
