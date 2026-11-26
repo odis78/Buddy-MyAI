@@ -24,7 +24,8 @@ public final class OperationCoordinator {
         REJECTED_AUTOMATION_DISABLED,
         REJECTED_MANUAL_IN_PROGRESS,
         REJECTED_MANUAL_ALREADY_QUEUED,
-        REJECTED_OPERATION_IN_PROGRESS
+        REJECTED_OPERATION_IN_PROGRESS,
+        REJECTED_AUTOMATIC_TARGET
     }
 
     public static final class Request {
@@ -108,6 +109,10 @@ public final class OperationCoordinator {
     public synchronized Submission requestAutomatic(String componentId, String operation) {
         String target = validateTarget(componentId);
         String action = validateOperation(operation);
+        if (!"bridge".equals(target) && !"droidmcp".equals(target)
+                && !"rea-android".equals(target)) {
+            return new Submission(Status.REJECTED_AUTOMATIC_TARGET, null);
+        }
         if (!automaticEnabled) {
             return new Submission(Status.REJECTED_AUTOMATION_DISABLED, null);
         }
