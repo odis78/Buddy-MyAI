@@ -112,7 +112,7 @@ public final class MainActivity extends Activity {
 
         page.addView(text("JITI CONTROL CENTER", 22, FG, true));
         addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
-        addCard(page, text("РЕЖИМ АУДИТА. Доступны фиксированные read-only проверки через Termux RUN_COMMAND после явной настройки разрешения. Запуск, остановка и перезапуск инфраструктуры пока заблокированы до проверки контрактов и тестов на устройстве.", 13, AMBER, true), 12);
+        addCard(page, text("РЕЖИМ РУЧНОГО УПРАВЛЕНИЯ. После безопасной проверки Termux доступны подтверждаемые операции с каждым REA-туннелем и последовательное управление REA-стеком. Buddy управляется отдельно и не затрагивается общими командами. Автоматическое восстановление пока отключено до завершения тестов.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
