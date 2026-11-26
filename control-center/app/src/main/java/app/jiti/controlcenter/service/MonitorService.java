@@ -37,6 +37,7 @@ import app.jiti.controlcenter.core.RecoveryErrorClassifier;
 import app.jiti.controlcenter.core.RecoveryPolicy;
 import app.jiti.controlcenter.core.RecoverySupervisor;
 import app.jiti.controlcenter.core.ToolCatalogAudit;
+import app.jiti.controlcenter.core.SessionGeneration;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
@@ -70,6 +71,7 @@ public final class MonitorService extends Service {
     private final Map<String, Runnable> scheduledRecoveryTasks = new LinkedHashMap<>();
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
+    private final SessionGeneration sessionGeneration = new SessionGeneration();
     private boolean inFlight;
     private boolean pollRequested;
     private String lastHealthState = "";
@@ -78,7 +80,47 @@ public final class MonitorService extends Service {
     private long lastAuthProbeAtEpochMillis = 0L;
     private String notificationText = "Ожидание первой проверки";
 
-    private final Runnable poll = this::pollOnce;
+    private Runnable poll;
+
+    private boolean isCurrentSession(long generation) {
+        return monitoring && sessionGeneration.isCurrent(generation);
+    }
+
+    private void runForCurrentSession(TermuxOperation operation, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.run(this, operation, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProcessExecutableForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProcessExecutable(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProcessCmdlineForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProcessCmdline(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runBuddyMcpAuthProbeForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runBuddyMcpAuthProbe(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProfileControlForCurrentSession(String profileId, String mode,
+                                                    TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProfileControl(this, profileId, mode, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
 
     private static final class PendingRecovery {
         final String profileId;
@@ -275,7 +317,7 @@ public final class MonitorService extends Service {
                 return START_NOT_STICKY;
             }
             if (inFlight) pollRequested = true;
-            else {
+            else if (poll != null) {
                 handler.removeCallbacks(poll);
                 handler.post(poll);
             }
@@ -285,9 +327,11 @@ public final class MonitorService extends Service {
         if ((Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                 || notificationManager == null || !notificationManager.areNotificationsEnabled()) {
+            sessionGeneration.invalidate();
             running = false;
             monitoring = false;
-            handler.removeCallbacks(poll);
+            if (poll != null) handler.removeCallbacks(poll);
+            poll = null;
             releaseWakeLock();
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
             saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Notification permission required", 0);
@@ -296,10 +340,13 @@ public final class MonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (!monitoring) {
+            final long generation = sessionGeneration.begin();
+            poll = () -> { if (isCurrentSession(generation)) pollOnce(); };
             monitoring = true;
             running = true;
             syncRecoverySettings();
             if (!startAsForegroundSafely()) {
+                sessionGeneration.invalidate();
                 monitoring = false;
                 running = false;
                 saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Android refused foreground service start", 0);
@@ -373,7 +420,7 @@ public final class MonitorService extends Service {
             lastGateState = "";
         }
         inFlight = true;
-        TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
+        runForCurrentSession(TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
 
     private void onHealthResult(TermuxCommandResult result) {
@@ -413,7 +460,7 @@ public final class MonitorService extends Service {
 
         TermuxCommandClient.InstallState currentInstall = TermuxCommandClient.inspect(this);
         String home = currentInstall.dataDir == null ? "" : currentInstall.dataDir + "/files/home";
-        TermuxCommandClient.runProcessExecutable(this, pid, executable -> {
+        runProcessExecutableForCurrentSession( pid, executable -> {
             if (!monitoring) { inFlight = false; return; }
             boolean executableMatches = executable.succeeded() && !home.isEmpty()
                     && TunnelProcessIdentity.matchesExecutable(executable.stdout, home);
@@ -422,7 +469,7 @@ public final class MonitorService extends Service {
                         healthSummary + "; PID exists but executable identity did not match");
                 return;
             }
-            TermuxCommandClient.runProcessCmdline(this, pid, commandLine -> {
+            runProcessCmdlineForCurrentSession( pid, commandLine -> {
                 if (!monitoring) { inFlight = false; return; }
                 boolean configMatches = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProcessIdentity.matchesBuddyConfig(commandLine.stdout, home);
@@ -453,9 +500,9 @@ public final class MonitorService extends Service {
         long now = System.currentTimeMillis();
         if (ready && now - lastAuthProbeAtEpochMillis >= 300000L) {
             lastAuthProbeAtEpochMillis = now;
-            TermuxCommandClient.runBuddyMcpAuthProbe(this, pid, this::onAuthenticatedMcpResult);
+            runBuddyMcpAuthProbeForCurrentSession( pid, this::onAuthenticatedMcpResult);
         } else {
-            TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+            runForCurrentSession(TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
         }
     }
 
@@ -494,7 +541,7 @@ public final class MonitorService extends Service {
         }
         updateNotification();
         if ("NOT_READY".equals(lastHealthState)) {
-            TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
+            runForCurrentSession(TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
         } else {
             runAuxiliaryProfileChecks(0);
         }
@@ -572,7 +619,7 @@ public final class MonitorService extends Service {
         log("buddy-mcp-auth", authStatus.name(), detail);
         notificationText = "Buddy MCP auth probe: " + state;
         updateNotification();
-        TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+        runForCurrentSession(TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
     }
 
     private void onProcessSnapshot(TermuxCommandResult result) {
@@ -600,7 +647,7 @@ public final class MonitorService extends Service {
             return;
         }
         TermuxOperation operation = AUXILIARY_PROFILE_HEALTH[index];
-        TermuxCommandClient.run(this, operation,
+        runForCurrentSession(operation,
                 result -> checkAuxiliaryProfileIdentity(operation, result,
                         () -> runAuxiliaryProfileChecks(index + 1)));
     }
@@ -672,7 +719,7 @@ public final class MonitorService extends Service {
         final boolean ready = endpointsReady;
         TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
         final String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
-        TermuxCommandClient.runProcessExecutable(this, targetPid, executable -> {
+        runProcessExecutableForCurrentSession( targetPid, executable -> {
             if (!monitoring) { inFlight = false; return; }
             if (!executable.succeeded() || home.isEmpty()
                     || !TunnelProfileIdentity.matchesExecutable(executable.stdout, home)) {
@@ -683,7 +730,7 @@ public final class MonitorService extends Service {
                 next.run();
                 return;
             }
-            TermuxCommandClient.runProcessCmdline(this, targetPid, commandLine -> {
+            runProcessCmdlineForCurrentSession( targetPid, commandLine -> {
                 if (!monitoring) { inFlight = false; return; }
                 boolean identity = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProfileIdentity.matchesProfile(executable.stdout, commandLine.stdout,
@@ -771,9 +818,11 @@ public final class MonitorService extends Service {
         for (PendingRecovery pending : new ArrayList<>(pendingRecoveries.values())) {
             pendingRecoveries.remove(pending.profileId);
             if (scheduledRecoveryTasks.containsKey(pending.profileId)) continue;
+            final long generation = sessionGeneration.current();
             Runnable task = () -> {
+                if (!isCurrentSession(generation)) return;
                 scheduledRecoveryTasks.remove(pending.profileId);
-                if (!monitoring || !isAutoRecoveryEnabled(this)) return;
+                if (!isAutoRecoveryEnabled(this)) return;
                 executeAutomaticRecovery(pending);
             };
             scheduledRecoveryTasks.put(pending.profileId, task);
@@ -791,7 +840,7 @@ public final class MonitorService extends Service {
         }
         // Revalidate immediately before mutation. A manual start may have
         // repaired the profile while this recovery was waiting in cooldown.
-        TermuxCommandClient.runProfileControl(this, pending.profileId, "preflight", preflight -> {
+        runProfileControlForCurrentSession( pending.profileId, "preflight", preflight -> {
             if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
             JSONObject report = null;
             String state = "invalid_preflight";
@@ -869,7 +918,7 @@ public final class MonitorService extends Service {
         updateNotification();
         log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_STARTED",
                 "Attempt " + pending.attempt + "; " + pending.reason);
-        TermuxCommandClient.runProfileControl(this, pending.profileId, pending.mode, result -> {
+        runProfileControlForCurrentSession( pending.profileId, pending.mode, result -> {
             JSONObject report = null;
             String state = "invalid_result";
             try {
@@ -999,7 +1048,7 @@ public final class MonitorService extends Service {
     }
 
     private void scheduleNext() {
-        if (monitoring) {
+        if (monitoring && poll != null) {
             renewWakeLock();
             handler.removeCallbacks(poll);
             if (pollRequested) {
@@ -1107,10 +1156,12 @@ public final class MonitorService extends Service {
 
     private void stopMonitoring() {
         monitoring = false;
+        sessionGeneration.invalidate();
         running = false;
         inFlight = false;
         pollRequested = false;
-        handler.removeCallbacks(poll);
+        if (poll != null) handler.removeCallbacks(poll);
+        poll = null;
         clearPendingAutomaticRecoveries("monitor_stopped");
         releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");
@@ -1125,8 +1176,11 @@ public final class MonitorService extends Service {
     }
 
     @Override public void onDestroy() {
+        sessionGeneration.invalidate();
         monitoring = false;
         running = false;
+        if (poll != null) handler.removeCallbacks(poll);
+        poll = null;
         clearPendingAutomaticRecoveries("service_destroyed");
         handler.removeCallbacksAndMessages(null);
         releaseWakeLock();
