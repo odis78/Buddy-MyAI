@@ -22,6 +22,14 @@ for name in names:
     compile(script, name + ".py", "exec")
     scripts[name] = script
 
+PROFILE_SOURCE = Path("control-center/app/src/main/java/app/jiti/controlcenter/termux/ProfileControlScript.java")
+profile_source = PROFILE_SOURCE.read_text(encoding="utf-8")
+profile_match = re.search(r'SCRIPT = """\n(.*?)\n""";', profile_source, re.S)
+if not profile_match:
+    raise SystemExit("PROFILE_CONTROL_SCRIPT text block not found")
+profile_control = profile_match.group(1).replace("\\\\", "\\")
+compile(profile_control, "PROFILE_CONTROL_SCRIPT.py", "exec")
+
 auth = scripts["BUDDY_MCP_AUTH_PROBE_SCRIPT"]
 launch = scripts["BUDDY_LAUNCH_SCRIPT"]
 stop = scripts["BUDDY_STOP_SCRIPT"]
@@ -62,6 +70,66 @@ def report(process):
             f"script did not emit one JSON report: rc={process.returncode}, "
             f"stdout={process.stdout!r}, stderr={process.stderr!r}"
         ) from exc
+
+# Profile lifecycle script is allowlisted, profile-scoped, and fails closed.
+assert "signal.SIGTERM" in profile_control
+assert "signal.SIGKILL" not in profile_control
+assert "existing_tunnel_manager_busy" in profile_control
+assert "jiti-profile-control.lock" in profile_control
+assert "buddy-myai.yaml" not in profile_control
+assert "rea-android.yaml" in profile_control
+assert "bridge-013.yaml" in profile_control
+assert "droidmcp-filesystem.yaml" in profile_control
+
+with tempfile.TemporaryDirectory(prefix="jiti-profile-control-") as root:
+    home = Path(root)
+    unknown = subprocess.run(
+        [sys.executable, "-c", profile_control, "status", "buddy"],
+        env={**os.environ, "HOME": str(home)}, text=True,
+        capture_output=True, timeout=15
+    )
+    assert unknown.returncode == 2
+    assert report(unknown)["reason"] == "unknown_profile"
+
+    invalid_mode = subprocess.run(
+        [sys.executable, "-c", profile_control, "shell", "bridge"],
+        env={**os.environ, "HOME": str(home)}, text=True,
+        capture_output=True, timeout=15
+    )
+    assert invalid_mode.returncode == 2
+    assert report(invalid_mode)["reason"] == "invalid_mode"
+
+    state = home / ".local" / "state" / "tunnels"
+    state.mkdir(parents=True)
+    binary = home / "tunnel-client-android-build-v0.0.19" / "bin" / "tunnel-client-android-arm64"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("#!/bin/sh\\nexit 0\\n", encoding="utf-8")
+    binary.chmod(0o700)
+    profile = home / ".config" / "tunnel-client-bridge-013" / "bridge-013.yaml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text("api_key: env:CONTROL_PLANE_API_KEY\\n", encoding="utf-8")
+    env_file = home / ".config" / "termux-bridge" / "runtime.env"
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text("CONTROL_PLANE_API_KEY=fixture-profile-secret\\n", encoding="utf-8")
+    env_file.chmod(0o600)
+
+    preflight = subprocess.run(
+        [sys.executable, "-c", profile_control, "preflight", "bridge"],
+        env={**os.environ, "HOME": str(home)}, text=True,
+        capture_output=True, timeout=15
+    )
+    assert preflight.returncode == 0
+    assert report(preflight)["result"] == "ready_to_start"
+    assert "fixture-profile-secret" not in preflight.stdout
+    assert "fixture-profile-secret" not in preflight.stderr
+
+    env_file.chmod(0o644)
+    insecure = subprocess.run(
+        [sys.executable, "-c", profile_control, "preflight", "bridge"],
+        env={**os.environ, "HOME": str(home)}, text=True,
+        capture_output=True, timeout=15
+    )
+    assert report(insecure)["reason"] == "insecure_env_file_permissions"
 
 # Endpoint discovery must expose useful local addresses while redacting auth values.
 with tempfile.TemporaryDirectory(prefix="jiti-mcp-endpoint-audit-") as root:
