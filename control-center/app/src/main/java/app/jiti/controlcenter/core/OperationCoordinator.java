@@ -31,11 +31,13 @@ public final class OperationCoordinator {
         public final long id;
         public final String componentId;
         public final Kind kind;
+        public final String operation;
 
-        private Request(long id, String componentId, Kind kind) {
+        private Request(long id, String componentId, Kind kind, String operation) {
             this.id = id;
             this.componentId = componentId;
             this.kind = kind;
+            this.operation = operation;
         }
     }
 
@@ -72,7 +74,12 @@ public final class OperationCoordinator {
     }
 
     public synchronized Submission requestManual(String componentId) {
+        return requestManual(componentId, "manual");
+    }
+
+    public synchronized Submission requestManual(String componentId, String operation) {
         String target = validateTarget(componentId);
+        String action = validateOperation(operation);
         if (active != null && active.kind == Kind.MANUAL) {
             return new Submission(Status.REJECTED_MANUAL_IN_PROGRESS, null);
         }
@@ -80,7 +87,7 @@ public final class OperationCoordinator {
             return new Submission(Status.REJECTED_MANUAL_ALREADY_QUEUED, null);
         }
 
-        Request request = new Request(nextId++, target, Kind.MANUAL);
+        Request request = new Request(nextId++, target, Kind.MANUAL, action);
         if (active == null) {
             active = request;
             return new Submission(Status.STARTED, request);
@@ -95,7 +102,12 @@ public final class OperationCoordinator {
     }
 
     public synchronized Submission requestAutomatic(String componentId) {
+        return requestAutomatic(componentId, "recover.start");
+    }
+
+    public synchronized Submission requestAutomatic(String componentId, String operation) {
         String target = validateTarget(componentId);
+        String action = validateOperation(operation);
         if (!automaticEnabled) {
             return new Submission(Status.REJECTED_AUTOMATION_DISABLED, null);
         }
@@ -106,7 +118,7 @@ public final class OperationCoordinator {
             return new Submission(Status.REJECTED_OPERATION_IN_PROGRESS, null);
         }
 
-        Request request = new Request(nextId++, target, Kind.AUTOMATIC);
+        Request request = new Request(nextId++, target, Kind.AUTOMATIC, action);
         active = request;
         cancelActiveAutomatic = false;
         return new Submission(Status.STARTED, request);
@@ -154,6 +166,14 @@ public final class OperationCoordinator {
 
     public synchronized boolean isBusy() {
         return active != null;
+    }
+
+    private static String validateOperation(String operation) {
+        if (operation == null || operation.trim().isEmpty()
+                || operation.contains("/") || operation.contains("..")) {
+            throw new IllegalArgumentException("valid operation id required");
+        }
+        return operation.trim();
     }
 
     private static String validateTarget(String componentId) {
