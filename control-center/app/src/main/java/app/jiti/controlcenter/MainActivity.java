@@ -1359,14 +1359,14 @@ public final class MainActivity extends Activity {
                     .setMessage(message)
                     .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
                     .setPositiveButton("Подтвердить", (dialog, which) -> {
-                        // A deliberate manual stop must not be undone by automation.
-                        // Manual start/restart explicitly releases that profile hold.
-                        MonitorService.setManualHold(this, profileId, "stop".equals(mode));
                         if (!commandGate.mayExecute("profile." + mode, true, true, true)) {
                             statusView.setText("Команда заблокирована политикой безопасности.");
                             completeProfileOperation(requestId);
                             return;
                         }
+                        // A deliberate manual stop must not be undone by automation.
+                        // Manual start/restart explicitly releases that profile hold.
+                        MonitorService.setManualHold(this, profileId, "stop".equals(mode));
                         statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
                         TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
                             if (isFinishing() || isDestroyed()) {
