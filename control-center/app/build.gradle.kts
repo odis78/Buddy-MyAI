@@ -23,6 +23,17 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    // Side-by-side validation build. It cannot replace the installed stable
+    // package and keeps its app data untouched.
+    buildTypes {
+        create("candidate") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".candidate"
+            versionNameSuffix = "-candidate"
+            matchingFallbacks += listOf("debug")
+        }
+    }
 }
 
 dependencies {
