@@ -158,6 +158,16 @@ with tempfile.TemporaryDirectory(prefix="jiti-profile-control-lifecycle-") as ro
 #include <netinet/in.h>
 #include <arpa/inet.h>
 int main(int argc, char **argv) {
+    if (argc > 1 && strcmp(argv[1], "health") == 0) {
+        const char *health_pid = NULL, *health_url = NULL;
+        for (int i = 2; i + 1 < argc; i++) {
+            if (strcmp(argv[i], "--pid-file") == 0) health_pid = argv[i + 1];
+            if (strcmp(argv[i], "--url-file") == 0) health_url = argv[i + 1];
+        }
+        if (!health_pid || !health_url || access(health_pid, R_OK) != 0 || access(health_url, R_OK) != 0) return 20;
+        printf("{\\"result\\":\\"ok\\"}\\n");
+        return 0;
+    }
     const char *pidfile = NULL, *urlfile = NULL;
     for (int i = 1; i + 1 < argc; i++) {
         if (strcmp(argv[i], "--pid.file") == 0) pidfile = argv[i + 1];
