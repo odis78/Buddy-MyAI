@@ -108,6 +108,7 @@ with tempfile.TemporaryDirectory(prefix="jiti-profile-control-") as root:
     profile = home / ".config" / "tunnel-client-bridge-013" / "bridge-013.yaml"
     profile.parent.mkdir(parents=True)
     profile.write_text("api_key: env:CONTROL_PLANE_API_KEY\\n", encoding="utf-8")
+    profile.chmod(0o600)
     env_file = home / ".config" / "termux-bridge" / "runtime.env"
     env_file.parent.mkdir(parents=True)
     env_file.write_text("CONTROL_PLANE_API_KEY=fixture-profile-secret\\n", encoding="utf-8")
@@ -130,6 +131,113 @@ with tempfile.TemporaryDirectory(prefix="jiti-profile-control-") as root:
         capture_output=True, timeout=15
     )
     assert report(insecure)["reason"] == "insecure_env_file_permissions"
+
+# Exercise the complete start/status/restart/stop path against a disposable local C process.
+with tempfile.TemporaryDirectory(prefix="jiti-profile-control-lifecycle-") as root:
+    home = Path(root)
+    state = home / ".local" / "state" / "tunnels"
+    state.mkdir(parents=True)
+    binary = home / "tunnel-client-android-build-v0.0.19" / "bin" / "tunnel-client-android-arm64"
+    binary.parent.mkdir(parents=True)
+    profile = home / ".config" / "tunnel-client-bridge-013" / "bridge-013.yaml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text("api_key: env:CONTROL_PLANE_API_KEY\n", encoding="utf-8")
+    profile.chmod(0o600)
+    env_file = home / ".config" / "termux-bridge" / "runtime.env"
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text("CONTROL_PLANE_API_KEY=fixture-lifecycle-secret\n", encoding="utf-8")
+    env_file.chmod(0o600)
+
+    c_source = r"""
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+int main(int argc, char **argv) {
+    const char *pidfile = NULL, *urlfile = NULL;
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], "--pid.file") == 0) pidfile = argv[i + 1];
+        if (strcmp(argv[i], "--health.url-file") == 0) urlfile = argv[i + 1];
+    }
+    if (!pidfile || !urlfile) return 10;
+    FILE *f = fopen(pidfile, "w");
+    if (!f) return 11;
+    fprintf(f, "%d\n", getpid());
+    fclose(f);
+
+    int server = socket(AF_INET, SOCK_STREAM, 0);
+    if (server < 0) return 12;
+    int reuse = 1;
+    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    if (bind(server, (struct sockaddr *)&addr, sizeof(addr)) != 0) return 13;
+    if (listen(server, 8) != 0) return 14;
+    socklen_t len = sizeof(addr);
+    if (getsockname(server, (struct sockaddr *)&addr, &len) != 0) return 15;
+
+    f = fopen(urlfile, "w");
+    if (!f) return 16;
+    fprintf(f, "http://127.0.0.1:%u\n", ntohs(addr.sin_port));
+    fclose(f);
+
+    for (;;) {
+        int client = accept(server, NULL, NULL);
+        if (client < 0) continue;
+        char request[1024] = {0};
+        read(client, request, sizeof(request) - 1);
+        const char *ok = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok";
+        const char *missing = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        const char *response = strstr(request, "/readyz") ? ok : missing;
+        write(client, response, strlen(response));
+        close(client);
+    }
+}
+"""
+    compiled = subprocess.run(
+        ["cc", "-x", "c", "-o", str(binary), "-"],
+        input=c_source, text=True, capture_output=True, timeout=30
+    )
+    assert compiled.returncode == 0, compiled.stderr
+    binary.chmod(0o700)
+
+    def profile_command(mode):
+        return subprocess.run(
+            [sys.executable, "-c", profile_control, mode, "bridge"],
+            env={**os.environ, "HOME": str(home)}, text=True,
+            capture_output=True, timeout=40
+        )
+
+    started = profile_command("start")
+    started_report = report(started)
+    assert started.returncode == 0 and started_report["result"] == "started_ready", started_report
+    assert started_report["pid"] > 0
+    assert "fixture-lifecycle-secret" not in started.stdout + started.stderr
+
+    running = profile_command("status")
+    assert report(running)["result"] == "already_running"
+
+    restarted = profile_command("restart")
+    restarted_report = report(restarted)
+    assert restarted.returncode == 0 and restarted_report["result"] == "started_ready", restarted_report
+    assert restarted_report["pid"] > 0
+
+    stopped = profile_command("stop")
+    stopped_report = report(stopped)
+    assert stopped.returncode == 0 and stopped_report["result"] == "stopped", stopped_report
+    assert not (state / "bridge-013.pid").exists()
+    assert not (state / "bridge-013.health.url").exists()
+
+    final_status = profile_command("status")
+    assert report(final_status)["result"] == "stopped"
+    assert (state / "jiti-profile-control.lock").exists()
 
 # Endpoint discovery must expose useful local addresses while redacting auth values.
 with tempfile.TemporaryDirectory(prefix="jiti-mcp-endpoint-audit-") as root:
