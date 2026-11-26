@@ -17,7 +17,7 @@ public class OperationCoordinatorTest {
         OperationCoordinator.Submission automatic = coordinator.requestAutomatic("rea-bridge");
         assertEquals(OperationCoordinator.Status.STARTED, automatic.status);
 
-        OperationCoordinator.Submission manual = coordinator.requestManual("droidmcp");
+        OperationCoordinator.Submission manual = coordinator.requestManual("droidmcp", "profile.restart");
         assertEquals(OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC, manual.status);
         assertTrue(coordinator.shouldCancelActiveAutomatic());
         assertEquals(OperationCoordinator.Kind.AUTOMATIC, coordinator.activeRequest().kind);
@@ -27,6 +27,7 @@ public class OperationCoordinatorTest {
         assertEquals(manual.request.id, next.id);
         assertEquals(OperationCoordinator.Kind.MANUAL, next.kind);
         assertEquals("droidmcp", next.componentId);
+        assertEquals("profile.restart", next.operation);
         assertFalse(coordinator.shouldCancelActiveAutomatic());
     }
 
