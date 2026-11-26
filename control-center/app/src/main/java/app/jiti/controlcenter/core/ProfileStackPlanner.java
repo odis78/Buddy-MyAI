@@ -20,9 +20,21 @@ public final class ProfileStackPlanner {
         return START_ORDER;
     }
 
+    public static List<Step> startPlan() {
+        List<Step> result = new ArrayList<>();
+        for (String profile : startOrder()) result.add(new Step(profile, "start"));
+        return Collections.unmodifiableList(result);
+    }
+
     public static List<String> stopOrder() {
         List<String> result = new ArrayList<>(START_ORDER);
         Collections.reverse(result);
+        return Collections.unmodifiableList(result);
+    }
+
+    public static List<Step> stopPlan() {
+        List<Step> result = new ArrayList<>();
+        for (String profile : stopOrder()) result.add(new Step(profile, "stop"));
         return Collections.unmodifiableList(result);
     }
 
