@@ -54,6 +54,17 @@ public class RecoverySupervisorTest {
         assertEquals(0, supervisor.attempts("bridge"));
     }
 
+    @Test public void retryAfterIsCappedAndNeverConsumesRestartBudget() {
+        RecoverySupervisor supervisor = new RecoverySupervisor();
+        supervisor.setEnabled(true);
+        RecoverySupervisor.Plan plan = supervisor.plan("bridge",
+                RecoveryPolicy.ErrorClass.RATE_LIMITED, "http_429",
+                1000L, true, 9_999_999L, 0.5);
+        assertEquals(RecoverySupervisor.Action.RECHECK_ONLY, plan.action);
+        assertEquals(900000L, plan.delayMillis);
+        assertEquals(0, supervisor.attempts("bridge"));
+    }
+
     @Test public void repeatedIdenticalProcessFailuresOpenCircuit() {
         RecoverySupervisor supervisor = new RecoverySupervisor();
         supervisor.setEnabled(true);
