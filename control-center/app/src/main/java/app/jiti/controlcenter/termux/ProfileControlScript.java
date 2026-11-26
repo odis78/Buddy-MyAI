@@ -184,6 +184,27 @@ def health_ok(profile):
     except Exception:
         return False
 
+def full_health_ok(profile):
+    env, env_state = load_environment(profile)
+    if env is None:
+        return False
+    argv = [
+        BINARY, "health",
+        "--url-file", profile["url"],
+        "--pid-file", profile["pid"],
+        "--require-control-plane-poll", "--json",
+    ]
+    try:
+        result = subprocess.run(
+            argv, cwd=HOME, env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, timeout=8, check=False
+        )
+        report = json.loads(result.stdout.strip().splitlines()[-1])
+        return result.returncode == 0 and report.get("result") == "ok"
+    except Exception:
+        return False
+
 def preflight(profile):
     if os.path.islink(BINARY) or not os.path.isfile(BINARY) or not os.access(BINARY, os.X_OK):
         return {"result": "blocked", "reason": "tunnel_binary_missing_or_symlink"}
@@ -218,7 +239,7 @@ def preflight(profile):
         if os.path.exists("/proc/%d" % pid):
             if not process_identity(pid, profile):
                 return {"result": "blocked", "reason": "pid_identity_mismatch", "pid": pid}
-            if health_ok(profile):
+            if health_ok(profile) and full_health_ok(profile):
                 return {"result": "already_running", "pid": pid}
             return {"result": "process_running_not_ready", "pid": pid}
         stale = True
@@ -291,7 +312,7 @@ def start_profile(profile):
     while time.time() < deadline:
         if not process_identity(pid, profile):
             return {"result": "process_identity_lost_during_readiness", "pid": pid}
-        if health_ok(profile):
+        if health_ok(profile) and full_health_ok(profile):
             return {"result": "started_ready", "pid": pid}
         time.sleep(1)
     return {"result": "started_not_ready", "pid": pid, "log": profile["log"]}
