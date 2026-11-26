@@ -18,10 +18,18 @@ public final class CommandGate {
     public boolean mayExecute(String operationId, boolean contractVerified,
                               boolean userConfirmed, boolean targetIdentityVerified) {
         return operationId != null
+                && !isForbiddenBuddyLifecycle(operationId)
                 && enabledOperationIds.contains(operationId)
                 && contractVerified
                 && userConfirmed
                 && targetIdentityVerified;
+    }
+
+    private static boolean isForbiddenBuddyLifecycle(String operationId) {
+        return "buddy.start".equals(operationId)
+                || "buddy.stop".equals(operationId)
+                || "buddy.restart".equals(operationId);
+
     }
 
     public static CommandGate locked() {
