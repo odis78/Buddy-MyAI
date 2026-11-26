@@ -720,6 +720,8 @@ public final class MonitorService extends Service {
         recoverySupervisor.recordSuccess(profileId);
         persistRecoveryState(profileId);
         pendingRecoveries.remove(profileId);
+        Runnable scheduled = scheduledRecoveryTasks.remove(profileId);
+        if (scheduled != null) handler.removeCallbacks(scheduled);
         if (before.attempts > 0 || before.consecutiveFailures > 0) {
             log(profileComponentIdForId(profileId), "AUTO_RECOVERY_STABLE",
                     "Profile returned to READY; retry budget reset. " + detail);
@@ -784,9 +786,66 @@ public final class MonitorService extends Service {
         if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
         if (!hasValidatedInternet()) {
             log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
-                    "Validated network disappeared before the operation; no process command sent.");
+                    "Validated network disappeared before preflight; no process command sent.");
             return;
         }
+        // Revalidate immediately before mutation. A manual start may have
+        // repaired the profile while this recovery was waiting in cooldown.
+        TermuxCommandClient.runProfileControl(this, pending.profileId, "preflight", preflight -> {
+            if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
+            JSONObject report = null;
+            String state = "invalid_preflight";
+            try {
+                report = new JSONObject(preflight.stdout);
+                state = report.optString("result", "unknown");
+            } catch (Exception ignored) { }
+            if (preflight.succeeded() && "already_running".equals(state)) {
+                recordRecoverySuccess(pending.profileId,
+                        "Preflight found the profile already fully ready; stale recovery cancelled.");
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SUPERSEDED",
+                        "Profile became READY before the scheduled recovery command.");
+                dispatchPendingAutomaticRecovery();
+                return;
+            }
+
+            String mode;
+            if (preflight.succeeded() && "ready_to_start".equals(state)) {
+                // No validated process remains. Starting is safer than asking
+                // restart to stop a stale PID record.
+                mode = "start";
+            } else if (preflight.succeeded() && "process_running_not_ready".equals(state)
+                    && "restart".equals(pending.mode)) {
+                mode = "restart";
+            } else if (preflight.succeeded() && "process_running_not_ready".equals(state)) {
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                        "A process appeared after the original missing-process observation; it is not restarted.");
+                dispatchPendingAutomaticRecovery();
+                return;
+            } else {
+                String safeState = report == null ? "invalid_preflight" : state;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_BLOCKED",
+                        "Preflight refused automatic mutation; state=" + safeState
+                                + ", exit=" + preflight.exitCode
+                                + ", internalError=" + preflight.internalError);
+                notificationText = "Автовосстановление заблокировано проверкой • " + pending.profileId;
+                updateNotification();
+                dispatchPendingAutomaticRecovery();
+                return;
+            }
+
+            if (!hasValidatedInternet()) {
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                        "Validated network disappeared after preflight; no lifecycle command sent.");
+                return;
+            }
+            PendingRecovery verified = new PendingRecovery(pending.profileId, mode,
+                    pending.delayMillis, pending.attempt, pending.reason);
+            beginAutomaticRecovery(verified);
+        });
+    }
+
+    private void beginAutomaticRecovery(PendingRecovery pending) {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
         OperationCoordinator coordinator = OperationCoordinator.shared();
         OperationCoordinator.Submission submission = coordinator.requestAutomatic(
                 pending.profileId, "recover." + pending.mode);
