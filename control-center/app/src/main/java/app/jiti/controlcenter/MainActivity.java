@@ -1088,11 +1088,29 @@ public final class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         Button inspect = button("Live-проверка");
         Button restart = button("Перезапустить");
-        inspect.setEnabled(false);
-        restart.setEnabled(false);
-        actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
-        actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
-        addTop(card, actions, 8);
+        String profileId = profileIdForComponent(item.id);
+        if (profileId != null) {
+            Button start = button("Запустить");
+            Button stop = button("Остановить");
+            inspect.setOnClickListener(v -> runProfileStatus(profileId, live));
+            start.setOnClickListener(v -> requestProfileOperation(profileId, "start", live));
+            stop.setOnClickListener(v -> requestProfileOperation(profileId, "stop", live));
+            restart.setOnClickListener(v -> requestProfileOperation(profileId, "restart", live));
+            actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            LinearLayout lifecycle = new LinearLayout(this);
+            lifecycle.addView(start, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            lifecycle.addView(stop, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            addTop(card, actions, 8);
+            addTop(card, lifecycle, 4);
+            profileActionButtons.put(profileId, Arrays.asList(inspect, start, stop, restart));
+        } else {
+            inspect.setEnabled(false);
+            restart.setEnabled(false);
+            actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            addTop(card, actions, 8);
+        }
         addCard(parent, card, 7);
     }
 
