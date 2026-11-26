@@ -37,17 +37,20 @@ public final class RecoverySupervisor {
     public static final class Snapshot {
         public final int attempts;
         public final long nextAllowedAt;
+        public final int consecutiveFailures;
 
-        private Snapshot(int attempts, long nextAllowedAt) {
+        private Snapshot(int attempts, long nextAllowedAt, int consecutiveFailures) {
             this.attempts = attempts;
             this.nextAllowedAt = nextAllowedAt;
+            this.consecutiveFailures = consecutiveFailures;
         }
     }
 
     private static final class ProfileState {
-        final CircuitBreaker breaker = new CircuitBreaker(2, 300000L);
+        final CircuitBreaker breaker = new CircuitBreaker(3, 300000L);
         int attempts;
         long nextAllowedAt;
+        int consecutiveFailures;
     }
 
     private final Map<String, ProfileState> profiles = new HashMap<>();
@@ -112,6 +115,14 @@ public final class RecoverySupervisor {
             return new Plan(Action.CIRCUIT_OPEN, 0L, state.attempts, "circuit_breaker_open");
         }
 
+        state.consecutiveFailures++;
+        int requiredObservations = error == RecoveryPolicy.ErrorClass.READINESS_FAILED ? 3 : 2;
+        if (state.consecutiveFailures < requiredObservations) {
+            state.nextAllowedAt = nowMillis + 60000L;
+            return new Plan(Action.WAIT_FOR_COOLDOWN, 60000L, state.attempts,
+                    "awaiting_consecutive_failure_confirmation");
+        }
+
         state.breaker.recordFailure(signature, nowMillis);
         if (state.breaker.state() == CircuitBreaker.State.OPEN) {
             state.attempts = Math.min(policy.maxAttempts(), state.attempts + 1);
@@ -131,22 +142,29 @@ public final class RecoverySupervisor {
     public synchronized Snapshot snapshot(String profileId) {
         requireProfile(profileId);
         ProfileState state = state(profileId);
-        return new Snapshot(state.attempts, state.nextAllowedAt);
+        return new Snapshot(state.attempts, state.nextAllowedAt, state.consecutiveFailures);
     }
 
     public synchronized void restore(String profileId, int attempts, long nextAllowedAt) {
-        restore(profileId, new Snapshot(attempts, nextAllowedAt));
+        restore(profileId, new Snapshot(attempts, nextAllowedAt, 0));
+    }
+
+    public synchronized void restore(String profileId, int attempts, long nextAllowedAt,
+                                     int consecutiveFailures) {
+        restore(profileId, new Snapshot(attempts, nextAllowedAt, consecutiveFailures));
     }
 
     public synchronized void restore(String profileId, Snapshot snapshot) {
         requireProfile(profileId);
         if (snapshot == null || snapshot.attempts < 0 || snapshot.attempts > policy.maxAttempts()
-                || snapshot.nextAllowedAt < 0L) {
+                || snapshot.nextAllowedAt < 0L || snapshot.consecutiveFailures < 0
+                || snapshot.consecutiveFailures > 1000) {
             throw new IllegalArgumentException("invalid recovery snapshot");
         }
         ProfileState state = state(profileId);
         state.attempts = snapshot.attempts;
         state.nextAllowedAt = snapshot.nextAllowedAt;
+        state.consecutiveFailures = snapshot.consecutiveFailures;
     }
 
     public synchronized void recordSuccess(String profileId) {
@@ -154,6 +172,7 @@ public final class RecoverySupervisor {
         ProfileState state = state(profileId);
         state.attempts = 0;
         state.nextAllowedAt = 0L;
+        state.consecutiveFailures = 0;
         state.breaker.recordSuccess();
     }
 
