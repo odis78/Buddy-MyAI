@@ -1123,7 +1123,7 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
-        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-status");
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-status", "profile.status");
         if (!submission.accepted()) {
             statusView.setText("Другая операция выполняется. Проверка поставлена на паузу.");
             return;
@@ -1165,7 +1165,7 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
-        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-logs");
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-logs", "profile.logs");
         if (!submission.accepted()) {
             statusView.setText("Другая операция выполняется. Просмотр журнала будет доступен после неё.");
             return;
@@ -1212,7 +1212,7 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
-        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId);
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId, "profile." + mode);
         if (!submission.accepted()) {
             statusView.setText("Другая операция уже выполняется. Новая команда не отправлена.");
             return;
@@ -1323,7 +1323,7 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
-        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual("rea-stack");
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual("rea-stack", "stack." + mode);
         if (!submission.accepted()) {
             globalControlStatusView.setText("Другая операция уже выполняется. Повторная команда отклонена.");
             return;
