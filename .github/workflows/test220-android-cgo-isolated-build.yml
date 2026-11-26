@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: test220-android-cgo-${{ github.ref }}
@@ -243,7 +242,7 @@ jobs:
           test -s "$RUNTIME_OUT"
           grep -F -- '-Wl,-z,max-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
           grep -F -- '-Wl,-z,common-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
-          grep -F -- '-pie' "$REPORT_DIR/cc-argument-trace.txt" || true
+          grep -F -- '-pie' "$REPORT_DIR/cc-argument-trace.txt"
 
       - name: Inspect Android ELF, resolver evidence and SHA-256
         shell: bash
