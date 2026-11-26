@@ -637,8 +637,13 @@ public final class MonitorService extends Service {
             if (!process.optBoolean("running")) {
                 String detail = "Tunnel Client process is not running";
                 recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0), detail);
-                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.PROCESS_MISSING,
-                        "process_missing", findRetryAfterMillis(report), detail);
+                int httpStatus = findHttpStatus(report);
+                RecoveryPolicy.ErrorClass error = httpStatus > 0
+                        ? RecoveryErrorClassifier.fromHttpStatus(httpStatus)
+                        : RecoveryPolicy.ErrorClass.PROCESS_MISSING;
+                String signature = httpStatus > 0 ? "http_" + httpStatus : "process_missing";
+                handleRecoveryObservation(profileIdForOperation(operation), error,
+                        signature, findRetryAfterMillis(report), detail);
                 next.run();
                 return;
             }
