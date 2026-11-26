@@ -128,13 +128,13 @@ public class RecoverySupervisorTest {
                 "missing-a", 1000L, true, 0L, 0.5);
         first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
                 "missing-a", 62000L, true, 0L, 0.5);
-        first.plan("bridge", RecoveryPolicy.ErrorClass.TRANSIENT,
+        first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
                 "missing-b", 124000L, true, 0L, 0.5);
         RecoverySupervisor restored = new RecoverySupervisor();
         restored.restore("bridge", first.snapshot("bridge"));
         restored.setEnabled(true);
         RecoverySupervisor.Plan exhausted = restored.plan("bridge",
-                RecoveryPolicy.ErrorClass.TRANSIENT, "missing-c",
+                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "missing-c",
                 200000L, true, 0L, 0.5);
         assertEquals(RecoverySupervisor.Action.EXHAUSTED, exhausted.action);
     }
