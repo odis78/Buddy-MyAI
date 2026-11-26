@@ -184,6 +184,9 @@ def preflight(profile):
     if os.path.islink(STATE) or not os.path.isdir(STATE) or not os.access(STATE, os.W_OK):
         return {"result": "blocked", "reason": "runtime_state_directory_unavailable_or_symlink"}
     try:
+        config_mode = stat.S_IMODE(os.stat(profile["config"]).st_mode)
+        if config_mode & 0o077:
+            return {"result": "blocked", "reason": "insecure_profile_permissions"}
         config_text = open(profile["config"], "r", encoding="utf-8").read()
     except Exception:
         return {"result": "blocked", "reason": "profile_unreadable"}
