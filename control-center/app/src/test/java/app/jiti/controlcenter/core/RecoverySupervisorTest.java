@@ -36,6 +36,8 @@ public class RecoverySupervisorTest {
                 RecoveryErrorClassifier.fromHttpStatus(429), "http_429", 1000L, true, 120000L, 0.5);
         assertEquals(RecoverySupervisor.Action.RECHECK_ONLY, plan.action);
         assertEquals(120000L, plan.delayMillis);
+        assertFalse(supervisor.isProbeAllowed("bridge", 120999L));
+        assertTrue(supervisor.isProbeAllowed("bridge", 121000L));
         assertEquals(0, supervisor.attempts("bridge"));
     }
 
@@ -46,6 +48,8 @@ public class RecoverySupervisorTest {
                 RecoveryPolicy.ErrorClass.TRANSIENT, "http_503", 1000L, true, 0L, 0.5);
         assertEquals(RecoverySupervisor.Action.RECHECK_ONLY, first.action);
         assertEquals(5000L, first.delayMillis);
+        assertFalse(supervisor.isProbeAllowed("bridge", 5999L));
+        assertTrue(supervisor.isProbeAllowed("bridge", 6000L));
         assertEquals(0, first.attempts);
 
         RecoverySupervisor.Plan duringCooldown = supervisor.plan("bridge",
