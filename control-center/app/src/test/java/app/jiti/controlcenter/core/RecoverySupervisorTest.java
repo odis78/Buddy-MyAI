@@ -42,15 +42,24 @@ public class RecoverySupervisorTest {
     @Test public void repeatedIdenticalProcessFailuresOpenCircuit() {
         RecoverySupervisor supervisor = new RecoverySupervisor();
         supervisor.setEnabled(true);
-        RecoverySupervisor.Plan first = supervisor.plan("droidmcp",
+        RecoverySupervisor.Plan firstObservation = supervisor.plan("droidmcp",
                 RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 1000L, true, 0L, 0.5);
-        assertEquals(RecoverySupervisor.Action.RECOVER, first.action);
-        assertEquals(1, first.attempts);
+        assertEquals(RecoverySupervisor.Action.WAIT_FOR_COOLDOWN, firstObservation.action);
 
-        RecoverySupervisor.Plan second = supervisor.plan("droidmcp",
-                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 10000L, true, 0L, 0.5);
-        assertEquals(RecoverySupervisor.Action.CIRCUIT_OPEN, second.action);
-        assertEquals(1, supervisor.attempts("droidmcp"));
+        RecoverySupervisor.Plan firstAttempt = supervisor.plan("droidmcp",
+                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 62000L, true, 0L, 0.5);
+        assertEquals(RecoverySupervisor.Action.RECOVER, firstAttempt.action);
+        assertEquals(1, firstAttempt.attempts);
+
+        RecoverySupervisor.Plan secondAttempt = supervisor.plan("droidmcp",
+                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 124000L, true, 0L, 0.5);
+        assertEquals(RecoverySupervisor.Action.RECOVER, secondAttempt.action);
+        assertEquals(2, secondAttempt.attempts);
+
+        RecoverySupervisor.Plan circuitOpen = supervisor.plan("droidmcp",
+                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 186000L, true, 0L, 0.5);
+        assertEquals(RecoverySupervisor.Action.CIRCUIT_OPEN, circuitOpen.action);
+        assertEquals(2, supervisor.attempts("droidmcp"));
     }
 
     @Test public void successfulManualRecoveryResetsRetryBudget() {
@@ -60,8 +69,10 @@ public class RecoverySupervisorTest {
                 "process_missing", 1000L, true, 0L, 0.5);
         supervisor.recordSuccess("rea-android");
         assertEquals(0, supervisor.attempts("rea-android"));
+        supervisor.plan("rea-android", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
+                "process_missing", 20000L, true, 0L, 0.5);
         RecoverySupervisor.Plan next = supervisor.plan("rea-android",
-                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 20000L, true, 0L, 0.5);
+                RecoveryPolicy.ErrorClass.PROCESS_MISSING, "process_missing", 82000L, true, 0L, 0.5);
         assertEquals(RecoverySupervisor.Action.RECOVER, next.action);
     }
 
@@ -70,6 +81,8 @@ public class RecoverySupervisorTest {
         first.setEnabled(true);
         first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
                 "process_missing", 1000L, true, 0L, 0.5);
+        first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
+                "process_missing", 62000L, true, 0L, 0.5);
         RecoverySupervisor.Snapshot snapshot = first.snapshot("bridge");
 
         RecoverySupervisor restored = new RecoverySupervisor();
@@ -87,14 +100,16 @@ public class RecoverySupervisorTest {
         first.setEnabled(true);
         first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
                 "missing-a", 1000L, true, 0L, 0.5);
+        first.plan("bridge", RecoveryPolicy.ErrorClass.PROCESS_MISSING,
+                "missing-a", 62000L, true, 0L, 0.5);
         first.plan("bridge", RecoveryPolicy.ErrorClass.TRANSIENT,
-                "missing-b", 10000L, true, 0L, 0.5);
+                "missing-b", 124000L, true, 0L, 0.5);
         RecoverySupervisor restored = new RecoverySupervisor();
         restored.restore("bridge", first.snapshot("bridge"));
         restored.setEnabled(true);
         RecoverySupervisor.Plan exhausted = restored.plan("bridge",
                 RecoveryPolicy.ErrorClass.TRANSIENT, "missing-c",
-                100000L, true, 0L, 0.5);
+                200000L, true, 0L, 0.5);
         assertEquals(RecoverySupervisor.Action.EXHAUSTED, exhausted.action);
     }
 
