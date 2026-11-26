@@ -2,11 +2,16 @@ package app.jiti.controlcenter;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.app.NotificationManager;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
@@ -44,6 +49,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Set;
 
 public final class MainActivity extends Activity {
     private static final String EXPECTED_TUNNELS_SCRIPT_SHA256 = "1efc8db1cc8b7e91a7f16546e5adad1206a0649b036dcc2afa048a4a87056b54";
@@ -58,8 +65,16 @@ public final class MainActivity extends Activity {
     private final CommandGate commandGate = new CommandGate(
             new HashSet<>(Arrays.asList("buddy.start", "buddy.stop",
                     "profile.start", "profile.stop", "profile.restart"))); 
+    public static final String ACTION_MANUAL_REQUEST_READY = "app.jiti.controlcenter.MANUAL_REQUEST_READY";
+    private static final Set<Long> DISPATCHED_MANUAL_REQUESTS =
+            Collections.synchronizedSet(new HashSet<>());
     private final OperationCoordinator profileOperationCoordinator = OperationCoordinator.shared();
-    private final Map<Long, Runnable> queuedManualActions = new HashMap<>();
+    private boolean manualReceiverRegistered;
+    private final BroadcastReceiver manualOperationReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            dispatchActiveManualRequest();
+        }
+    };
     private final Map<String, List<Button>> profileActionButtons = new HashMap<>();
     private Button globalCheckButton;
     private Button globalStartButton;
@@ -100,6 +115,18 @@ public final class MainActivity extends Activity {
         saveProbeSnapshot("jiti-control-center", ComponentStatus.RUNNING, "MainActivity active");
         saveProbeSnapshot("jiti-event-store", ComponentStatus.AVAILABLE, "SQLite event journal available");
         render();
+        registerManualOperationReceiver();
+    }
+
+    private void registerManualOperationReceiver() {
+        if (manualReceiverRegistered) return;
+        IntentFilter filter = new IntentFilter(ACTION_MANUAL_REQUEST_READY);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(manualOperationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(manualOperationReceiver, filter);
+        }
+        manualReceiverRegistered = true;
     }
 
     private void render() {
@@ -703,6 +730,7 @@ public final class MainActivity extends Activity {
         refreshEventLog();
         refreshLiveStatuses();
         refreshTermuxControls();
+        dispatchActiveManualRequest();
         uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
         uiRefreshHandler.postDelayed(uiRefreshRunnable, 15000L);
     }
@@ -714,6 +742,10 @@ public final class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         uiRefreshHandler.removeCallbacksAndMessages(null);
+        if (manualReceiverRegistered) {
+            try { unregisterReceiver(manualOperationReceiver); } catch (Exception ignored) {}
+            manualReceiverRegistered = false;
+        }
         if (eventStore != null) eventStore.close();
         super.onDestroy();
     }
