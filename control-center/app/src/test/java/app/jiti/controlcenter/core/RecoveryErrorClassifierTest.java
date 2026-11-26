@@ -51,6 +51,12 @@ public class RecoveryErrorClassifierTest {
         assertEquals(0, RecoveryErrorClassifier.boundedRetryAfterMillis(0, 1000, 60000));
     }
 
+    @Test public void jitterStaysWithinConfiguredSymmetricBounds() {
+        assertEquals(800, RecoveryPolicy.applyJitter(1000, 20, 0.0));
+        assertEquals(1000, RecoveryPolicy.applyJitter(1000, 20, 0.5));
+        assertEquals(1200, RecoveryPolicy.applyJitter(1000, 20, 1.0));
+    }
+
     @Test public void authenticationAndConfigurationErrorsRemainNonRetryable() {
         RecoveryPolicy policy = new RecoveryPolicy(5, 100, 1000);
         assertFalse(policy.decide(RecoveryErrorClassifier.fromHttpStatus(401), 0).retry);
