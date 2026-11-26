@@ -1137,6 +1137,32 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private void runProfileLogs(String profileId, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("Журналы недоступны: сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        statusView.setText("Чтение последних строк журнала с локальным редактированием секретов…");
+        TermuxCommandClient.runProfileControl(this, profileId, "logs", result -> {
+            if (isFinishing() || isDestroyed()) return;
+            JSONObject report = profileReport(result);
+            String state = report == null ? "error" : report.optString("result", "unknown");
+            String safeText = report == null ? "Не удалось прочитать журнал. Код: " + result.exitCode
+                    : report.optString("text", report.optString("reason", "Журнал недоступен."));
+            statusView.setText("Журнал: " + state);
+            logControlEvent(componentIdForProfile(profileId), "PROFILE_LOGS_VIEWED",
+                    "Redacted log view requested; result=" + state);
+            new AlertDialog.Builder(this)
+                    .setTitle("Журнал • " + profileTitle(profileId))
+                    .setMessage(safeText)
+                    .setPositiveButton("Закрыть", null)
+                    .show();
+            refreshTermuxControls();
+        });
+    }
+
     private void requestProfileOperation(String profileId, String mode, TextView statusView) {
         TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
         if (!install.canInvoke() || !termuxBridgeVerified()) {
@@ -1391,18 +1417,21 @@ public final class MainActivity extends Activity {
         if (profileId != null) {
             Button start = button("Запустить");
             Button stop = button("Остановить");
+            Button logs = button("Журналы");
             inspect.setOnClickListener(v -> runProfileStatus(profileId, live));
             start.setOnClickListener(v -> requestProfileOperation(profileId, "start", live));
             stop.setOnClickListener(v -> requestProfileOperation(profileId, "stop", live));
             restart.setOnClickListener(v -> requestProfileOperation(profileId, "restart", live));
+            logs.setOnClickListener(v -> runProfileLogs(profileId, live));
             actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
             actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
             LinearLayout lifecycle = new LinearLayout(this);
             lifecycle.addView(start, new LinearLayout.LayoutParams(0, dp(40), 1f));
             lifecycle.addView(stop, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            lifecycle.addView(logs, new LinearLayout.LayoutParams(0, dp(40), 1f));
             addTop(card, actions, 8);
             addTop(card, lifecycle, 4);
-            profileActionButtons.put(profileId, Arrays.asList(inspect, start, stop, restart));
+            profileActionButtons.put(profileId, Arrays.asList(inspect, start, stop, restart, logs));
         } else {
             inspect.setEnabled(false);
             restart.setEnabled(false);
