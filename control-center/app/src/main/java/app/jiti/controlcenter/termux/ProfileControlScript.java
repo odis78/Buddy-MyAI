@@ -397,16 +397,16 @@ def safe_logs(profile):
             handle.seek(max(0, os.path.getsize(path) - 32768))
             raw = handle.read().decode("utf-8", "replace")
         lines = raw.splitlines()[-80:]
-        patterns = (
-            (re.compile(r"(?i)(authorization\\s*[:=]\\s*bearer\\s+)[^\\s,;]+"), r"\\1[REDACTED]"),
-            (re.compile(r"(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{12,}"), r"\\1[REDACTED]"),
-            (re.compile(r"(?i)((?:control_plane_api_key|api[_-]?key|token|secret|password)\\s*[:=]\\s*)[^\\s,;]+"), r"\\1[REDACTED]"),
-            (re.compile(r"(?i)([?&](?:api[_-]?key|token|secret|password)=)[^&\\s]+"), r"\\1[REDACTED]"),
+        sensitive_marker = re.compile(
+            r"(?i)(authorization|control_plane_api_key|api[_-]?key|token|secret|password|bearer)"
         )
         safe = []
         for line in lines:
-            for pattern, replacement in patterns:
-                line = pattern.sub(replacement, line)
+            match = sensitive_marker.search(line)
+            if match:
+                # Redact the remainder of the line, not just a guessed token
+                # format. This also covers JSON/YAML quoting and unknown formats.
+                line = line[:match.start()] + match.group(1) + "=[REDACTED]"
             safe.append(line[:500])
         text = "\\n".join(safe)
         if len(text) > 16000:
