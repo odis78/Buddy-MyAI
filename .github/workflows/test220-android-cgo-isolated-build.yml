@@ -1,0 +1,328 @@
+name: Test 220 Android cgo isolated runtime build
+
+# Deliberately manual-only. This workflow must never run on push or pull_request.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test220-android-cgo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-cgo-runtime:
+    name: Build and inspect Android ARM64 cgo runtime only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    env:
+      BUDDY_SOURCE_COMMIT: 0ca047442ea7ef8c3b4f734c09c42feac71ab60d
+      TUNNEL_SOURCE_COMMIT: 01d67bb4da0d8359b808b4761f8db171ab682cd7
+      GO_VERSION: 1.27.3
+      NDK_VERSION: 27.2.12479018
+      REPORT_DIR: ${{ runner.temp }}/android-cgo-report
+      TUNNEL_SOURCE: ${{ runner.temp }}/tunnel-client
+      RUNTIME_OUT: ${{ runner.temp }}/android-cgo-runtime/libtunnel-client.so
+
+    steps:
+      - name: Initialize diagnostics directory
+        shell: bash
+        run: mkdir -p "$REPORT_DIR"
+
+      - name: Checkout exact Buddy source for audited patch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: odis78/Buddy-MyAI
+          ref: 0ca047442ea7ef8c3b4f734c09c42feac71ab60d
+          path: buddy-source
+          persist-credentials: false
+          submodules: false
+
+      - name: Set up JDK for Android SDK tools
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up exact Go toolchain
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
+        with:
+          go-version: "1.27.3"
+          check-latest: false
+          cache: false
+
+      - name: Set up Android SDK and pinned NDK
+        uses: android-actions/setup-android@c55407a4794419acef1980a27cfbba637f70fefd # v4.0.4
+        with:
+          packages: "ndk;27.2.12479018"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+
+      - name: Verify runner, source revisions, SDK and NDK prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "RUNNER_OS=$RUNNER_OS"
+            echo "RUNNER_ARCH=$RUNNER_ARCH"
+            uname -a
+            go version
+            git --version
+            python3 --version
+            java -version 2>&1
+            file --version | head -n 1
+            readelf --version | head -n 1
+            echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+            echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
+          } > "$REPORT_DIR/toolchain-versions.txt"
+
+          test "$(go version)" = "go version go1.27.3 linux/amd64"
+          test "$(git -C buddy-source rev-parse HEAD)" = "$BUDDY_SOURCE_COMMIT"
+          test -z "$(git -C buddy-source status --porcelain)"
+
+          : "${ANDROID_HOME:=${ANDROID_SDK_ROOT:-}}"
+          test -n "$ANDROID_HOME"
+          NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          test -f "$NDK_HOME/source.properties"
+          grep -F "Pkg.Revision = $NDK_VERSION" "$NDK_HOME/source.properties"
+
+          CC_REAL="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
+          test -x "$CC_REAL"
+          "$CC_REAL" --version > "$REPORT_DIR/ndk-clang-version.txt" 2>&1
+
+          for tool in go git python3 file readelf sha256sum; do
+            command -v "$tool" >/dev/null
+          done
+
+          {
+            echo "ANDROID_HOME=$ANDROID_HOME"
+            echo "ANDROID_NDK_HOME=$NDK_HOME"
+            echo "CC_REAL=$CC_REAL"
+            echo "TUNNEL_SOURCE=$TUNNEL_SOURCE"
+          } >> "$GITHUB_ENV"
+
+      - name: Create a fresh isolated upstream checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$TUNNEL_SOURCE"
+          mkdir -p "$TUNNEL_SOURCE"
+          git -C "$TUNNEL_SOURCE" init
+          git -C "$TUNNEL_SOURCE" remote add origin https://github.com/openai/tunnel-client.git
+          git -C "$TUNNEL_SOURCE" fetch --depth 1 origin "$TUNNEL_SOURCE_COMMIT"
+          git -C "$TUNNEL_SOURCE" checkout --detach FETCH_HEAD
+          test "$(git -C "$TUNNEL_SOURCE" rev-parse HEAD)" = "$TUNNEL_SOURCE_COMMIT"
+          test -z "$(git -C "$TUNNEL_SOURCE" status --porcelain)"
+          {
+            echo "BUDDY_HEAD=$(git -C buddy-source rev-parse HEAD)"
+            echo "TUNNEL_HEAD=$(git -C "$TUNNEL_SOURCE" rev-parse HEAD)"
+            echo "TUNNEL_STATUS_BEFORE_PATCH=$(git -C "$TUNNEL_SOURCE" status --porcelain | wc -l)"
+          } > "$REPORT_DIR/source-revisions.txt"
+
+      - name: Apply audited hardening patch only to temporary upstream checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 buddy-source/scripts/patch_tunnel_client_runtime.py "$TUNNEL_SOURCE" 2>&1 | tee "$REPORT_DIR/patch.log"
+          git -C "$TUNNEL_SOURCE" status --short > "$REPORT_DIR/patched-source-status.txt"
+          python3 - "$TUNNEL_SOURCE" "$REPORT_DIR/patched-source-status.txt" <<'PY'
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          expected = {
+              "cmd/client-runtime/main.go",
+              "cmd/client-runtime/dumpable_linux.go",
+              "cmd/client-runtime/dumpable_other.go",
+              "cmd/client-runtime/dumpable_linux_test.go",
+              "pkg/runtimeconfig/buddy_file_reference_fifo_test.go",
+          }
+          lines = subprocess.check_output(
+              ["git", "-C", str(root), "status", "--porcelain"],
+              text=True,
+          ).splitlines()
+          actual = {line[3:] for line in lines}
+          if actual != expected:
+              raise SystemExit(f"unexpected patch footprint: {sorted(actual)}")
+          main = (root / "cmd/client-runtime/main.go").read_text()
+          if "if err := hardenProcess(); err != nil {" not in main:
+              raise SystemExit("hardening call not found in runtime main")
+          for name in ("dumpable_linux.go", "dumpable_other.go", "dumpable_linux_test.go"):
+              if not (root / "cmd/client-runtime" / name).is_file():
+                  raise SystemExit(f"missing patched source: {name}")
+          print("Patch footprint and hardening entrypoint verified")
+          PY
+
+      - name: Configure Android cgo environment and compiler argument trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$RUNTIME_OUT")"
+          REAL_CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
+          CC_TRACE="$REPORT_DIR/cc-argument-trace.txt"
+          WRAPPER="$RUNNER_TEMP/android-ndk-cc-trace"
+          cat > "$WRAPPER" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          {
+            printf 'CALL'
+            printf ' <%q>' "$@"
+            printf '\n'
+          } >> "$CC_TRACE"
+          exec "$REAL_CC" "$@"
+          SH
+          chmod 700 "$WRAPPER"
+          : > "$CC_TRACE"
+
+          {
+            echo "GOOS=android"
+            echo "GOARCH=arm64"
+            echo "CGO_ENABLED=1"
+            echo "GOFLAGS="
+            echo "GOEXPERIMENT="
+            echo "GODEBUG="
+            echo "CGO_CFLAGS="
+            echo "CGO_CPPFLAGS="
+            echo "CGO_CXXFLAGS="
+            echo "CGO_FFLAGS="
+            echo "CGO_LDFLAGS="
+            echo "GOENV=off"
+            echo "GOTOOLCHAIN=local"
+            echo "GOWORK=off"
+            echo "REAL_CC=$REAL_CC"
+            echo "CC_TRACE=$CC_TRACE"
+            echo "CC=$WRAPPER"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify target-aware Go resolver and hardening file selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$TUNNEL_SOURCE"
+          go env GOOS GOARCH CGO_ENABLED GOFLAGS CC GOARM64 > "$REPORT_DIR/go-target-environment.txt"
+          test "$(go env GOOS)" = android
+          test "$(go env GOARCH)" = arm64
+          test "$(go env CGO_ENABLED)" = 1
+          test -z "$(go env GOFLAGS)"
+
+          go list -json net > "$REPORT_DIR/go-list-net.json"
+          go list -json ./cmd/client-runtime > "$REPORT_DIR/go-list-runtime.json"
+          python3 - "$REPORT_DIR/go-list-net.json" "$REPORT_DIR/go-list-runtime.json" <<'PY'
+          import json
+          import sys
+
+          net = json.load(open(sys.argv[1], encoding="utf-8"))
+          runtime = json.load(open(sys.argv[2], encoding="utf-8"))
+          cgo_files = set(net.get("CgoFiles", []))
+          if "cgo_android.go" not in cgo_files:
+              raise SystemExit(f"Android cgo resolver source not selected: {sorted(cgo_files)}")
+          go_files = set(runtime.get("GoFiles", []))
+          ignored = set(runtime.get("IgnoredGoFiles", []))
+          if "dumpable_linux.go" not in go_files:
+              raise SystemExit(f"Android did not select dumpable_linux.go: {sorted(go_files)}")
+          if "dumpable_other.go" not in ignored:
+              raise SystemExit(f"dumpable_other.go was not excluded: {sorted(ignored)}")
+          print("Android net cgo source and Linux hardening build-tag selection verified")
+          PY
+
+      - name: Build Android ARM64 external PIE runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$TUNNEL_SOURCE"
+          LDFLAGS='-linkmode=external -extldflags "-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" -X github.com/openai/tunnel-client/pkg/version.Flavor=runtime -X github.com/openai/tunnel-client/pkg/version.GitSHA=01d67bb4da0d8359b808b4761f8db171ab682cd7 -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false'
+          go build -x -mod=readonly -trimpath -buildvcs=false -buildmode=pie \
+            -ldflags="$LDFLAGS" \
+            -o "$RUNTIME_OUT" \
+            ./cmd/client-runtime 2>&1 | tee "$REPORT_DIR/go-build.log"
+
+          test -s "$RUNTIME_OUT"
+          grep -F -- '-Wl,-z,max-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
+          grep -F -- '-Wl,-z,common-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
+          grep -F -- '-pie' "$REPORT_DIR/cc-argument-trace.txt"
+
+      - name: Inspect Android ELF, resolver evidence and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          readelf -hW "$RUNTIME_OUT" > "$REPORT_DIR/elf-header.txt"
+          readelf -lW "$RUNTIME_OUT" > "$REPORT_DIR/elf-program-headers.txt"
+          readelf -dW "$RUNTIME_OUT" > "$REPORT_DIR/elf-dynamic.txt"
+          readelf -Ws "$RUNTIME_OUT" > "$REPORT_DIR/elf-symbols.txt"
+          file "$RUNTIME_OUT" > "$REPORT_DIR/elf-file.txt"
+          sha256sum "$RUNTIME_OUT" > "$REPORT_DIR/runtime-sha256.txt"
+
+          python3 - "$REPORT_DIR" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          report = Path(sys.argv[1])
+          header = (report / "elf-header.txt").read_text()
+          program = (report / "elf-program-headers.txt").read_text()
+          dynamic = (report / "elf-dynamic.txt").read_text()
+          symbols = (report / "elf-symbols.txt").read_text()
+
+          if not re.search(r"Class:\s+ELF64", header):
+              raise SystemExit("ELF is not ELF64")
+          if not re.search(r"Data:\s+2's complement, little endian", header):
+              raise SystemExit("ELF is not little-endian")
+          if not re.search(r"Type:\s+DYN\b", header):
+              raise SystemExit("ELF is not ET_DYN/PIE")
+          if not re.search(r"Machine:\s+AArch64", header):
+              raise SystemExit("ELF machine is not AArch64")
+
+          interpreter = re.search(r"\[Requesting program interpreter:\s*([^\]]+)\]", program)
+          if not interpreter:
+              raise SystemExit("expected dynamic Android PIE interpreter is missing")
+          if interpreter.group(1).strip() != "/system/bin/linker64":
+              raise SystemExit(f"unexpected Android interpreter: {interpreter.group(1)}")
+
+          loads = [line for line in program.splitlines() if re.match(r"\s*LOAD\s", line)]
+          if not loads:
+              raise SystemExit("ELF has no PT_LOAD segments")
+          alignments = [int(line.split()[-1], 16) for line in loads]
+          if any(value < 0x4000 for value in alignments):
+              raise SystemExit(f"PT_LOAD alignment below 16 KB: {alignments}")
+
+          needed = re.findall(r"Shared library: \[([^\]]+)\]", dynamic)
+          allowed = {"libc.so", "libm.so", "libdl.so", "liblog.so"}
+          unexpected = sorted(set(needed) - allowed)
+          if not needed or unexpected:
+              raise SystemExit(f"unexpected Android DT_NEEDED set: {needed}")
+
+          getaddrinfo_visible = bool(re.search(r"\bgetaddrinfo\b", symbols))
+          prctl_visible = bool(re.search(r"\bprctl\b", symbols))
+          (report / "elf-acceptance-summary.txt").write_text(
+              "ELF64 little-endian AArch64 ET_DYN PIE: PASS\n"
+              "PT_INTERP: /system/bin/linker64\n"
+              f"PT_LOAD alignments: {alignments}\n"
+              f"DT_NEEDED: {needed}\n"
+              f"getaddrinfo symbol visible: {getaddrinfo_visible}\n"
+              f"prctl symbol visible: {prctl_visible}\n",
+              encoding="utf-8",
+          )
+          print((report / "elf-acceptance-summary.txt").read_text())
+          PY
+
+      - name: Upload Android cgo runtime candidate for later physical test
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test220-android-cgo-runtime-candidate
+          path: |
+            ${{ runner.temp }}/android-cgo-runtime/libtunnel-client.so
+            ${{ runner.temp }}/android-cgo-report/runtime-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test220-android-cgo-diagnostics
+          path: ${{ runner.temp }}/android-cgo-report/
+          if-no-files-found: warn
+          retention-days: 14
