@@ -14,7 +14,7 @@ import java.security.MessageDigest;
  */
 final class RuntimeBinaryLocator {
     static final String LIBRARY_NAME = "libtunnel-client.so";
-    static final String EXPECTED_SHA256 = "f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e";
+    static final String EXPECTED_SHA256 = "cc013fae9b04523b078e6417fe5d379972e1d0d1b11b2f77b072d5f2442516eb";
 
     private RuntimeBinaryLocator() { }
 
