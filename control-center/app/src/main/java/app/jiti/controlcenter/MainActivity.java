@@ -1,6 +1,7 @@
 package app.jiti.controlcenter;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -18,6 +19,8 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import app.jiti.controlcenter.core.CommandGate;
+import app.jiti.controlcenter.core.OperationCoordinator;
+import app.jiti.controlcenter.core.ProfileStackPlanner;
 import app.jiti.controlcenter.core.InFlightGate;
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
@@ -39,6 +42,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 public final class MainActivity extends Activity {
     private static final String EXPECTED_TUNNELS_SCRIPT_SHA256 = "1efc8db1cc8b7e91a7f16546e5adad1206a0649b036dcc2afa048a4a87056b54";
@@ -51,7 +56,17 @@ public final class MainActivity extends Activity {
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
     private EventStore eventStore;
     private final CommandGate commandGate = new CommandGate(
-            new HashSet<>(Arrays.asList("buddy.start", "buddy.stop")));
+            new HashSet<>(Arrays.asList("buddy.start", "buddy.stop",
+                    "profile.start", "profile.stop", "profile.restart"))); 
+    private final OperationCoordinator profileOperationCoordinator = OperationCoordinator.shared();
+    private final Map<Long, Runnable> queuedManualActions = new HashMap<>();
+    private final Map<String, List<Button>> profileActionButtons = new HashMap<>();
+    private Button globalCheckButton;
+    private Button globalStartButton;
+    private Button globalRestartButton;
+    private Button globalStopButton;
+    private TextView globalControlStatusView;
+    private TextView globalControlOutputView;
     private TextView eventLogView;
     private TextView termuxStatusView;
     private Button termuxCheckButton;
@@ -102,11 +117,23 @@ public final class MainActivity extends Activity {
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.VERTICAL);
-        for (String label : new String[]{"Проверить всё", "Запустить всё", "Перезапустить всё", "Остановить всё"}) {
-            Button button = button(label);
-            button.setEnabled(false);
-            controls.addView(button, matchWrap());
-        }
+        globalControlStatusView = text("Ручное управление готовится после безопасной проверки Termux.", 11, MUTED, false);
+        globalControlOutputView = text("Проверка ещё не запускалась.", 10, MUTED, false);
+        globalCheckButton = button("Проверить всё");
+        globalCheckButton.setOnClickListener(v -> runTermuxDiagnostics(globalCheckButton, globalControlOutputView));
+        globalStartButton = button("Запустить всё");
+        globalStartButton.setOnClickListener(v -> requestProfileStackOperation("start"));
+        globalRestartButton = button("Перезапустить всё");
+        globalRestartButton.setOnClickListener(v -> requestProfileStackOperation("restart"));
+        globalStopButton = button("Остановить всё");
+        globalStopButton.setOnClickListener(v -> requestProfileStackOperation("stop"));
+        controls.addView(globalCheckButton, matchWrap());
+        controls.addView(globalStartButton, matchWrap());
+        controls.addView(globalRestartButton, matchWrap());
+        controls.addView(globalStopButton, matchWrap());
+        addTop(controls, text("Команды «всё» управляют тремя REA-туннелями (Bridge, DroidMCP, REA Android). Buddy независим и этими командами не затрагивается.", 10, MUTED, false), 5);
+        addTop(controls, globalControlStatusView, 7);
+        addTop(controls, globalControlOutputView, 5);
         addCard(page, controls, 8);
 
         addTermuxSection(page);
