@@ -807,6 +807,16 @@ public final class MonitorService extends Service {
                 dispatchPendingAutomaticRecovery();
                 return;
             }
+            if (preflight.succeeded() && "process_running_not_ready".equals(state) && report != null) {
+                int httpStatus = findHttpStatus(report);
+                if (httpStatus >= 300) {
+                    RecoveryPolicy.ErrorClass error = RecoveryErrorClassifier.fromHttpStatus(httpStatus);
+                    handleRecoveryObservation(pending.profileId, error, "preflight_http_" + httpStatus,
+                            findRetryAfterMillis(report), "Preflight reported an HTTP policy/transport failure.");
+                    dispatchPendingAutomaticRecovery();
+                    return;
+                }
+            }
 
             String mode;
             if (preflight.succeeded() && "ready_to_start".equals(state)) {
