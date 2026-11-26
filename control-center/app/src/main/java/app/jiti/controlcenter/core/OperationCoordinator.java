@@ -115,7 +115,6 @@ public final class OperationCoordinator {
      */
     public synchronized boolean cancelAutomatic() {
         automaticEnabled = false;
-        pendingManual = pendingManual; // Preserve a user command already queued.
         if (active != null && active.kind == Kind.AUTOMATIC) {
             cancelActiveAutomatic = true;
             return true;
