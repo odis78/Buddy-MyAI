@@ -240,6 +240,7 @@ jobs:
             ./cmd/client-runtime 2>&1 | tee "$REPORT_DIR/go-build.log"
 
           test -s "$RUNTIME_OUT"
+          cat "$CC_TRACE"
           grep -F -- '-Wl,-z,max-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
           grep -F -- '-Wl,-z,common-page-size=16384' "$REPORT_DIR/cc-argument-trace.txt"
           grep -F -- '-pie' "$REPORT_DIR/cc-argument-trace.txt"
@@ -313,8 +314,8 @@ jobs:
         with:
           name: test220-android-cgo-runtime-candidate
           path: |
-            ${{ runner.temp }}/android-cgo-runtime/libtunnel-client.so
-            ${{ runner.temp }}/android-cgo-report/runtime-sha256.txt
+            ${{ github.workspace }}/.test220-android-cgo-runtime/libtunnel-client.so
+            ${{ github.workspace }}/.test220-android-cgo-report/runtime-sha256.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -323,6 +324,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test220-android-cgo-diagnostics
-          path: ${{ runner.temp }}/android-cgo-report/
+          path: ${{ github.workspace }}/.test220-android-cgo-report/
           if-no-files-found: warn
           retention-days: 14
