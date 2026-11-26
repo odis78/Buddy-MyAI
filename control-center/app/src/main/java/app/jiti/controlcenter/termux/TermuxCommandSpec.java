@@ -729,7 +729,7 @@ else:
                 || !("bridge".equals(profileId) || "droidmcp".equals(profileId)
                 || "rea-android".equals(profileId))
                 || !("preflight".equals(mode) || "status".equals(mode) || "start".equals(mode)
-                || "stop".equals(mode) || "restart".equals(mode))) {
+                || "stop".equals(mode) || "restart".equals(mode) || "logs".equals(mode))) {
             throw new IllegalArgumentException("fixed profile id, mode, and absolute Termux prefix required");
         }
         return new TermuxCommandSpec(TermuxOperation.PROFILE_CONTROL, prefix + "/bin/python",
