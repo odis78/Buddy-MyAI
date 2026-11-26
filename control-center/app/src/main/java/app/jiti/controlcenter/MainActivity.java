@@ -1163,7 +1163,6 @@ public final class MainActivity extends Activity {
         long requestId = submission.request.id;
         Runnable action = () -> executeProfileStatus(profileId, statusView, requestId);
         if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
-            queuedManualActions.put(requestId, action);
             statusView.setText("Ручная проверка поставлена в приоритетную очередь.");
             refreshTermuxControls();
             return;
@@ -1205,7 +1204,6 @@ public final class MainActivity extends Activity {
         long requestId = submission.request.id;
         Runnable action = () -> executeProfileLogs(profileId, statusView, requestId);
         if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
-            queuedManualActions.put(requestId, action);
             statusView.setText("Запрос журнала поставлен в приоритетную очередь.");
             refreshTermuxControls();
             return;
@@ -1252,7 +1250,6 @@ public final class MainActivity extends Activity {
         long requestId = submission.request.id;
         Runnable action = () -> executeProfileOperation(profileId, mode, statusView, requestId);
         if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
-            queuedManualActions.put(requestId, action);
             statusView.setText("Ручная команда поставлена в приоритетную очередь. Текущий автоматический шаг завершится первым.");
             refreshTermuxControls();
             return;
@@ -1343,8 +1340,6 @@ public final class MainActivity extends Activity {
         OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
         refreshTermuxControls();
         if (next != null) {
-            Runnable queued = queuedManualActions.remove(next.id);
-            if (queued != null) queued.run();
         }
     }
 
@@ -1363,7 +1358,6 @@ public final class MainActivity extends Activity {
         long requestId = submission.request.id;
         Runnable action = () -> confirmAndRunProfileStack(mode, requestId);
         if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
-            queuedManualActions.put(requestId, action);
             globalControlStatusView.setText("Ручная команда поставлена выше следующих автоматических попыток.");
             refreshTermuxControls();
             return;
