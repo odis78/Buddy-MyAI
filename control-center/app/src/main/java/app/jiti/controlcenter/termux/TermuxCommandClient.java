@@ -95,70 +95,8 @@ public final class TermuxCommandClient {
         }
     }
 
-    public static void runBuddyLaunchPreflight(Context context, Callback callback) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
-            return;
-        }
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyLaunch(prefix, "preflight");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_LAUNCH, callback);
-        } catch (Exception e) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy launch preflight rejected: " + e.getClass().getSimpleName(), false));
-        }
-    }
-
-    public static String startBuddyTunnel(Context context) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) return state.message;
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyLaunch(prefix, "start");
-            startBackgroundTask(context, state, spec,
-                    "JITI: start Buddy Tunnel Client", "Validated Buddy profile background task");
-            return "";
-        } catch (Exception e) {
-            return "Buddy Tunnel Client start request failed: " + e.getClass().getSimpleName();
-        }
-    }
-
     public static void runBuddyLaunchStatus(Context context, Callback callback) {
         run(context, TermuxOperation.BUDDY_LAUNCH_STATUS, callback);
-    }
-
-    public static void runBuddyStopPreflight(Context context, Callback callback) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
-            return;
-        }
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "preflight");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
-        } catch (Exception e) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy stop preflight rejected: " + e.getClass().getSimpleName(), false));
-        }
-    }
-
-    public static void runBuddyStop(Context context, Callback callback) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
-            return;
-        }
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "stop");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
-        } catch (Exception e) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy stop request rejected: " + e.getClass().getSimpleName(), false));
-        }
     }
 
     public static void runProfileControl(Context context, String profileId, String mode, Callback callback) {
@@ -303,8 +241,6 @@ public final class TermuxCommandClient {
             case TUNNEL_CLIENT_VERSION: return "JITI: Tunnel Client version check";
             case PROCESS_LIST: return "JITI: Android process list";
             case BUDDY_MCP_AUTH_PROBE: return "JITI: authenticated Buddy MCP initialize and tools/list";
-            case BUDDY_LAUNCH: return "JITI: Buddy Tunnel Client preflight";
-            case BUDDY_STOP: return "JITI: stop verified Buddy Tunnel Client";
             case BUDDY_LAUNCH_STATUS: return "JITI: read Buddy launcher status";
             case PROCESS_EXECUTABLE: return "JITI: verify Tunnel Client executable";
             case PROCESS_CMDLINE: return "JITI: verify Tunnel Client config identity";
