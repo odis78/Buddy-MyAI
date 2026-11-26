@@ -878,6 +878,14 @@ public final class MonitorService extends Service {
                     dispatchPendingAutomaticRecovery();
                     return;
                 }
+                if (httpStatus <= 0) {
+                    log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_BLOCKED",
+                            "Preflight did not provide an HTTP status; refusing restart because remote/network failure cannot be excluded.");
+                    notificationText = "Автовосстановление заблокировано: неизвестен HTTP-статус • " + pending.profileId;
+                    updateNotification();
+                    dispatchPendingAutomaticRecovery();
+                    return;
+                }
             }
 
             String mode;
