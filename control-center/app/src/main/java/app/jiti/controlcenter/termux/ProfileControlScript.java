@@ -10,6 +10,7 @@ public final class ProfileControlScript {
     private ProfileControlScript() {}
 
     public static final String SCRIPT = """
+import ctypes
 import fcntl
 import glob
 import json
@@ -167,13 +168,34 @@ def manager_is_active():
             return True
     return False
 
+def open_pidfd(pid):
+    native = getattr(os, "pidfd_open", None)
+    if callable(native):
+        return native(pid, 0)
+    # Linux pidfd_open is syscall 434 on the supported Android arm64 target.
+    libc = ctypes.CDLL(None, use_errno=True)
+    fd = libc.syscall(434, ctypes.c_int(pid), ctypes.c_uint(0))
+    if fd < 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+    return int(fd)
+
+def send_pidfd_signal(pidfd, sig):
+    native = getattr(signal, "pidfd_send_signal", None)
+    if callable(native):
+        native(pidfd, sig)
+        return
+    # Linux pidfd_send_signal is syscall 424 on the supported Android arm64 target.
+    libc = ctypes.CDLL(None, use_errno=True)
+    result = libc.syscall(424, ctypes.c_int(pidfd), ctypes.c_int(sig),
+                          ctypes.c_void_p(0), ctypes.c_uint(0))
+    if result < 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+
 def send_sigterm_with_pidfd(pid, expected_start, profile):
-    pidfd_open = getattr(os, "pidfd_open", None)
-    pidfd_send_signal = getattr(signal, "pidfd_send_signal", None)
-    if not callable(pidfd_open) or not callable(pidfd_send_signal):
-        return "blocked", "pidfd_signal_unsupported"
     try:
-        pidfd = pidfd_open(pid, 0)
+        pidfd = open_pidfd(pid)
     except ProcessLookupError:
         return "exited", ""
     except Exception as exc:
@@ -188,7 +210,7 @@ def send_sigterm_with_pidfd(pid, expected_start, profile):
         if manager_is_active():
             return "blocked", "existing_tunnel_manager_busy"
         try:
-            pidfd_send_signal(pidfd, signal.SIGTERM)
+            send_pidfd_signal(pidfd, signal.SIGTERM)
             return "signaled", ""
         except ProcessLookupError:
             return "exited", ""
