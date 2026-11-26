@@ -1094,12 +1094,24 @@ public final class MonitorService extends Service {
         } catch (Exception ignored) { }
     }
 
+    private void clearPendingAutomaticRecoveries(String reason) {
+        int cancelled = scheduledRecoveryTasks.size();
+        for (Runnable task : scheduledRecoveryTasks.values()) handler.removeCallbacks(task);
+        scheduledRecoveryTasks.clear();
+        pendingRecoveries.clear();
+        if (cancelled > 0) {
+            log("system", "AUTO_RECOVERY_QUEUE_CLEARED",
+                    reason + "; cancelled delayed tasks=" + cancelled);
+        }
+    }
+
     private void stopMonitoring() {
         monitoring = false;
         running = false;
         inFlight = false;
         pollRequested = false;
         handler.removeCallbacks(poll);
+        clearPendingAutomaticRecoveries("monitor_stopped");
         releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");
         saveSnapshot("jiti-monitor-service", ComponentStatus.STOPPED, "User stopped foreground monitor", 0);
@@ -1115,6 +1127,7 @@ public final class MonitorService extends Service {
     @Override public void onDestroy() {
         monitoring = false;
         running = false;
+        clearPendingAutomaticRecoveries("service_destroyed");
         handler.removeCallbacksAndMessages(null);
         releaseWakeLock();
         if (eventStore != null) eventStore.close();
