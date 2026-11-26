@@ -273,6 +273,8 @@ def preflight(profile):
                 return {"result": "process_running_not_ready", "pid": pid,
                         "http_status": full["http_status"], "retry_after_ms": full["retry_after_ms"],
                         "reason": full["reason"]}
+            return {"result": "process_running_not_ready", "pid": pid,
+                    "http_status": 0, "retry_after_ms": -1, "reason": "local_readyz_not_ready"}
         stale = True
         stale_pid = pid
     matches = find_matching(profile)
