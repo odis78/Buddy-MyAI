@@ -184,7 +184,7 @@ public class TermuxCommandSpecTest {
     @Test public void profileControlUsesOnlyThreeFixedProfilesAndFiveFixedModes() {
         String prefix = "/data/data/com.termux/files/usr";
         for (String profile : java.util.Arrays.asList("bridge", "droidmcp", "rea-android")) {
-            for (String mode : java.util.Arrays.asList("preflight", "status", "start", "stop", "restart")) {
+            for (String mode : java.util.Arrays.asList("preflight", "status", "start", "stop", "restart", "logs")) {
                 TermuxCommandSpec spec = TermuxCommandSpec.forProfileControl(prefix, profile, mode);
                 assertEquals(TermuxOperation.PROFILE_CONTROL, spec.operation);
                 assertEquals(prefix + "/bin/python", spec.executable);
