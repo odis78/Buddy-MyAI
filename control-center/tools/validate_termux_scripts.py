@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
             if (strcmp(argv[i], "--url-file") == 0) health_url = argv[i + 1];
         }
         if (!health_pid || !health_url || access(health_pid, R_OK) != 0 || access(health_url, R_OK) != 0) return 20;
-        printf("{\\"result\\":\\"ok\\"}\\n");
+        printf("{\"result\":\"ok\"}\n");
         return 0;
     }
     const char *pidfile = NULL, *urlfile = NULL;
