@@ -1286,16 +1286,10 @@ public final class MainActivity extends Activity {
                 .setMessage(message)
                 .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
                 .setPositiveButton("Подтвердить", (dialog, which) -> {
-                    List<ProfileStackPlanner.Step> steps = new ArrayList<>();
-                    if ("start".equals(mode)) {
-                        for (String profile : ProfileStackPlanner.startOrder())
-                            steps.add(new ProfileStackPlanner.Step(profile, "start"));
-                    } else if ("stop".equals(mode)) {
-                        for (String profile : ProfileStackPlanner.stopOrder())
-                            steps.add(new ProfileStackPlanner.Step(profile, "stop"));
-                    } else {
-                        steps.addAll(ProfileStackPlanner.restartOrder());
-                    }
+                    List<ProfileStackPlanner.Step> steps = "start".equals(mode)
+                            ? ProfileStackPlanner.startPlan()
+                            : "stop".equals(mode) ? ProfileStackPlanner.stopPlan()
+                            : ProfileStackPlanner.restartOrder();
                     runProfileStackStep(steps, 0, requestId);
                 })
                 .setOnCancelListener(dialog -> completeProfileOperation(requestId))
