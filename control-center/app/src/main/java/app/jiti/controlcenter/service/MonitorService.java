@@ -85,6 +85,114 @@ public final class MonitorService extends Service {
         createNotificationChannel();
     }
 
+    public static boolean isAutoRecoveryEnabled(Context context) {
+        return context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_AUTO_ENABLED, false);
+    }
+
+    public static void setAutoRecoveryEnabled(Context context, boolean enabled) {
+        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean(PREF_AUTO_ENABLED, enabled).apply();
+        if (enabled) OperationCoordinator.shared().setAutomaticEnabled(true);
+        else OperationCoordinator.shared().cancelAutomatic();
+    }
+
+    private void syncRecoverySettings() {
+        boolean enabled = monitoring && isAutoRecoveryEnabled(this);
+        recoverySupervisor.setEnabled(enabled);
+        OperationCoordinator.shared().setAutomaticEnabled(enabled);
+    }
+
+    private void restoreRecoveryState() {
+        if (recoveryPreferences == null) return;
+        for (String profile : AUTO_RECOVERY_PROFILES) {
+            try {
+                recoverySupervisor.restore(profile,
+                        recoveryPreferences.getInt("attempts." + profile, 0),
+                        recoveryPreferences.getLong("next_allowed." + profile, 0L),
+                        recoveryPreferences.getInt("consecutive." + profile, 0));
+            } catch (Exception ignored) {
+                log("system", "RECOVERY_STATE_INVALID", "Ignored invalid saved state for " + profile);
+            }
+        }
+    }
+
+    private void persistRecoveryState(String profile) {
+        if (recoveryPreferences == null) return;
+        RecoverySupervisor.Snapshot snapshot = recoverySupervisor.snapshot(profile);
+        recoveryPreferences.edit()
+                .putInt("attempts." + profile, snapshot.attempts)
+                .putLong("next_allowed." + profile, snapshot.nextAllowedAt)
+                .putInt("consecutive." + profile, snapshot.consecutiveFailures)
+                .apply();
+    }
+
+    private boolean hasValidatedInternet() {
+        try {
+            ConnectivityManager manager = getSystemService(ConnectivityManager.class);
+            if (manager == null) return false;
+            Network network = manager.getActiveNetwork();
+            NetworkCapabilities capabilities = network == null ? null : manager.getNetworkCapabilities(network);
+            return capabilities != null
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private int findNumericField(JSONObject object, String... names) {
+        if (object == null) return -1;
+        Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = object.opt(key);
+            String normalized = key.toLowerCase(java.util.Locale.ROOT)
+                    .replace("_", "").replace("-", "");
+            for (String name : names) {
+                if (normalized.equals(name)) {
+                    if (value instanceof Number) return ((Number) value).intValue();
+                    try { return Integer.parseInt(String.valueOf(value)); } catch (Exception ignored) { }
+                }
+            }
+            if (value instanceof JSONObject) {
+                int nested = findNumericField((JSONObject) value, names);
+                if (nested >= 0) return nested;
+            } else if (value instanceof JSONArray) {
+                JSONArray array = (JSONArray) value;
+                for (int i = 0; i < array.length(); i++) {
+                    Object item = array.opt(i);
+                    if (item instanceof JSONObject) {
+                        int nested = findNumericField((JSONObject) item, names);
+                        if (nested >= 0) return nested;
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    private int findHttpStatus(JSONObject report) {
+        return Math.max(0, findNumericField(report, "httpstatus", "statuscode", "httpstatuscode"));
+    }
+
+    private long findRetryAfterMillis(JSONObject report) {
+        int millis = findNumericField(report, "retryafterms", "retryaftermillis");
+        if (millis >= 0) return Math.min(millis, 900000L);
+        int seconds = findNumericField(report, "retryafterseconds", "retryafter");
+        if (seconds >= 0) return Math.min(seconds * 1000L, 900000L);
+        return -1L;
+    }
+
+    private String profileIdForOperation(TermuxOperation operation) {
+        switch (operation) {
+            case BRIDGE_TUNNEL_HEALTH: return "bridge";
+            case DROIDMCP_TUNNEL_HEALTH: return "droidmcp";
+            case REA_ANDROID_TUNNEL_HEALTH: return "rea-android";
+            default: return "";
+        }
+    }
+
     @Override public IBinder onBind(Intent intent) { return null; }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
