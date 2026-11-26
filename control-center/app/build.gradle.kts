@@ -24,16 +24,8 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
-    // Side-by-side validation build. It cannot replace the installed stable
-    // package and keeps its app data untouched.
-    buildTypes {
-        create("candidate") {
-            initWith(getByName("debug"))
-            applicationIdSuffix = ".candidate"
-            versionNameSuffix = "-candidate"
-            matchingFallbacks += listOf("debug")
-        }
-    }
+    // The 0.2.1 validation APK uses the production applicationId.
+    // Install it only after intentionally uninstalling the preserved 0.2.0 checkpoint.
 }
 
 dependencies {
