@@ -132,6 +132,26 @@ with tempfile.TemporaryDirectory(prefix="jiti-profile-control-") as root:
     )
     assert report(insecure)["reason"] == "insecure_env_file_permissions"
 
+    log_file = state / "bridge-013-recovery.log"
+    log_file.write_text(
+        "Authorization: Bearer fixture-log-bearer-secret\\n"
+        "CONTROL_PLANE_API_KEY=fixture-log-api-secret\\n"
+        "GET /mcp?token=fixture-log-query-secret\\n",
+        encoding="utf-8"
+    )
+    log_file.chmod(0o600)
+    logs = subprocess.run(
+        [sys.executable, "-c", profile_control, "logs", "bridge"],
+        env={**os.environ, "HOME": str(home)}, text=True,
+        capture_output=True, timeout=15
+    )
+    logs_report = report(logs)
+    assert logs.returncode == 0 and logs_report["result"] == "logs"
+    assert "[REDACTED]" in logs_report["text"]
+    assert "fixture-log-bearer-secret" not in logs_report["text"]
+    assert "fixture-log-api-secret" not in logs_report["text"]
+    assert "fixture-log-query-secret" not in logs_report["text"]
+
 # Exercise the complete start/status/restart/stop path against a disposable local C process.
 with tempfile.TemporaryDirectory(prefix="jiti-profile-control-lifecycle-") as root:
     home = Path(root)
