@@ -97,6 +97,18 @@ public final class MonitorService extends Service {
         else OperationCoordinator.shared().cancelAutomatic();
     }
 
+    public static void setManualHold(Context context, String profileId, boolean hold) {
+        if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
+                && !"rea-android".equals(profileId)) return;
+        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean("manual_hold." + profileId, hold).apply();
+    }
+
+    private boolean isManualHold(String profileId) {
+        return recoveryPreferences != null
+                && recoveryPreferences.getBoolean("manual_hold." + profileId, false);
+    }
+
     private void syncRecoverySettings() {
         boolean enabled = monitoring && isAutoRecoveryEnabled(this);
         recoverySupervisor.setEnabled(enabled);
