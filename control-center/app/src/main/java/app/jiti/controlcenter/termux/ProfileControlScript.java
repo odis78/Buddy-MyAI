@@ -429,8 +429,9 @@ def main():
         return 2
     if mode == "logs":
         report = safe_logs(profile)
-        emit(report.pop("result"), **report)
-        return 0 if report.get("result") != "logs_unavailable" else 1
+        log_state = report.pop("result")
+        emit(log_state, **report)
+        return 0 if log_state == "logs" else 1
     if mode in ("preflight", "status"):
         report = preflight(profile)
         if mode == "status" and report["result"] == "ready_to_start":
