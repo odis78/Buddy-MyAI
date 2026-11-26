@@ -231,9 +231,12 @@ def start_profile(profile):
             return {"result": "blocked", "reason": "stale_pid_reused", "pid": old_pid}
         if find_matching(profile):
             return {"result": "blocked", "reason": "untracked_process"}
-        for path in (profile["pid"], profile["url"]):
-            if os.path.exists(path) and not os.path.islink(path):
-                os.unlink(path)
+        if os.path.exists(profile["pid"]):
+            os.unlink(profile["pid"])
+    # A leftover health URL must never be allowed to make a newly launched
+    # process appear ready by probing an unrelated service on a reused port.
+    if os.path.exists(profile["url"]):
+        os.unlink(profile["url"])
     if find_matching(profile):
         return {"result": "blocked", "reason": "untracked_process"}
     env, env_state = load_environment(profile)
@@ -330,8 +333,8 @@ def stop_profile(profile):
                 pass
             return {"result": "stopped", "pid": pid}
         current_start = process_start_time(pid)
-        if current_start and current_start != initial_start:
-            return {"result": "blocked", "reason": "pid_reused", "pid": pid}
+        if current_start and (current_start != initial_start or not process_identity(pid, profile)):
+            return {"result": "blocked", "reason": "process_identity_changed", "pid": pid}
         time.sleep(1)
     return {"result": "stop_timeout_no_sigkill", "pid": pid}
 
