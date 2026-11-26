@@ -18,10 +18,10 @@ public class CommandGateTest {
     @Test public void allIndependentGuardsMustPass() {
         HashSet<String> enabled = new HashSet<>(Collections.singletonList("profile.restart"));
         CommandGate gate = new CommandGate(enabled);
-        assertTrue(gate.mayExecute("buddy.restart", true, true, true));
-        assertFalse(gate.mayExecute("buddy.restart", false, true, true));
-        assertFalse(gate.mayExecute("buddy.restart", true, false, true));
-        assertFalse(gate.mayExecute("buddy.restart", true, true, false));
+        assertTrue(gate.mayExecute("profile.restart", true, true, true));
+        assertFalse(gate.mayExecute("profile.restart", false, true, true));
+        assertFalse(gate.mayExecute("profile.restart", true, false, true));
+        assertFalse(gate.mayExecute("profile.restart", true, true, false));
         assertFalse(gate.mayExecute("other.restart", true, true, true));
     }
 }
