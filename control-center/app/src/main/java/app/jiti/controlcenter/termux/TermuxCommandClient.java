@@ -57,6 +57,7 @@ public final class TermuxCommandClient {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ConcurrentHashMap<Integer, Runnable> TIMEOUTS = new ConcurrentHashMap<>();
     private static final long COMMAND_TIMEOUT_MS = 30000;
+    private static final long PROFILE_CONTROL_TIMEOUT_MS = 90000;
 
     private TermuxCommandClient() {}
 
@@ -250,7 +251,9 @@ public final class TermuxCommandClient {
                 Runnable timeout = () -> deliver(new TermuxCommandResult(timeoutId, "", "", -1, 0,
                         "Termux command timed out or Termux service did not return a result", false));
                 TIMEOUTS.put(requestId, timeout);
-                MAIN.postDelayed(timeout, COMMAND_TIMEOUT_MS);
+                long timeoutMs = operation == TermuxOperation.PROFILE_CONTROL
+                        ? PROFILE_CONTROL_TIMEOUT_MS : COMMAND_TIMEOUT_MS;
+                MAIN.postDelayed(timeout, timeoutMs);
             }
 
             Intent resultIntent = new Intent(context, TermuxResultService.class);
@@ -267,7 +270,9 @@ public final class TermuxCommandClient {
             intent.putExtra(EXTRA_WORKDIR, home);
             intent.putExtra(EXTRA_BACKGROUND, spec.background);
             intent.putExtra(EXTRA_LABEL, label(operation));
-            intent.putExtra(EXTRA_DESCRIPTION, "JITI Control Center read-only diagnostic");
+            intent.putExtra(EXTRA_DESCRIPTION, operation == TermuxOperation.PROFILE_CONTROL
+                    ? "JITI Control Center confirmed profile lifecycle operation"
+                    : "JITI Control Center read-only diagnostic");
             intent.putExtra(EXTRA_PENDING_INTENT, resultPendingIntent);
             context.startService(intent);
         } catch (Exception e) {
