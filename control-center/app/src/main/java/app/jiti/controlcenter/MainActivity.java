@@ -1201,8 +1201,8 @@ public final class MainActivity extends Activity {
             boolean stopped = "ready_to_start".equals(state);
             boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
             if (report == null || "blocked".equals(state) || "unknown".equals(state)
-                    || ("start".equals(mode) && !stopped)
-                    || ("stop".equals(mode) && !running)
+                    || ("start".equals(mode) && !(stopped || "already_running".equals(state)))
+                    || ("stop".equals(mode) && !(running || stopped))
                     || ("restart".equals(mode) && !(stopped || running))) {
                 String detail = profileReportDetail(report, preflight);
                 statusView.setText("ОПЕРАЦИЯ НЕ ЗАПУЩЕНА: " + detail);
