@@ -1316,14 +1316,19 @@ public final class MainActivity extends Activity {
         statusView.setText("ПРЕДПРОВЕРКА: " + profileTitle(profileId) + " • " + mode);
         if (globalControlStatusView != null) globalControlStatusView.setText("Выполняется ручная операция: " + profileTitle(profileId) + " • " + mode);
         TermuxCommandClient.runProfileControl(this, profileId, "preflight", preflight -> {
-            if (isFinishing() || isDestroyed()) {
-                completeProfileOperation(requestId);
-                return;
-            }
             JSONObject report = profileReport(preflight);
             String state = report == null ? "unknown" : report.optString("result", "unknown");
             boolean stopped = "ready_to_start".equals(state);
             boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
+            if (isFinishing() || isDestroyed()) {
+                if ("stop".equals(mode) && stopped) {
+                    MonitorService.setManualHold(getApplicationContext(), profileId, true);
+                } else if ("start".equals(mode) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(getApplicationContext(), profileId, false);
+                }
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
             if (report == null || "blocked".equals(state) || "unknown".equals(state)
                     || ("start".equals(mode) && !(stopped || "already_running".equals(state)))
                     || ("stop".equals(mode) && !(running || stopped))
@@ -1372,19 +1377,19 @@ public final class MainActivity extends Activity {
                         // failed stop cannot silently suppress recovery for a still-running profile.
                         statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
                         TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
-                            if (isFinishing() || isDestroyed()) {
-                                completeProfileOperation(requestId);
-                                return;
-                            }
                             JSONObject finalReport = profileReport(command);
                             String finalState = finalReport == null ? "error"
                                     : finalReport.optString("result", "unknown");
                             String detail = profileReportDetail(finalReport, command);
                             if ("stop".equals(mode)) {
-                                MonitorService.setManualHold(this, profileId, "stopped".equals(finalState));
+                                MonitorService.setManualHold(getApplicationContext(), profileId, "stopped".equals(finalState));
                             } else if (("start".equals(mode) || "restart".equals(mode))
                                     && ("started_ready".equals(finalState) || "already_running".equals(finalState))) {
-                                MonitorService.setManualHold(this, profileId, false);
+                                MonitorService.setManualHold(getApplicationContext(), profileId, false);
+                            }
+                            if (isFinishing() || isDestroyed()) {
+                                completeProfileOperationAfterActivityGone(requestId);
+                                return;
                             }
                             saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
                             statusView.setText(detail);
@@ -1405,6 +1410,14 @@ public final class MainActivity extends Activity {
         DISPATCHED_MANUAL_REQUESTS.remove(requestId);
         refreshTermuxControls();
         if (next != null) dispatchManualRequest(next);
+    }
+
+    private void completeProfileOperationAfterActivityGone(long requestId) {
+        OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
+        DISPATCHED_MANUAL_REQUESTS.remove(requestId);
+        if (next != null) {
+            sendBroadcast(new Intent(ACTION_MANUAL_REQUEST_READY).setPackage(getPackageName()));
+        }
     }
 
     private void dispatchActiveManualRequest() {
@@ -1503,14 +1516,19 @@ public final class MainActivity extends Activity {
         String componentId = componentIdForProfile(step.profileId);
         globalControlStatusView.setText("Проверка " + profileTitle(step.profileId) + " • " + step.operation);
         TermuxCommandClient.runProfileControl(this, step.profileId, "preflight", preflight -> {
-            if (isFinishing() || isDestroyed()) {
-                completeProfileOperation(requestId);
-                return;
-            }
             JSONObject report = profileReport(preflight);
             String state = report == null ? "unknown" : report.optString("result", "unknown");
             boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
             boolean stopped = "ready_to_start".equals(state);
+            if (isFinishing() || isDestroyed()) {
+                if ("stop".equals(requestedMode) && "stop".equals(step.operation) && stopped) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, true);
+                } else if ("start".equals(step.operation) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, false);
+                }
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
             if (report == null || "blocked".equals(state)
                     || ("start".equals(step.operation) && "process_running_not_ready".equals(state))
                     || ("start".equals(step.operation) && !running && !stopped)
@@ -1540,16 +1558,21 @@ public final class MainActivity extends Activity {
             }
             globalControlStatusView.setText("ВЫПОЛНЯЕТСЯ " + step.operation + ": " + profileTitle(step.profileId));
             TermuxCommandClient.runProfileControl(this, step.profileId, step.operation, command -> {
-                if (isFinishing() || isDestroyed()) {
-                    completeProfileOperation(requestId);
-                    return;
-                }
                 JSONObject finalReport = profileReport(command);
                 String finalState = finalReport == null ? "error" : finalReport.optString("result", "unknown");
                 boolean success = command.succeeded()
                         && (("start".equals(step.operation) && ("started_ready".equals(finalState) || "already_running".equals(finalState)))
                         || ("stop".equals(step.operation) && ("stopped".equals(finalState) || "already_stopped".equals(finalState))));
                 String detail = profileReportDetail(finalReport, command);
+                if (success && "stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, true);
+                } else if (success && "start".equals(step.operation)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, false);
+                }
+                if (isFinishing() || isDestroyed()) {
+                    completeProfileOperationAfterActivityGone(requestId);
+                    return;
+                }
                 saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
                 logControlEvent("rea-stack", success ? "STACK_STEP_OK" : "STACK_STEP_FAILED",
                         step.profileId + " " + step.operation + " • " + detail);
