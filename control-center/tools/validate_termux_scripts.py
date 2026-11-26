@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Compile and exercise embedded Termux scripts against isolated temporary fixtures."""
+import fcntl
 import json
 import os
 import re
@@ -260,6 +261,18 @@ int main(int argc, char **argv) {
     running = profile_command("status")
     assert report(running)["result"] == "already_running"
 
+    # A second lifecycle command must fail closed while another caller owns
+    # the per-profile manager lock; the running process must remain untouched.
+    lock_path = state / "jiti-profile-control.lock"
+    with lock_path.open("r+") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        contended = profile_command("restart")
+        assert contended.returncode == 3
+        assert report(contended)["result"] == "operation_busy"
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    after_contention = profile_command("status")
+    assert report(after_contention)["pid"] == started_report["pid"]
+
     restarted = profile_command("restart")
     restarted_report = report(restarted)
     assert restarted.returncode == 0 and restarted_report["result"] == "started_ready", restarted_report
@@ -278,6 +291,23 @@ int main(int argc, char **argv) {
     final_status = profile_command("status")
     assert report(final_status)["result"] == "stopped"
     assert (state / "jiti-profile-control.lock").exists()
+
+    # The existing tunnels manager owns the shared runtime while active.
+    manager = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)", str(home / "bin" / "tunnels")],
+        env={**os.environ, "HOME": str(home)},
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    try:
+        manager_busy = profile_command("start")
+        manager_report = report(manager_busy)
+        assert manager_busy.returncode == 3
+        assert manager_report["result"] == "blocked"
+        assert manager_report["reason"] == "existing_tunnel_manager_busy"
+        assert report(profile_command("status"))["result"] == "stopped"
+    finally:
+        manager.terminate()
+        manager.wait(timeout=10)
 
 # Endpoint discovery must expose useful local addresses while redacting auth values.
 with tempfile.TemporaryDirectory(prefix="jiti-mcp-endpoint-audit-") as root:
