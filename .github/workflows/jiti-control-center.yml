@@ -50,11 +50,11 @@ jobs:
           gradle-version: "8.9"
       - name: Run JVM unit tests
         run: gradle -p control-center testDebugUnitTest
-      - name: Assemble debug APK
-        run: gradle -p control-center assembleDebug
-      - name: Upload debug APK
+      - name: Assemble isolated candidate APK
+        run: gradle -p control-center assembleCandidate
+      - name: Upload isolated candidate APK
         uses: actions/upload-artifact@v4
         with:
-          name: jiti-control-center-debug
-          path: control-center/app/build/outputs/apk/debug/app-debug.apk
+          name: jiti-control-center-candidate
+          path: control-center/app/build/outputs/apk/candidate/app-candidate.apk
           if-no-files-found: error
