@@ -1034,13 +1034,13 @@ public final class MainActivity extends Activity {
         for (List<Button> buttons : profileActionButtons.values()) {
             for (Button actionButton : buttons) actionButton.setEnabled(profileControlsReady);
         }
-        if (globalControlStatusView != null) {
+        if (globalControlStatusView != null && !profileOperationCoordinator.isBusy()) {
             globalControlStatusView.setText(profileControlsReady
                     ? "Ручное управление REA-туннелями доступно. Buddy не затрагивается."
                     : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
                     : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку Termux."
                     : diagnosticsInFlight ? "Выполняется проверка. Управление временно заблокировано."
-                    : "Выполняется другая операция. Повторные команды заблокированы.");
+                    : "Управление временно заблокировано.");
         }
         boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
         boolean buddyBusy = BUDDY_OPERATION_GATE.isInFlight();
@@ -1164,6 +1164,7 @@ public final class MainActivity extends Activity {
     private void executeProfileOperation(String profileId, String mode, TextView statusView, long requestId) {
         String componentId = componentIdForProfile(profileId);
         statusView.setText("ПРЕДПРОВЕРКА: " + profileTitle(profileId) + " • " + mode);
+        if (globalControlStatusView != null) globalControlStatusView.setText("Выполняется ручная операция: " + profileTitle(profileId) + " • " + mode);
         TermuxCommandClient.runProfileControl(this, profileId, "preflight", preflight -> {
             if (isFinishing() || isDestroyed()) {
                 completeProfileOperation(requestId);
