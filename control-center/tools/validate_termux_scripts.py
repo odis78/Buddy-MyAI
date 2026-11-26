@@ -251,6 +251,12 @@ int main(int argc, char **argv) {
     assert started_report["pid"] > 0
     assert "fixture-lifecycle-secret" not in started.stdout + started.stderr
 
+    repeated_start = profile_command("start")
+    repeated_start_report = report(repeated_start)
+    assert repeated_start.returncode == 0
+    assert repeated_start_report["result"] == "already_running"
+    assert repeated_start_report["pid"] == started_report["pid"]
+
     running = profile_command("status")
     assert report(running)["result"] == "already_running"
 
@@ -264,6 +270,10 @@ int main(int argc, char **argv) {
     assert stopped.returncode == 0 and stopped_report["result"] == "stopped", stopped_report
     assert not (state / "bridge-013.pid").exists()
     assert not (state / "bridge-013.health.url").exists()
+
+    repeated_stop = profile_command("stop")
+    assert repeated_stop.returncode == 0
+    assert report(repeated_stop)["result"] == "already_stopped"
 
     final_status = profile_command("status")
     assert report(final_status)["result"] == "stopped"
