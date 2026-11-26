@@ -20,6 +20,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import org.json.JSONObject;
 
@@ -88,6 +89,8 @@ public final class MainActivity extends Activity {
     private Button termuxCheckButton;
     private Button monitorStartButton;
     private Button monitorStopButton;
+    private Switch autoRecoverySwitch;
+    private TextView autoRecoveryStatusView;
     private Button buddyStartButton;
     private Button buddyStopButton;
     private Button buddyRestartButton;
@@ -140,7 +143,7 @@ public final class MainActivity extends Activity {
 
         page.addView(text("JITI CONTROL CENTER", 22, FG, true));
         addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
-        addCard(page, text("РЕЖИМ РУЧНОГО УПРАВЛЕНИЯ. После безопасной проверки Termux доступны подтверждаемые операции с каждым REA-туннелем и последовательное управление REA-стеком. Buddy управляется отдельно и не затрагивается общими командами. Автоматическое восстановление пока отключено до завершения тестов.", 13, AMBER, true), 12);
+        addCard(page, text("РУЧНОЕ И АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ. Автовосстановление REA-профилей включается отдельно. Ручные команды имеют приоритет и выполняются после завершения уже отправленного автоматического шага. Buddy исключён из автоматического восстановления.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
@@ -243,10 +246,31 @@ public final class MainActivity extends Activity {
         row2.addView(monitorStartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
         row2.addView(monitorStopButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
+        LinearLayout recoveryRow = new LinearLayout(this);
+        recoveryRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView recoveryLabel = text("Автовосстановление трёх REA-профилей", 12, FG, true);
+        autoRecoverySwitch = new Switch(this);
+        autoRecoverySwitch.setTextOn("ВКЛ");
+        autoRecoverySwitch.setTextOff("ВЫКЛ");
+        autoRecoverySwitch.setTextColor(FG);
+        autoRecoverySwitch.setChecked(MonitorService.isAutoRecoveryEnabled(this));
+        autoRecoverySwitch.setOnCheckedChangeListener((button, enabled) -> {
+            MonitorService.setAutoRecoveryEnabled(this, enabled);
+            if (MonitorService.running) MonitorService.pollNow(this);
+            updateAutoRecoveryStatus(enabled);
+        });
+        recoveryRow.addView(recoveryLabel, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        recoveryRow.addView(autoRecoverySwitch, new LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)));
+        autoRecoveryStatusView = text("", 10, MUTED, false);
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.addView(row1);
         addTop(card, row2, 6);
+        addTop(card, recoveryRow, 5);
+        addTop(card, autoRecoveryStatusView, 2);
+        updateAutoRecoveryStatus(MonitorService.isAutoRecoveryEnabled(this));
 
         buddyControlStatusView = text("Управление Buddy заблокировано до проверки Termux и запуска монитора.", 11, MUTED, false);
         buddyStartButton = button("Запустить Buddy");
@@ -1049,6 +1073,15 @@ public final class MainActivity extends Activity {
     private void refreshTermuxControls() {
         if (isFinishing() || isDestroyed()) return;
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
+        OperationCoordinator.Request activeRequest = profileOperationCoordinator.activeRequest();
+        boolean manualOperationBusy = (activeRequest != null
+                && activeRequest.kind == OperationCoordinator.Kind.MANUAL)
+                || profileOperationCoordinator.hasPendingManual();
+        if (autoRecoverySwitch != null
+                && autoRecoverySwitch.isChecked() != MonitorService.isAutoRecoveryEnabled(this)) {
+            autoRecoverySwitch.setChecked(MonitorService.isAutoRecoveryEnabled(this));
+        }
+        updateAutoRecoveryStatus(MonitorService.isAutoRecoveryEnabled(this));
         if (termuxStatusView != null) {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
                     + "\n" + termuxPolicyText()
@@ -1060,7 +1093,7 @@ public final class MainActivity extends Activity {
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
         boolean profileControlsReady = state.canInvoke() && termuxBridgeVerified()
-                && !diagnosticsInFlight && !profileOperationCoordinator.isBusy();
+                && !diagnosticsInFlight && !manualOperationBusy;
         if (globalCheckButton != null) globalCheckButton.setEnabled(state.canInvoke()
                 && !diagnosticsInFlight && !profileOperationCoordinator.isBusy());
         if (globalStartButton != null) globalStartButton.setEnabled(profileControlsReady);
@@ -1069,13 +1102,19 @@ public final class MainActivity extends Activity {
         for (List<Button> buttons : profileActionButtons.values()) {
             for (Button actionButton : buttons) actionButton.setEnabled(profileControlsReady);
         }
-        if (globalControlStatusView != null && !profileOperationCoordinator.isBusy()) {
-            globalControlStatusView.setText(profileControlsReady
-                    ? "Ручное управление REA-туннелями доступно. Buddy не затрагивается."
-                    : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
-                    : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку Termux."
-                    : diagnosticsInFlight ? "Выполняется проверка. Управление временно заблокировано."
-                    : "Управление временно заблокировано.");
+        if (globalControlStatusView != null) {
+            if (activeRequest != null && activeRequest.kind == OperationCoordinator.Kind.AUTOMATIC) {
+                globalControlStatusView.setText(profileOperationCoordinator.hasPendingManual()
+                        ? "Автоматический шаг завершается; ручная команда ожидает приоритетного выполнения."
+                        : "Выполняется автоматическое восстановление. Ручная команда может занять следующий слот.");
+            } else if (activeRequest == null) {
+                globalControlStatusView.setText(profileControlsReady
+                        ? "Ручное управление REA-туннелями доступно. Buddy не затрагивается."
+                        : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
+                        : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку Termux."
+                        : diagnosticsInFlight ? "Выполняется проверка. Управление временно заблокировано."
+                        : "Управление временно заблокировано.");
+            }
         }
         boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
         boolean buddyBusy = BUDDY_OPERATION_GATE.isInFlight();
@@ -1092,6 +1131,16 @@ public final class MainActivity extends Activity {
             buddyControlStatusView.setText(controlState);
             buddyControlStatusView.setTextColor(controlsReady ? GREEN : AMBER);
         }
+    }
+
+    private void updateAutoRecoveryStatus(boolean enabled) {
+        if (autoRecoveryStatusView == null) return;
+        autoRecoveryStatusView.setText(enabled
+                ? (MonitorService.running
+                    ? "Включено. Восстанавливаются только Bridge, DroidMCP и REA Android. 401/403 требуют ручной проверки; 429 и сетевые ошибки только откладывают повторную проверку."
+                    : "Включено, но начнёт действовать после запуска мониторинга.")
+                : "Выключено. Все ручные кнопки управления остаются доступными.");
+        autoRecoveryStatusView.setTextColor(enabled ? AMBER : MUTED);
     }
 
     private void refreshLiveStatuses() {
