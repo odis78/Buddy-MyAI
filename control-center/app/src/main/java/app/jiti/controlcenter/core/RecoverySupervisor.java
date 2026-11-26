@@ -155,6 +155,12 @@ public final class RecoverySupervisor {
         return new Snapshot(state.attempts, state.nextAllowedAt, state.consecutiveFailures);
     }
 
+    /** True only when the profile's upstream health probe is allowed by its backoff. */
+    public synchronized boolean isProbeAllowed(String profileId, long nowMillis) {
+        requireProfile(profileId);
+        return nowMillis >= state(profileId).nextAllowedAt;
+    }
+
     public synchronized void restore(String profileId, int attempts, long nextAllowedAt) {
         restore(profileId, new Snapshot(attempts, nextAllowedAt, 0));
     }
