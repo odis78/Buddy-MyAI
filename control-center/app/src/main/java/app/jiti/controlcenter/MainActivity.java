@@ -1359,6 +1359,9 @@ public final class MainActivity extends Activity {
                     .setMessage(message)
                     .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
                     .setPositiveButton("Подтвердить", (dialog, which) -> {
+                        // A deliberate manual stop must not be undone by automation.
+                        // Manual start/restart explicitly releases that profile hold.
+                        MonitorService.setManualHold(this, profileId, "stop".equals(mode));
                         if (!commandGate.mayExecute("profile." + mode, true, true, true)) {
                             statusView.setText("Команда заблокирована политикой безопасности.");
                             completeProfileOperation(requestId);
@@ -1469,6 +1472,10 @@ public final class MainActivity extends Activity {
                 .setMessage(message)
                 .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
                 .setPositiveButton("Подтвердить", (dialog, which) -> {
+                    boolean hold = "stop".equals(mode);
+                    for (String profileId : new String[]{"bridge", "droidmcp", "rea-android"}) {
+                        MonitorService.setManualHold(this, profileId, hold);
+                    }
                     List<ProfileStackPlanner.Step> steps = "start".equals(mode)
                             ? ProfileStackPlanner.startPlan()
                             : "stop".equals(mode) ? ProfileStackPlanner.stopPlan()
