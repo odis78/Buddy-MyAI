@@ -75,6 +75,10 @@ def report(process):
 # Profile lifecycle script is allowlisted, profile-scoped, and fails closed.
 assert "signal.SIGTERM" in profile_control
 assert "signal.SIGKILL" not in profile_control
+assert 'getattr(os, "pidfd_open", None)' in profile_control
+assert 'getattr(signal, "pidfd_send_signal", None)' in profile_control
+assert "pidfd_signal_unsupported" in profile_control
+assert "os.kill(pid, signal.SIGTERM)" not in profile_control
 assert "existing_tunnel_manager_busy" in profile_control
 assert "jiti-profile-control.lock" in profile_control
 assert "buddy-myai.yaml" not in profile_control
