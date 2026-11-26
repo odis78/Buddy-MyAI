@@ -230,6 +230,7 @@ public final class MonitorService extends Service {
         if (!monitoring) {
             monitoring = true;
             running = true;
+            syncRecoverySettings();
             if (!startAsForegroundSafely()) {
                 monitoring = false;
                 running = false;
