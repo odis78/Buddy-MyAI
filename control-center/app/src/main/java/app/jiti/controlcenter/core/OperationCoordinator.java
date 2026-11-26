@@ -164,6 +164,10 @@ public final class OperationCoordinator {
         return active;
     }
 
+    public synchronized boolean hasPendingManual() {
+        return pendingManual != null;
+    }
+
     public synchronized boolean isBusy() {
         return active != null;
     }
