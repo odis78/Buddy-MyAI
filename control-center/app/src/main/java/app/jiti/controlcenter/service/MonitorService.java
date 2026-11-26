@@ -650,6 +650,16 @@ public final class MonitorService extends Service {
             return;
         }
         TermuxOperation operation = AUXILIARY_PROFILE_HEALTH[index];
+        String profileId = profileIdForOperation(operation);
+        long now = System.currentTimeMillis();
+        RecoverySupervisor.Snapshot recoveryState = recoverySupervisor.snapshot(profileId);
+        if (!recoverySupervisor.isProbeAllowed(profileId, now)) {
+            log(profileComponentIdForId(profileId), "HEALTH_PROBE_BACKOFF",
+                    "Upstream health probe deferred until " + recoveryState.nextAllowedAt
+                            + " (Retry-After/backoff); no probe or lifecycle command sent.");
+            runAuxiliaryProfileChecks(index + 1);
+            return;
+        }
         runForCurrentSession(operation,
                 result -> checkAuxiliaryProfileIdentity(operation, result,
                         () -> runAuxiliaryProfileChecks(index + 1)));
