@@ -81,6 +81,8 @@ assert "pidfd_signal_unsupported" in profile_control
 assert "os.kill(pid, signal.SIGTERM)" not in profile_control
 assert "existing_tunnel_manager_busy" in profile_control
 assert "jiti-profile-control.lock" in profile_control
+assert 'local_ready = health_ok(profile)' in profile_control
+assert 'full = full_health_report(profile)' in profile_control
 assert "buddy-myai.yaml" not in profile_control
 assert "rea-android.yaml" in profile_control
 assert "bridge-013.yaml" in profile_control
@@ -190,6 +192,11 @@ int main(int argc, char **argv) {
             if (strcmp(argv[i], "--url-file") == 0) health_url = argv[i + 1];
         }
         if (!health_pid || !health_url || access(health_pid, R_OK) != 0 || access(health_url, R_OK) != 0) return 20;
+        const char *forced_status = getenv("JITI_FIXTURE_HTTP_STATUS");
+        if (forced_status) {
+            printf("{\"result\":\"error\",\"http_status\":%s,\"retry_after_ms\":120000}\n", forced_status);
+            return 1;
+        }
         printf("{\"result\":\"ok\"}\n");
         return 0;
     }
@@ -243,10 +250,10 @@ int main(int argc, char **argv) {
     assert compiled.returncode == 0, compiled.stderr
     binary.chmod(0o700)
 
-    def profile_command(mode):
+    def profile_command(mode, extra_env=None):
         return subprocess.run(
             [sys.executable, "-c", profile_control, mode, "bridge"],
-            env={**os.environ, "HOME": str(home)}, text=True,
+            env={**os.environ, "HOME": str(home), **(extra_env or {})}, text=True,
             capture_output=True, timeout=40
         )
 
@@ -264,6 +271,15 @@ int main(int argc, char **argv) {
 
     running = profile_command("status")
     assert report(running)["result"] == "already_running"
+
+    # Local readyz can be healthy while the control plane rejects or throttles
+    # the process. Preflight must retain the full-health HTTP classification.
+    for http_status in (401, 403, 429, 503):
+        probe = profile_command("preflight", {"JITI_FIXTURE_HTTP_STATUS": str(http_status)})
+        probe_report = report(probe)
+        assert probe_report["result"] == "process_running_not_ready", probe_report
+        assert probe_report["http_status"] == http_status, probe_report
+        assert probe_report["retry_after_ms"] == 120000, probe_report
 
     # A second lifecycle command must fail closed while another caller owns
     # the per-profile manager lock; the running process must remain untouched.
