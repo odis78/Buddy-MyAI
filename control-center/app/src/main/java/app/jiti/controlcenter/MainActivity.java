@@ -1366,9 +1366,9 @@ public final class MainActivity extends Activity {
                             completeProfileOperation(requestId);
                             return;
                         }
-                        // A deliberate manual stop must not be undone by automation.
-                        // Manual start/restart explicitly releases that profile hold.
-                        MonitorService.setManualHold(this, profileId, "stop".equals(mode));
+                        // The active manual operation already excludes automatic recovery.
+                        // Persist the hold only after the command's final state is known, so a
+                        // failed stop cannot silently suppress recovery for a still-running profile.
                         statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
                         TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
                             if (isFinishing() || isDestroyed()) {
@@ -1379,6 +1379,12 @@ public final class MainActivity extends Activity {
                             String finalState = finalReport == null ? "error"
                                     : finalReport.optString("result", "unknown");
                             String detail = profileReportDetail(finalReport, command);
+                            if ("stop".equals(mode)) {
+                                MonitorService.setManualHold(this, profileId, "stopped".equals(finalState));
+                            } else if (("start".equals(mode) || "restart".equals(mode))
+                                    && ("started_ready".equals(finalState) || "already_running".equals(finalState))) {
+                                MonitorService.setManualHold(this, profileId, false);
+                            }
                             saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
                             statusView.setText(detail);
                             logControlEvent(componentId, "PROFILE_" + mode.toUpperCase(java.util.Locale.ROOT), detail);
