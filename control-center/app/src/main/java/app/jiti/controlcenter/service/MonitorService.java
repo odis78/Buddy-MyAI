@@ -67,7 +67,7 @@ public final class MonitorService extends Service {
     private SharedPreferences recoveryPreferences;
     private final RecoverySupervisor recoverySupervisor = new RecoverySupervisor();
     private final Map<String, PendingRecovery> pendingRecoveries = new LinkedHashMap<>();
-    private final java.util.Set<String> scheduledRecoveryProfiles = new java.util.HashSet<>();
+    private final Map<String, Runnable> scheduledRecoveryTasks = new LinkedHashMap<>();
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
     private boolean inFlight;
@@ -133,6 +133,11 @@ public final class MonitorService extends Service {
         boolean enabled = monitoring && isAutoRecoveryEnabled(this);
         recoverySupervisor.setEnabled(enabled);
         OperationCoordinator.shared().setAutomaticEnabled(enabled);
+        if (!enabled) {
+            pendingRecoveries.clear();
+            for (Runnable task : scheduledRecoveryTasks.values()) handler.removeCallbacks(task);
+            scheduledRecoveryTasks.clear();
+        }
     }
 
     private void restoreRecoveryState() {
@@ -758,11 +763,14 @@ public final class MonitorService extends Service {
         if (!monitoring || !isAutoRecoveryEnabled(this) || pendingRecoveries.isEmpty()) return;
         for (PendingRecovery pending : new ArrayList<>(pendingRecoveries.values())) {
             pendingRecoveries.remove(pending.profileId);
-            if (!scheduledRecoveryProfiles.add(pending.profileId)) continue;
-            handler.postDelayed(() -> {
-                scheduledRecoveryProfiles.remove(pending.profileId);
+            if (scheduledRecoveryTasks.containsKey(pending.profileId)) continue;
+            Runnable task = () -> {
+                scheduledRecoveryTasks.remove(pending.profileId);
+                if (!monitoring || !isAutoRecoveryEnabled(this)) return;
                 executeAutomaticRecovery(pending);
-            }, Math.max(0L, pending.delayMillis));
+            };
+            scheduledRecoveryTasks.put(pending.profileId, task);
+            handler.postDelayed(task, Math.max(0L, pending.delayMillis));
             break; // One lifecycle mutation per monitor cycle.
         }
     }
