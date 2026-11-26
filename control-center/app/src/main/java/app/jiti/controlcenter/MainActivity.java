@@ -122,6 +122,7 @@ public final class MainActivity extends Activity {
         registerManualOperationReceiver();
     }
 
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void registerManualOperationReceiver() {
         if (manualReceiverRegistered) return;
         IntentFilter filter = new IntentFilter(ACTION_MANUAL_REQUEST_READY);
@@ -1480,21 +1481,18 @@ public final class MainActivity extends Activity {
                 .setMessage(message)
                 .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
                 .setPositiveButton("Подтвердить", (dialog, which) -> {
-                    boolean hold = "stop".equals(mode);
-                    for (String profileId : new String[]{"bridge", "droidmcp", "rea-android"}) {
-                        MonitorService.setManualHold(this, profileId, hold);
-                    }
+                    // Persist per-profile manual holds only after the corresponding final state is confirmed.
                     List<ProfileStackPlanner.Step> steps = "start".equals(mode)
                             ? ProfileStackPlanner.startPlan()
                             : "stop".equals(mode) ? ProfileStackPlanner.stopPlan()
                             : ProfileStackPlanner.restartOrder();
-                    runProfileStackStep(steps, 0, requestId);
+                    runProfileStackStep(steps, 0, requestId, mode);
                 })
                 .setOnCancelListener(dialog -> completeProfileOperation(requestId))
                 .show();
     }
 
-    private void runProfileStackStep(List<ProfileStackPlanner.Step> steps, int index, long requestId) {
+    private void runProfileStackStep(List<ProfileStackPlanner.Step> steps, int index, long requestId, String requestedMode) {
         if (index >= steps.size()) {
             globalControlStatusView.setText("Готово: все шаги REA-стека завершены. Buddy не затрагивался.");
             logControlEvent("rea-stack", "STACK_OPERATION_COMPLETE", "All requested profile steps completed");
@@ -1526,8 +1524,13 @@ public final class MainActivity extends Activity {
             }
             if (("start".equals(step.operation) && "already_running".equals(state))
                     || ("stop".equals(step.operation) && stopped)) {
+                if ("stop".equals(requestedMode) && "stop".equals(step.operation) && stopped) {
+                    MonitorService.setManualHold(this, step.profileId, true);
+                } else if ("start".equals(step.operation) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(this, step.profileId, false);
+                }
                 globalControlStatusView.setText(profileTitle(step.profileId) + ": шаг уже выполнен, продолжаю…");
-                runProfileStackStep(steps, index + 1, requestId);
+                runProfileStackStep(steps, index + 1, requestId, requestedMode);
                 return;
             }
             if (!commandGate.mayExecute("profile." + step.operation, true, true, true)) {
@@ -1555,8 +1558,13 @@ public final class MainActivity extends Activity {
                     completeProfileOperation(requestId);
                     return;
                 }
+                if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                    MonitorService.setManualHold(this, step.profileId, true);
+                } else if ("start".equals(step.operation)) {
+                    MonitorService.setManualHold(this, step.profileId, false);
+                }
                 globalControlStatusView.setText("Подтверждено: " + profileTitle(step.profileId) + " • " + detail);
-                runProfileStackStep(steps, index + 1, requestId);
+                runProfileStackStep(steps, index + 1, requestId, requestedMode);
             });
         });
     }
