@@ -1335,6 +1335,7 @@ public final class MainActivity extends Activity {
                 return;
             }
             if ("start".equals(mode) && "already_running".equals(state)) {
+                MonitorService.setManualHold(this, profileId, false);
                 String detail = "Процесс уже запущен и полная готовность подтверждена.";
                 statusView.setText(detail);
                 saveProbeSnapshot(componentId, ComponentStatus.READY, detail);
@@ -1342,6 +1343,7 @@ public final class MainActivity extends Activity {
                 return;
             }
             if ("stop".equals(mode) && stopped) {
+                MonitorService.setManualHold(this, profileId, true);
                 String detail = report.optBoolean("stale_pid_file", false)
                         ? "Процесс не найден; устаревший PID сохранён для безопасной ручной проверки."
                         : "Профиль уже остановлен. Никакой сигнал не отправлялся.";
