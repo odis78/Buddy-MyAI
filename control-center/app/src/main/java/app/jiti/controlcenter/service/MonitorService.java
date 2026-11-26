@@ -24,6 +24,8 @@ import org.json.JSONArray;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import app.jiti.controlcenter.MainActivity;
@@ -64,6 +66,8 @@ public final class MonitorService extends Service {
     private EventStore eventStore;
     private SharedPreferences recoveryPreferences;
     private final RecoverySupervisor recoverySupervisor = new RecoverySupervisor();
+    private final Map<String, PendingRecovery> pendingRecoveries = new LinkedHashMap<>();
+    private final java.util.Set<String> scheduledRecoveryProfiles = new java.util.HashSet<>();
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
     private boolean inFlight;
@@ -75,6 +79,22 @@ public final class MonitorService extends Service {
     private String notificationText = "Ожидание первой проверки";
 
     private final Runnable poll = this::pollOnce;
+
+    private static final class PendingRecovery {
+        final String profileId;
+        final String mode;
+        final long delayMillis;
+        final int attempt;
+        final String reason;
+
+        PendingRecovery(String profileId, String mode, long delayMillis, int attempt, String reason) {
+            this.profileId = profileId;
+            this.mode = mode;
+            this.delayMillis = delayMillis;
+            this.attempt = attempt;
+            this.reason = reason;
+        }
+    }
 
     @Override public void onCreate() {
         super.onCreate();
@@ -538,6 +558,7 @@ public final class MonitorService extends Service {
         }
         if (index >= AUXILIARY_PROFILE_HEALTH.length) {
             inFlight = false;
+            dispatchPendingAutomaticRecovery();
             updateNotification();
             scheduleNext();
             return;
@@ -562,26 +583,35 @@ public final class MonitorService extends Service {
             if (process == null) {
                 ComponentStatus status = health.internalError != -1 || health.exitCode == 127
                         ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
-                recordProfileStatus(componentId, status, 0, "Health report has no process object");
+                String detail = "Health report has no process object";
+                recordProfileStatus(componentId, status, 0, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.UNKNOWN,
+                        "health_report_missing_process", -1L, detail);
                 next.run();
                 return;
             }
             if (!process.optString("error", "").isEmpty()) {
-                recordProfileStatus(componentId, ComponentStatus.ERROR, process.optInt("pid", 0),
-                        "Tunnel PID file could not be read or parsed");
+                String detail = "Tunnel PID file could not be read or parsed";
+                recordProfileStatus(componentId, ComponentStatus.ERROR, process.optInt("pid", 0), detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "pid_file_invalid", -1L, detail);
                 next.run();
                 return;
             }
             if (!process.optBoolean("running")) {
-                recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0),
-                        "Tunnel Client process is not running");
+                String detail = "Tunnel Client process is not running";
+                recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0), detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.PROCESS_MISSING,
+                        "process_missing", findRetryAfterMillis(report), detail);
                 next.run();
                 return;
             }
             pid = process.optInt("pid", 0);
             if (pid <= 0) {
-                recordProfileStatus(componentId, ComponentStatus.ERROR, 0,
-                        "Health report says running but PID is invalid");
+                String detail = "Health report says running but PID is invalid";
+                recordProfileStatus(componentId, ComponentStatus.ERROR, 0, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "invalid_pid", -1L, detail);
                 next.run();
                 return;
             }
@@ -589,7 +619,10 @@ public final class MonitorService extends Service {
         } catch (Exception e) {
             ComponentStatus status = health.internalError != -1 || health.exitCode == 127
                     ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
-            recordProfileStatus(componentId, status, 0, "Invalid health JSON");
+            String detail = "Invalid health JSON";
+            recordProfileStatus(componentId, status, 0, detail);
+            handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.UNKNOWN,
+                    "invalid_health_json", -1L, detail);
             next.run();
             return;
         }
@@ -602,8 +635,10 @@ public final class MonitorService extends Service {
             if (!monitoring) { inFlight = false; return; }
             if (!executable.succeeded() || home.isEmpty()
                     || !TunnelProfileIdentity.matchesExecutable(executable.stdout, home)) {
-                recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid,
-                        "PID exists but exact Tunnel Client executable identity does not match");
+                String detail = "PID exists but exact Tunnel Client executable identity does not match";
+                recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "process_identity_mismatch", -1L, detail);
                 next.run();
                 return;
             }
@@ -619,9 +654,147 @@ public final class MonitorService extends Service {
                         : ready ? "Health endpoints and exact profile process identity verified"
                         : "Exact profile process identity verified; health endpoints are not ready";
                 recordProfileStatus(componentId, status, targetPid, detail);
+                if (ready) {
+                    recordRecoverySuccess(profileIdForOperation(operation), detail);
+                } else if (!identity) {
+                    handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                            "profile_config_identity_mismatch", -1L, detail);
+                } else {
+                    int httpStatus = findHttpStatus(report);
+                    RecoveryPolicy.ErrorClass error = httpStatus > 0
+                            ? RecoveryErrorClassifier.fromHttpStatus(httpStatus)
+                            : RecoveryPolicy.ErrorClass.READINESS_FAILED;
+                    String signature = httpStatus > 0 ? "http_" + httpStatus : "readiness_failed";
+                    handleRecoveryObservation(profileIdForOperation(operation), error,
+                            signature, findRetryAfterMillis(report), detail);
+                }
                 next.run();
             });
         });
+    }
+
+    private void recordRecoverySuccess(String profileId, String detail) {
+        if (profileId == null || profileId.isEmpty()) return;
+        RecoverySupervisor.Snapshot before = recoverySupervisor.snapshot(profileId);
+        recoverySupervisor.recordSuccess(profileId);
+        persistRecoveryState(profileId);
+        pendingRecoveries.remove(profileId);
+        if (before.attempts > 0 || before.consecutiveFailures > 0) {
+            log(profileComponentIdForId(profileId), "AUTO_RECOVERY_STABLE",
+                    "Profile returned to READY; retry budget reset. " + detail);
+        }
+    }
+
+    private void handleRecoveryObservation(String profileId, RecoveryPolicy.ErrorClass error,
+                                          String signature, long retryAfterMillis, String detail) {
+        if (profileId == null || profileId.isEmpty()) return;
+        if (!isAutoRecoveryEnabled(this)) {
+            recoverySupervisor.setEnabled(false);
+            return;
+        }
+        recoverySupervisor.setEnabled(true);
+        if (isManualHold(profileId)) {
+            log(profileComponentIdForId(profileId), "AUTO_RECOVERY_HELD",
+                    "Manual hold is active; automatic action suppressed.");
+            return;
+        }
+        boolean networkAvailable = hasValidatedInternet();
+        RecoverySupervisor.Plan plan = recoverySupervisor.plan(profileId, error, signature,
+                System.currentTimeMillis(), networkAvailable, retryAfterMillis,
+                ThreadLocalRandom.current().nextDouble());
+        persistRecoveryState(profileId);
+        String event = "action=" + plan.action + ", attempts=" + plan.attempts
+                + ", delayMs=" + plan.delayMillis + ", reason=" + plan.reason;
+        log(profileComponentIdForId(profileId), "AUTO_RECOVERY_PLAN", event + "; " + detail);
+        if (plan.action == RecoverySupervisor.Action.RECOVER) {
+            String mode = error == RecoveryPolicy.ErrorClass.PROCESS_MISSING ? "start" : "restart";
+            pendingRecoveries.put(profileId, new PendingRecovery(profileId, mode,
+                    plan.delayMillis, plan.attempts, plan.reason));
+        } else if (plan.action == RecoverySupervisor.Action.MANUAL_REQUIRED
+                || plan.action == RecoverySupervisor.Action.CIRCUIT_OPEN
+                || plan.action == RecoverySupervisor.Action.EXHAUSTED) {
+            notificationText = "Автовосстановление остановлено: требуется ручная проверка • " + profileId;
+            updateNotification();
+        } else if (plan.action == RecoverySupervisor.Action.RECHECK_ONLY
+                || plan.action == RecoverySupervisor.Action.WAIT_FOR_COOLDOWN
+                || plan.action == RecoverySupervisor.Action.WAIT_FOR_NETWORK) {
+            notificationText = "Проверка туннеля отложена • " + profileId;
+            updateNotification();
+        }
+    }
+
+    private void dispatchPendingAutomaticRecovery() {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || pendingRecoveries.isEmpty()) return;
+        for (PendingRecovery pending : new ArrayList<>(pendingRecoveries.values())) {
+            pendingRecoveries.remove(pending.profileId);
+            if (!scheduledRecoveryProfiles.add(pending.profileId)) continue;
+            handler.postDelayed(() -> {
+                scheduledRecoveryProfiles.remove(pending.profileId);
+                executeAutomaticRecovery(pending);
+            }, Math.max(0L, pending.delayMillis));
+            break; // One lifecycle mutation per monitor cycle.
+        }
+    }
+
+    private void executeAutomaticRecovery(PendingRecovery pending) {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
+        if (!hasValidatedInternet()) {
+            log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                    "Validated network disappeared before the operation; no process command sent.");
+            return;
+        }
+        OperationCoordinator coordinator = OperationCoordinator.shared();
+        OperationCoordinator.Submission submission = coordinator.requestAutomatic(
+                pending.profileId, "recover." + pending.mode);
+        if (!submission.accepted()) {
+            log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SKIPPED",
+                    "Exclusive operation slot unavailable: " + submission.status);
+            return;
+        }
+        long requestId = submission.request.id;
+        notificationText = "Автовосстановление: " + pending.profileId + " • " + pending.mode;
+        updateNotification();
+        log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_STARTED",
+                "Attempt " + pending.attempt + "; " + pending.reason);
+        TermuxCommandClient.runProfileControl(this, pending.profileId, pending.mode, result -> {
+            JSONObject report = null;
+            String state = "invalid_result";
+            try {
+                report = new JSONObject(result.stdout);
+                state = report.optString("result", "unknown");
+            } catch (Exception ignored) { }
+            boolean success = result.succeeded()
+                    && ("started_ready".equals(state) || "already_running".equals(state));
+            if (success) {
+                recordRecoverySuccess(pending.profileId,
+                        "Automatic " + pending.mode + " completed and local readiness was confirmed.");
+                notificationText = "Туннель восстановлен • " + pending.profileId;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SUCCEEDED",
+                        "Attempt " + pending.attempt + " confirmed by " + state);
+            } else {
+                persistRecoveryState(pending.profileId);
+                String safeState = report == null ? "invalid_result" : state;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_FAILED",
+                        "Attempt " + pending.attempt + " failed; state=" + safeState
+                                + ", exit=" + result.exitCode + ", internalError=" + result.internalError);
+                notificationText = "Автовосстановление не удалось • " + pending.profileId;
+            }
+            OperationCoordinator.Request next = coordinator.complete(requestId);
+            if (next != null && next.kind == OperationCoordinator.Kind.MANUAL) {
+                sendBroadcast(new Intent(MainActivity.ACTION_MANUAL_REQUEST_READY)
+                        .setPackage(getPackageName()));
+            } else {
+                dispatchPendingAutomaticRecovery();
+            }
+            updateNotification();
+        });
+    }
+
+    private String profileComponentIdForId(String profileId) {
+        if ("bridge".equals(profileId)) return "rea-bridge";
+        if ("droidmcp".equals(profileId)) return "droidmcp";
+        if ("rea-android".equals(profileId)) return "rea-android";
+        return "system";
     }
 
     private String profileComponentId(TermuxOperation operation) {
