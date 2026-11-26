@@ -8,7 +8,7 @@ public class TermuxCommandSpecTest {
         for (TermuxOperation op : TermuxOperation.values()) {
             if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE
                     || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE || op == TermuxOperation.BUDDY_LAUNCH
-                    || op == TermuxOperation.BUDDY_STOP) continue;
+                    || op == TermuxOperation.BUDDY_STOP || op == TermuxOperation.PROFILE_CONTROL) continue;
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(op,
                     "/data/data/com.termux/files/usr",
                     "/data/data/com.termux/files/home");
@@ -179,6 +179,37 @@ public class TermuxCommandSpecTest {
     @Test(expected = IllegalArgumentException.class)
     public void authenticatedMcpProbeRejectsNonPositivePid() {
         TermuxCommandSpec.forBuddyMcpAuthProbe("/data/data/com.termux/files/usr", -1);
+    }
+
+    @Test public void profileControlUsesOnlyThreeFixedProfilesAndFiveFixedModes() {
+        String prefix = "/data/data/com.termux/files/usr";
+        for (String profile : java.util.Arrays.asList("bridge", "droidmcp", "rea-android")) {
+            for (String mode : java.util.Arrays.asList("preflight", "status", "start", "stop", "restart")) {
+                TermuxCommandSpec spec = TermuxCommandSpec.forProfileControl(prefix, profile, mode);
+                assertEquals(TermuxOperation.PROFILE_CONTROL, spec.operation);
+                assertEquals(prefix + "/bin/python", spec.executable);
+                assertEquals("-c", spec.arguments.get(0));
+                assertEquals(ProfileControlScript.SCRIPT, spec.arguments.get(1));
+                assertEquals(mode, spec.arguments.get(2));
+                assertEquals(profile, spec.arguments.get(3));
+                assertTrue(spec.isSafeFixedCommand());
+            }
+        }
+        assertTrue(ProfileControlScript.SCRIPT.contains("signal.SIGTERM"));
+        assertFalse(ProfileControlScript.SCRIPT.contains("signal.SIGKILL"));
+        assertTrue(ProfileControlScript.SCRIPT.contains("jiti-profile-control.lock"));
+        assertTrue(ProfileControlScript.SCRIPT.contains("existing_tunnel_manager_busy"));
+        assertFalse(ProfileControlScript.SCRIPT.contains("buddy-myai.yaml"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void profileControlRejectsUnknownProfile() {
+        TermuxCommandSpec.forProfileControl("/data/data/com.termux/files/usr", "buddy", "start");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void profileControlRejectsUnknownMode() {
+        TermuxCommandSpec.forProfileControl("/data/data/com.termux/files/usr", "bridge", "shell");
     }
 
     @Test public void dynamicProcReadsRequirePositiveNumericPid() {
