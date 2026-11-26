@@ -14,6 +14,7 @@ import fcntl
 import glob
 import json
 import os
+import re
 import signal
 import stat
 import subprocess
@@ -385,18 +386,51 @@ def stop_profile(profile):
         time.sleep(1)
     return {"result": "stop_timeout_no_sigkill", "pid": pid}
 
+def safe_logs(profile):
+    path = profile["log"]
+    if os.path.islink(path):
+        return {"result": "blocked", "reason": "log_file_symlink"}
+    if not os.path.isfile(path):
+        return {"result": "logs_unavailable", "reason": "log_file_missing"}
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(max(0, os.path.getsize(path) - 32768))
+            raw = handle.read().decode("utf-8", "replace")
+        lines = raw.splitlines()[-80:]
+        patterns = (
+            (re.compile(r"(?i)(authorization\\s*[:=]\\s*bearer\\s+)[^\\s,;]+"), r"\\1[REDACTED]"),
+            (re.compile(r"(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{12,}"), r"\\1[REDACTED]"),
+            (re.compile(r"(?i)((?:control_plane_api_key|api[_-]?key|token|secret|password)\\s*[:=]\\s*)[^\\s,;]+"), r"\\1[REDACTED]"),
+            (re.compile(r"(?i)([?&](?:api[_-]?key|token|secret|password)=)[^&\\s]+"), r"\\1[REDACTED]"),
+        )
+        safe = []
+        for line in lines:
+            for pattern, replacement in patterns:
+                line = pattern.sub(replacement, line)
+            safe.append(line[:500])
+        text = "\\n".join(safe)
+        if len(text) > 16000:
+            text = text[-16000:]
+        return {"result": "logs", "text": text}
+    except Exception as exc:
+        return {"result": "logs_unavailable", "reason": "log_read_" + type(exc).__name__}
+
 def main():
     if len(sys.argv) != 3:
         emit("blocked", reason="invalid_arguments")
         return 2
     mode, profile_id = sys.argv[1], sys.argv[2]
-    if mode not in ("preflight", "status", "start", "stop", "restart"):
+    if mode not in ("preflight", "status", "start", "stop", "restart", "logs"):
         emit("blocked", reason="invalid_mode")
         return 2
     profile = PROFILES.get(profile_id)
     if profile is None:
         emit("blocked", reason="unknown_profile")
         return 2
+    if mode == "logs":
+        report = safe_logs(profile)
+        emit(report.pop("result"), **report)
+        return 0 if report.get("result") != "logs_unavailable" else 1
     if mode in ("preflight", "status"):
         report = preflight(profile)
         if mode == "status" and report["result"] == "ready_to_start":
