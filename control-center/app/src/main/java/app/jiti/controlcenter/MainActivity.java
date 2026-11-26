@@ -1123,9 +1123,30 @@ public final class MainActivity extends Activity {
             refreshTermuxControls();
             return;
         }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-status");
+        if (!submission.accepted()) {
+            statusView.setText("Другая операция выполняется. Проверка поставлена на паузу.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> executeProfileStatus(profileId, statusView, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            queuedManualActions.put(requestId, action);
+            statusView.setText("Ручная проверка поставлена в приоритетную очередь.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void executeProfileStatus(String profileId, TextView statusView, long requestId) {
         statusView.setText("LIVE: проверка процесса, профиля и полной готовности…");
         TermuxCommandClient.runProfileControl(this, profileId, "status", result -> {
-            if (isFinishing() || isDestroyed()) return;
+            if (isFinishing() || isDestroyed()) {
+                completeProfileOperation(requestId);
+                return;
+            }
             JSONObject report = profileReport(result);
             String state = report == null ? "error" : report.optString("result", "unknown");
             String detail = profileReportDetail(report, result);
@@ -1133,33 +1154,7 @@ public final class MainActivity extends Activity {
             saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
             statusView.setText(liveStatusLabel(componentId));
             logControlEvent(componentId, "PROFILE_STATUS", detail);
-            refreshTermuxControls();
-        });
-    }
-
-    private void runProfileLogs(String profileId, TextView statusView) {
-        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
-        if (!install.canInvoke() || !termuxBridgeVerified()) {
-            statusView.setText("Журналы недоступны: сначала выполните безопасную проверку Termux.");
-            refreshTermuxControls();
-            return;
-        }
-        statusView.setText("Чтение последних строк журнала с локальным редактированием секретов…");
-        TermuxCommandClient.runProfileControl(this, profileId, "logs", result -> {
-            if (isFinishing() || isDestroyed()) return;
-            JSONObject report = profileReport(result);
-            String state = report == null ? "error" : report.optString("result", "unknown");
-            String safeText = report == null ? "Не удалось прочитать журнал. Код: " + result.exitCode
-                    : report.optString("text", report.optString("reason", "Журнал недоступен."));
-            statusView.setText("Журнал: " + state);
-            logControlEvent(componentIdForProfile(profileId), "PROFILE_LOGS_VIEWED",
-                    "Redacted log view requested; result=" + state);
-            new AlertDialog.Builder(this)
-                    .setTitle("Журнал • " + profileTitle(profileId))
-                    .setMessage(safeText)
-                    .setPositiveButton("Закрыть", null)
-                    .show();
-            refreshTermuxControls();
+            completeProfileOperation(requestId);
         });
     }
 
