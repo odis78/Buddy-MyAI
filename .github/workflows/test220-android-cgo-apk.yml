@@ -1,0 +1,136 @@
+name: Test 220 Android cgo APK build
+
+# Manual-only: this builds the isolated test package after the runtime candidate passed ELF checks.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: test220-android-cgo-apk
+  cancel-in-progress: false
+
+jobs:
+  test220-apk:
+    name: Package Test 220 with verified Android cgo runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SOURCE_COMMIT: 0d8f3cd5ccb756f27b0a2c661490e3ed42fb8dfe
+      RUNTIME_RUN_ID: "45835773668"
+      EXPECTED_RUNTIME_SHA256: cc013fae9b04523b078e6417fe5d379972e1d0d1b11b2f77b072d5f2442516eb
+      NDK_VERSION: 27.2.12479018
+
+    steps:
+      - name: Checkout exact Test 220 source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: odis78/Buddy-MyAI
+          ref: 0d8f3cd5ccb756f27b0a2c661490e3ed42fb8dfe
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+
+      - name: Set up Android SDK and pinned NDK
+        uses: android-actions/setup-android@c55407a4794419acef1980a27cfbba637f70fefd # v4.0.4
+        with:
+          packages: "ndk;27.2.12479018"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+
+      - name: Build existing native support libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d third_party/proot
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION" native/build.sh
+
+      - name: Download the verified Android cgo runtime artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: test220-android-cgo-runtime-candidate
+          repository: ${{ github.repository }}
+          run-id: 45835773668
+          github-token: ${{ github.token }}
+          path: runtime-artifact
+
+      - name: Verify runtime digest and install it into the APK staging tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME="runtime-artifact/test220-android-cgo-runtime/libtunnel-client.so"
+          SHA_FILE="runtime-artifact/test220-android-cgo-report/runtime-sha256.txt"
+          test -s "$RUNTIME"
+          test -s "$SHA_FILE"
+          ARTIFACT_SHA="$(awk '{print $1}' "$SHA_FILE")"
+          ACTUAL_SHA="$(sha256sum "$RUNTIME" | awk '{print $1}')"
+          test "$ARTIFACT_SHA" = "$EXPECTED_RUNTIME_SHA256"
+          test "$ACTUAL_SHA" = "$EXPECTED_RUNTIME_SHA256"
+          grep -F "EXPECTED_SHA256 = \"$EXPECTED_RUNTIME_SHA256\"" app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          install -m 0755 "$RUNTIME" app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
+          {
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "RUNTIME_RUN_ID=$RUNTIME_RUN_ID"
+            echo "RUNTIME_SHA256=$ACTUAL_SHA"
+          } > runtime-verification.txt
+
+      - name: Run unit tests and assemble isolated Test 220 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon testGithubDebugUnitTest assembleGithubDebug
+
+      - name: Verify APK identity, signature and embedded runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/github/debug -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$APK"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" > apk-badging.txt
+          grep -F "package: name='app.buddy.myai.gt.test220'" apk-badging.txt
+          python3 - "$APK" "$EXPECTED_RUNTIME_SHA256" <<'PY'
+          import hashlib
+          import sys
+          import zipfile
+
+          apk, expected = sys.argv[1:]
+          entry = "lib/arm64-v8a/libtunnel-client.so"
+          with zipfile.ZipFile(apk) as archive:
+              names = set(archive.namelist())
+              if entry not in names:
+                  raise SystemExit(f"APK missing {entry}")
+              actual = hashlib.sha256(archive.read(entry)).hexdigest()
+          if actual != expected:
+              raise SystemExit(f"embedded runtime SHA mismatch: {actual}")
+          print(f"Embedded Android cgo runtime SHA-256: {actual}")
+          PY
+          mkdir -p dist
+          cp "$APK" dist/Buddy_Test220_Android_CGO.apk
+          sha256sum dist/Buddy_Test220_Android_CGO.apk > dist/Buddy_Test220_Android_CGO.apk.sha256
+          cat dist/Buddy_Test220_Android_CGO.apk.sha256
+          cat runtime-verification.txt
+
+      - name: Upload Test 220 APK and verification report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: buddy-test220-android-cgo-apk
+          path: |
+            dist/Buddy_Test220_Android_CGO.apk
+            dist/Buddy_Test220_Android_CGO.apk.sha256
+            runtime-verification.txt
+            apk-badging.txt
+          if-no-files-found: error
+          retention-days: 14
