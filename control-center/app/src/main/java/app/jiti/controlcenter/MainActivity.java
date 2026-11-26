@@ -1,11 +1,17 @@
 package app.jiti.controlcenter;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.app.NotificationManager;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
@@ -14,11 +20,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import org.json.JSONObject;
 
 import app.jiti.controlcenter.core.CommandGate;
-import app.jiti.controlcenter.core.InFlightGate;
+import app.jiti.controlcenter.core.OperationCoordinator;
+import app.jiti.controlcenter.core.ProfileStackPlanner;
 import app.jiti.controlcenter.core.ComponentRegistry;
 import app.jiti.controlcenter.core.ComponentSpec;
 import app.jiti.controlcenter.core.EvidenceStatus;
@@ -39,6 +47,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Set;
 
 public final class MainActivity extends Activity {
     private static final String EXPECTED_TUNNELS_SCRIPT_SHA256 = "1efc8db1cc8b7e91a7f16546e5adad1206a0649b036dcc2afa048a4a87056b54";
@@ -51,23 +63,36 @@ public final class MainActivity extends Activity {
     private final ComponentRegistry registry = ComponentRegistry.historicalBaseline();
     private EventStore eventStore;
     private final CommandGate commandGate = new CommandGate(
-            new HashSet<>(Arrays.asList("buddy.start", "buddy.stop")));
+            new HashSet<>(Arrays.asList("profile.start", "profile.stop", "profile.restart"))); 
+    public static final String ACTION_MANUAL_REQUEST_READY = "app.jiti.controlcenter.MANUAL_REQUEST_READY";
+    private static final Set<Long> DISPATCHED_MANUAL_REQUESTS =
+            Collections.synchronizedSet(new HashSet<>());
+    private final OperationCoordinator profileOperationCoordinator = OperationCoordinator.shared();
+    private boolean manualReceiverRegistered;
+    private boolean activityResumed;
+    private final BroadcastReceiver manualOperationReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            dispatchActiveManualRequest();
+        }
+    };
+    private final Map<String, List<Button>> profileActionButtons = new HashMap<>();
+    private Button globalCheckButton;
+    private Button globalStartButton;
+    private Button globalRestartButton;
+    private Button globalStopButton;
+    private TextView globalControlStatusView;
+    private TextView globalControlOutputView;
     private TextView eventLogView;
     private TextView termuxStatusView;
     private Button termuxCheckButton;
     private Button monitorStartButton;
     private Button monitorStopButton;
-    private Button buddyStartButton;
-    private Button buddyStopButton;
-    private Button buddyRestartButton;
+    private Switch autoRecoverySwitch;
+    private TextView autoRecoveryStatusView;
     private TextView buddyControlStatusView;
     private final Map<String, TextView> liveStatusViews = new HashMap<>();
     private static final int REQUEST_NOTIFICATIONS = 4201;
     private boolean diagnosticsInFlight;
-    private static final InFlightGate BUDDY_OPERATION_GATE = new InFlightGate();
-    private long buddyLaunchRequestedAtEpochSec;
-    private int buddyStatusPollAttempts;
-    private static final int MAX_BUDDY_STATUS_POLLS = 4;
     private final android.os.Handler uiRefreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable uiRefreshRunnable = new Runnable() {
         @Override public void run() {
@@ -85,6 +110,19 @@ public final class MainActivity extends Activity {
         saveProbeSnapshot("jiti-control-center", ComponentStatus.RUNNING, "MainActivity active");
         saveProbeSnapshot("jiti-event-store", ComponentStatus.AVAILABLE, "SQLite event journal available");
         render();
+        registerManualOperationReceiver();
+    }
+
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void registerManualOperationReceiver() {
+        if (manualReceiverRegistered) return;
+        IntentFilter filter = new IntentFilter(ACTION_MANUAL_REQUEST_READY);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(manualOperationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(manualOperationReceiver, filter);
+        }
+        manualReceiverRegistered = true;
     }
 
     private void render() {
@@ -96,17 +134,29 @@ public final class MainActivity extends Activity {
         scroll.addView(page);
 
         page.addView(text("JITI CONTROL CENTER", 22, FG, true));
-        addTop(page, text("Реестр инфраструктуры • 0.2.0-alpha", 13, MUTED, false), 5);
-        addCard(page, text("РЕЖИМ АУДИТА. Доступны фиксированные read-only проверки через Termux RUN_COMMAND после явной настройки разрешения. Запуск, остановка и перезапуск инфраструктуры пока заблокированы до проверки контрактов и тестов на устройстве.", 13, AMBER, true), 12);
+        addTop(page, text("Реестр инфраструктуры • 0.2.1-alpha", 13, MUTED, false), 5);
+        addCard(page, text("РУЧНОЕ И АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ. Автовосстановление REA-профилей включается отдельно. Ручные команды имеют приоритет и выполняются после завершения уже отправленного автоматического шага. Buddy исключён из автоматического восстановления.", 13, AMBER, true), 12);
 
         addSection(page, "Управление системой");
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.VERTICAL);
-        for (String label : new String[]{"Проверить всё", "Запустить всё", "Перезапустить всё", "Остановить всё"}) {
-            Button button = button(label);
-            button.setEnabled(false);
-            controls.addView(button, matchWrap());
-        }
+        globalControlStatusView = text("Ручное управление готовится после безопасной проверки Termux.", 11, MUTED, false);
+        globalControlOutputView = text("Проверка ещё не запускалась.", 10, MUTED, false);
+        globalCheckButton = button("Проверить всё");
+        globalCheckButton.setOnClickListener(v -> runTermuxDiagnostics(globalCheckButton, globalControlOutputView));
+        globalStartButton = button("Запустить всё");
+        globalStartButton.setOnClickListener(v -> requestProfileStackOperation("start"));
+        globalRestartButton = button("Перезапустить всё");
+        globalRestartButton.setOnClickListener(v -> requestProfileStackOperation("restart"));
+        globalStopButton = button("Остановить всё");
+        globalStopButton.setOnClickListener(v -> requestProfileStackOperation("stop"));
+        controls.addView(globalCheckButton, matchWrap());
+        controls.addView(globalStartButton, matchWrap());
+        controls.addView(globalRestartButton, matchWrap());
+        controls.addView(globalStopButton, matchWrap());
+        addTop(controls, text("Команды «всё» управляют тремя REA-туннелями (Bridge, DroidMCP, REA Android). Buddy независим и этими командами не затрагивается.", 10, MUTED, false), 5);
+        addTop(controls, globalControlStatusView, 7);
+        addTop(controls, globalControlOutputView, 5);
         addCard(page, controls, 8);
 
         addTermuxSection(page);
@@ -188,290 +238,38 @@ public final class MainActivity extends Activity {
         row2.addView(monitorStartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
         row2.addView(monitorStopButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
+        LinearLayout recoveryRow = new LinearLayout(this);
+        recoveryRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView recoveryLabel = text("Автовосстановление трёх REA-профилей", 12, FG, true);
+        autoRecoverySwitch = new Switch(this);
+        autoRecoverySwitch.setTextOn("ВКЛ");
+        autoRecoverySwitch.setTextOff("ВЫКЛ");
+        autoRecoverySwitch.setTextColor(FG);
+        autoRecoverySwitch.setChecked(MonitorService.isAutoRecoveryEnabled(this));
+        autoRecoverySwitch.setOnCheckedChangeListener((button, enabled) -> {
+            MonitorService.setAutoRecoveryEnabled(this, enabled);
+            if (MonitorService.running) MonitorService.pollNow(this);
+            updateAutoRecoveryStatus(enabled);
+        });
+        recoveryRow.addView(recoveryLabel, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        recoveryRow.addView(autoRecoverySwitch, new LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)));
+        autoRecoveryStatusView = text("", 10, MUTED, false);
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.addView(row1);
         addTop(card, row2, 6);
+        addTop(card, recoveryRow, 5);
+        addTop(card, autoRecoveryStatusView, 2);
+        updateAutoRecoveryStatus(MonitorService.isAutoRecoveryEnabled(this));
 
-        buddyControlStatusView = text("Управление Buddy заблокировано до проверки Termux и запуска монитора.", 11, MUTED, false);
-        buddyStartButton = button("Запустить Buddy");
-        buddyStartButton.setOnClickListener(v -> requestBuddyStart());
-        buddyStopButton = button("Остановить Buddy");
-        buddyStopButton.setOnClickListener(v -> confirmBuddyStop());
-        buddyRestartButton = button("Перезапустить Buddy");
-        buddyRestartButton.setOnClickListener(v -> confirmBuddyRestart());
-        LinearLayout row3 = new LinearLayout(this);
-        row3.addView(buddyStartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        row3.addView(buddyStopButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        LinearLayout row4 = new LinearLayout(this);
-        row4.addView(buddyRestartButton, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        buddyControlStatusView = text(
+                "Buddy Tunnel: только read-only мониторинг. Запуск, остановка и перезапуск из JITI отключены.",
+                11, MUTED, false);
         addTop(card, buddyControlStatusView, 8);
-        addTop(card, row3, 4);
-        addTop(card, row4, 4);
         addTop(card, output, 8);
         addCard(page, card, 8);
-    }
-
-    private boolean acquireBuddyOperation(String requestedAction) {
-        if (BUDDY_OPERATION_GATE.tryAcquire()) return true;
-        String message = "Другая операция Buddy ещё выполняется. Дождитесь её результата; повторная команда не отправлена.";
-        if (buddyControlStatusView != null) buddyControlStatusView.setText(message);
-        logControlEvent("buddy-tunnel", "OPERATION_BUSY", "Rejected duplicate Buddy " + requestedAction + " request while another operation is in flight");
-        return false;
-    }
-
-    private void requestBuddyStart() {
-        preflightBuddyStart(true);
-    }
-
-    private void preflightBuddyStart(boolean askConfirmation) {
-        if (!termuxBridgeVerified() || !MonitorService.running) {
-            refreshTermuxControls();
-            return;
-        }
-        if (!acquireBuddyOperation("запуск")) return;
-        refreshTermuxControls();
-        buddyControlStatusView.setText("Проверка бинарника, YAML, env-файла и PID перед запуском…");
-        TermuxCommandClient.runBuddyLaunchPreflight(this, result -> {
-            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
-            JSONObject report = null;
-            try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
-            String state = report == null ? "invalid_preflight_result" : report.optString("result");
-            if (!result.succeeded() || report == null) {
-                buddyControlStatusView.setText("Preflight не выполнен: " + result.internalErrorMessage);
-                logControlEvent("buddy-tunnel", "START_PREFLIGHT_FAILED", "Buddy launch preflight command failed");
-                finishBuddyOperation();
-                return;
-            }
-            if ("already_running".equals(state)) {
-                int pid = report.optInt("pid", 0);
-                buddyControlStatusView.setText("Buddy Tunnel Client уже запущен; PID=" + pid + ". Дубликат не создавался.");
-                saveProbeSnapshot("tunnel-client", ComponentStatus.RUNNING, "Launch preflight verified existing binary and Buddy config");
-                MonitorService.pollNow(this);
-                finishBuddyOperation();
-                return;
-            }
-            if (!"ready_to_start".equals(state)) {
-                String reason = report.optString("reason", state);
-                buddyControlStatusView.setText("Запуск заблокирован: " + reason
-                        + (report.has("missing_keys") ? " • отсутствуют ключи: " + report.optJSONArray("missing_keys") : ""));
-                saveProbeSnapshot("buddy-tunnel", ComponentStatus.BLOCKED, "Buddy launch preflight: " + reason);
-                logControlEvent("buddy-tunnel", "START_BLOCKED", "Buddy launch preflight blocked: " + reason);
-                finishBuddyOperation();
-                return;
-            }
-            String message = "Проверки прошли. Будет запущен существующий Tunnel Client v0.0.19 с текущим Buddy YAML. "
-                    + "JITI не меняет YAML и runtime.env. Процесс будет запущен как управляемая фоновая задача Termux.";
-            if (report.optBoolean("stale_pid_file")) {
-                message += " Обнаружен устаревший PID-файл; он будет удалён только после повторной проверки, что PID не существует.";
-            }
-            if (askConfirmation) {
-                new android.app.AlertDialog.Builder(this)
-                        .setTitle("Запустить Buddy Tunnel?")
-                        .setMessage(message)
-                        .setPositiveButton("Запустить", (dialog, which) -> performBuddyStart())
-                        .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
-                        .setOnCancelListener(dialog -> finishBuddyOperation())
-                        .show();
-            } else {
-                performBuddyStart();
-            }
-            refreshTermuxControls();
-        });
-    }
-
-    private void performBuddyStart() {
-        if (!BUDDY_OPERATION_GATE.isInFlight()) return;
-        if (!commandGate.mayExecute("buddy.start", true, true, true)) {
-            buddyControlStatusView.setText("CommandGate заблокировал запуск: отсутствует подтверждение или проверка контракта/цели.");
-            logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy start rejected by CommandGate");
-            finishBuddyOperation();
-            return;
-        }
-        buddyLaunchRequestedAtEpochSec = System.currentTimeMillis() / 1000L;
-        buddyStatusPollAttempts = 0;
-        String error = TermuxCommandClient.startBuddyTunnel(this);
-        if (!error.isEmpty()) {
-            buddyControlStatusView.setText(error);
-            logControlEvent("buddy-tunnel", "START_REQUEST_FAILED", error);
-            finishBuddyOperation();
-            return;
-        }
-        buddyControlStatusView.setText("Запрос запуска отправлен в Termux RUN_COMMAND. Ожидается подтверждение процесса и healthz/readyz…");
-        saveProbeSnapshot("buddy-tunnel", ComponentStatus.STARTING, "Termux background task start requested; health verification pending");
-        logControlEvent("buddy-tunnel", "START_REQUESTED", "Buddy Tunnel Client start requested through Termux RUN_COMMAND");
-        scheduleBuddyLauncherStatusRead();
-        MonitorService.pollNow(this);
-        refreshTermuxControls();
-    }
-
-    private void scheduleBuddyLauncherStatusRead() {
-        uiRefreshHandler.postDelayed(this::readBuddyLauncherStatus, 1200L);
-    }
-
-    private void finishBuddyStatusPolling(String message) {
-        buddyControlStatusView.setText(message);
-        finishBuddyOperation();
-    }
-
-    private void retryBuddyLauncherStatus(String message) {
-        buddyStatusPollAttempts++;
-        if (buddyStatusPollAttempts < MAX_BUDDY_STATUS_POLLS) {
-            buddyControlStatusView.setText(message + " Повторная проверка "
-                    + (buddyStatusPollAttempts + 1) + "/" + MAX_BUDDY_STATUS_POLLS + "…");
-            scheduleBuddyLauncherStatusRead();
-        } else {
-            finishBuddyStatusPolling(message + " Новое подтверждение от Termux не получено; запуск не считается подтверждённым.");
-        }
-    }
-
-    private void readBuddyLauncherStatus() {
-        TermuxCommandClient.runBuddyLaunchStatus(this, result -> {
-            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
-            if (!result.succeeded()) {
-                retryBuddyLauncherStatus("Статус запуска пока недоступен: " + result.internalErrorMessage + ".");
-                return;
-            }
-            try {
-                JSONObject report = new JSONObject(result.stdout);
-                String state = report.optString("result", "unknown");
-                long timestamp = report.optLong("timestamp", 0L);
-                long now = System.currentTimeMillis() / 1000L;
-                if (!app.jiti.controlcenter.termux.BuddyLaunchStatusPolicy.isFreshForRequest(
-                        timestamp, now, buddyLaunchRequestedAtEpochSec)) {
-                    retryBuddyLauncherStatus("Получен старый статус Buddy Launcher; ожидаю подтверждение именно этой команды.");
-                    return;
-                }
-                if ("exec_failed".equals(state) || "blocked".equals(state)) {
-                    buddyControlStatusView.setText("Запуск Buddy заблокирован: " + state
-                            + (report.has("reason") ? " • " + report.optString("reason") : ""));
-                    saveProbeSnapshot("buddy-tunnel", ComponentStatus.NOT_READY, "Launcher status: " + state);
-                    logControlEvent("buddy-tunnel", "START_FAILED", "Buddy launcher status: " + state);
-                } else if ("launch_requested".equals(state)) {
-                    buddyControlStatusView.setText("Termux подтвердил передачу команды Tunnel Client. Проверка реального процесса и healthz/readyz продолжается; туннель пока не объявлен готовым.");
-                    MonitorService.pollNow(this);
-                } else if ("already_running".equals(state)) {
-                    buddyControlStatusView.setText("Buddy уже работал до запроса. Проверка процесса и healthz/readyz продолжается.");
-                    MonitorService.pollNow(this);
-                } else {
-                    buddyControlStatusView.setText("Launcher: " + state
-                            + (report.has("reason") ? " • " + report.optString("reason") : ""));
-                }
-            } catch (Exception e) {
-                retryBuddyLauncherStatus("Не удалось разобрать статус запуска Buddy.");
-                return;
-            }
-            finishBuddyOperation();
-        });
-    }
-
-    private void confirmBuddyStop() {
-        preflightBuddyStop(false);
-    }
-
-    private void confirmBuddyRestart() {
-        preflightBuddyStop(true);
-    }
-
-    private void preflightBuddyStop(boolean restart) {
-        if (!acquireBuddyOperation("остановка/перезапуск")) return;
-        refreshTermuxControls();
-        buddyControlStatusView.setText("Read-only preflight: проверка PID, executable и точного Buddy YAML…");
-        TermuxCommandClient.runBuddyStopPreflight(this, result -> {
-            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
-            JSONObject report = null;
-            try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
-            String state = report == null ? "invalid_stop_preflight" : report.optString("result");
-            if (!result.succeeded() || report == null) {
-                buddyControlStatusView.setText("Stop preflight не выполнен: " + result.internalErrorMessage);
-                logControlEvent("buddy-tunnel", "STOP_PREFLIGHT_FAILED", "Buddy stop identity preflight failed");
-                finishBuddyOperation();
-                return;
-            }
-            if ("ready_to_stop".equals(state)) {
-                int pid = report.optInt("pid", 0);
-                String title = restart ? "Перезапустить Buddy Tunnel?" : "Остановить Buddy Tunnel?";
-                String message = "PID " + pid + " совпадает с точным Tunnel Client binary и Buddy YAML. "
-                        + "После подтверждения будет отправлен только SIGTERM. SIGKILL и массовое завершение процессов запрещены.";
-                new android.app.AlertDialog.Builder(this)
-                        .setTitle(title)
-                        .setMessage(message)
-                        .setPositiveButton(restart ? "Перезапустить" : "Остановить",
-                                (dialog, which) -> performBuddyStop(restart ? () -> preflightBuddyStart(false) : null))
-                        .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
-                        .setOnCancelListener(dialog -> finishBuddyOperation())
-                        .show();
-                return;
-            }
-            if ("already_stopped".equals(state) || "stale_pid_file".equals(state)) {
-                if (restart) {
-                    new android.app.AlertDialog.Builder(this)
-                            .setTitle("Buddy уже остановлен")
-                            .setMessage("Работающий процесс не найден. JITI повторит launch preflight и запустит только проверенный Buddy профиль.")
-                            .setPositiveButton("Запустить", (dialog, which) -> {
-                                finishBuddyOperation();
-                                preflightBuddyStart(false);
-                            })
-                            .setNegativeButton("Отмена", (dialog, which) -> finishBuddyOperation())
-                            .setOnCancelListener(dialog -> finishBuddyOperation())
-                            .show();
-                } else {
-                    buddyControlStatusView.setText("Buddy уже остановлен. Устаревший PID-файл не удалялся.");
-                    finishBuddyOperation();
-                }
-                return;
-            }
-            String reason = report.optString("reason", state);
-            buddyControlStatusView.setText("Остановка заблокирована: " + state + " • " + reason
-                    + ". Процесс не затрагивался.");
-            saveProbeSnapshot("buddy-tunnel", ComponentStatus.BLOCKED, "Buddy stop preflight: " + state);
-            logControlEvent("buddy-tunnel", "STOP_BLOCKED", "Buddy stop preflight blocked: " + state);
-            finishBuddyOperation();
-        });
-    }
-
-    private void performBuddyStop(Runnable afterStopped) {
-        if (!BUDDY_OPERATION_GATE.isInFlight()) return;
-        if (!commandGate.mayExecute("buddy.stop", true, true, true)) {
-            buddyControlStatusView.setText("CommandGate заблокировал остановку: отсутствует подтверждение или проверка PID identity.");
-            logControlEvent("buddy-tunnel", "COMMAND_GATE_BLOCKED", "Buddy stop rejected by CommandGate");
-            finishBuddyOperation();
-            return;
-        }
-        buddyControlStatusView.setText("Повторная проверка PID identity и отправка SIGTERM…");
-        buddyStopButton.setEnabled(false);
-        TermuxCommandClient.runBuddyStop(this, result -> {
-            if (isFinishing() || isDestroyed()) { finishBuddyOperation(); return; }
-            JSONObject report = null;
-            try { report = new JSONObject(result.stdout); } catch (Exception ignored) { }
-            String state = report == null ? "invalid_stop_result" : report.optString("result");
-            if (!result.succeeded()) state = "stop_command_failed";
-            Runnable followUp = null;
-            if (result.succeeded() && ("stopped".equals(state) || "already_stopped".equals(state) || "stale_pid_file".equals(state))) {
-                buddyControlStatusView.setText("Остановка подтверждена: " + state + ". SIGKILL не применялся.");
-                saveProbeSnapshot("tunnel-client", ComponentStatus.STOPPED, "Buddy stop result: " + state);
-                saveProbeSnapshot("buddy-tunnel", ComponentStatus.STOPPED, "Buddy Tunnel Client stopped or not running");
-                logControlEvent("buddy-tunnel", "STOP_CONFIRMED", "Buddy stop result: " + state);
-                MonitorService.pollNow(this);
-                followUp = afterStopped;
-            } else {
-                String reason = report == null ? result.internalErrorMessage : report.optString("reason", state);
-                buddyControlStatusView.setText("Остановка не подтверждена: " + state + " • " + reason
-                        + ". Процесс не принудительно завершался.");
-                saveProbeSnapshot("buddy-tunnel", "pid_identity_mismatch".equals(state)
-                        ? ComponentStatus.BLOCKED : ComponentStatus.NOT_READY, "Buddy stop result: " + state);
-                logControlEvent("buddy-tunnel", "STOP_NOT_CONFIRMED", "Buddy stop result: " + state);
-            }
-            finishBuddyOperation();
-            if (followUp != null) {
-                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(followUp, 500L);
-            }
-        });
-    }
-
-    private void finishBuddyOperation() {
-        BUDDY_OPERATION_GATE.release();
-        refreshTermuxControls();
     }
 
     private void logControlEvent(String component, String type, String message) {
@@ -673,20 +471,27 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        activityResumed = true;
         refreshEventLog();
         refreshLiveStatuses();
         refreshTermuxControls();
+        dispatchActiveManualRequest();
         uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
         uiRefreshHandler.postDelayed(uiRefreshRunnable, 15000L);
     }
 
     @Override protected void onPause() {
+        activityResumed = false;
         uiRefreshHandler.removeCallbacks(uiRefreshRunnable);
         super.onPause();
     }
 
     @Override protected void onDestroy() {
         uiRefreshHandler.removeCallbacksAndMessages(null);
+        if (manualReceiverRegistered) {
+            try { unregisterReceiver(manualOperationReceiver); } catch (Exception ignored) {}
+            manualReceiverRegistered = false;
+        }
         if (eventStore != null) eventStore.close();
         super.onDestroy();
     }
@@ -987,36 +792,525 @@ public final class MainActivity extends Activity {
     private void refreshTermuxControls() {
         if (isFinishing() || isDestroyed()) return;
         TermuxCommandClient.InstallState state = TermuxCommandClient.inspect(this);
+        OperationCoordinator.Request activeRequest = profileOperationCoordinator.activeRequest();
+        boolean manualOperationBusy = (activeRequest != null
+                && activeRequest.kind == OperationCoordinator.Kind.MANUAL)
+                || profileOperationCoordinator.hasPendingManual();
+        if (autoRecoverySwitch != null
+                && autoRecoverySwitch.isChecked() != MonitorService.isAutoRecoveryEnabled(this)) {
+            autoRecoverySwitch.setChecked(MonitorService.isAutoRecoveryEnabled(this));
+        }
+        updateAutoRecoveryStatus(MonitorService.isAutoRecoveryEnabled(this));
         if (termuxStatusView != null) {
             termuxStatusView.setText((state.installed ? "Termux " + state.versionName + " • " : "") + state.message
                     + "\n" + termuxPolicyText()
                     + "\nМониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
             termuxStatusView.setTextColor(termuxBridgeVerified() ? GREEN : AMBER);
         }
-        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke() && !diagnosticsInFlight);
+        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke() && !diagnosticsInFlight
+                && !profileOperationCoordinator.isBusy());
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
-        boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
-        boolean buddyBusy = BUDDY_OPERATION_GATE.isInFlight();
-        boolean buddyControlsEnabled = controlsReady && !buddyBusy;
-        if (buddyStartButton != null) buddyStartButton.setEnabled(buddyControlsEnabled);
-        if (buddyStopButton != null) buddyStopButton.setEnabled(buddyControlsEnabled);
-        if (buddyRestartButton != null) buddyRestartButton.setEnabled(buddyControlsEnabled);
-        if (buddyControlStatusView != null) {
-            String controlState = buddyBusy ? "Операция Buddy уже выполняется. Повторные команды временно заблокированы."
-                    : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
-                    : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку и подтвердите allow-external-apps."
-                    : !MonitorService.running ? "Сначала запустите фоновый мониторинг."
-                    : "Контроль Buddy доступен. Каждый запуск/остановка требует подтверждения; PID проверяется по бинарнику и YAML.";
-            buddyControlStatusView.setText(controlState);
-            buddyControlStatusView.setTextColor(controlsReady ? GREEN : AMBER);
+        boolean profileControlsReady = state.canInvoke() && termuxBridgeVerified()
+                && !diagnosticsInFlight && !manualOperationBusy;
+        if (globalCheckButton != null) globalCheckButton.setEnabled(state.canInvoke()
+                && !diagnosticsInFlight && !profileOperationCoordinator.isBusy());
+        if (globalStartButton != null) globalStartButton.setEnabled(profileControlsReady);
+        if (globalRestartButton != null) globalRestartButton.setEnabled(profileControlsReady);
+        if (globalStopButton != null) globalStopButton.setEnabled(profileControlsReady);
+        for (List<Button> buttons : profileActionButtons.values()) {
+            for (Button actionButton : buttons) actionButton.setEnabled(profileControlsReady);
         }
+        if (globalControlStatusView != null) {
+            if (activeRequest != null && activeRequest.kind == OperationCoordinator.Kind.AUTOMATIC) {
+                globalControlStatusView.setText(profileOperationCoordinator.hasPendingManual()
+                        ? "Автоматический шаг завершается; ручная команда ожидает приоритетного выполнения."
+                        : "Выполняется автоматическое восстановление. Ручная команда может занять следующий слот.");
+            } else if (activeRequest == null) {
+                globalControlStatusView.setText(profileControlsReady
+                        ? "Ручное управление REA-туннелями доступно. Buddy не затрагивается."
+                        : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
+                        : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку Termux."
+                        : diagnosticsInFlight ? "Выполняется проверка. Управление временно заблокировано."
+                        : "Управление временно заблокировано.");
+            }
+        }
+        if (buddyControlStatusView != null) {
+            buddyControlStatusView.setText(
+                    "Buddy Tunnel: только read-only мониторинг. Lifecycle-команды JITI отключены.");
+            buddyControlStatusView.setTextColor(MUTED);
+        }
+    }
+
+    private void updateAutoRecoveryStatus(boolean enabled) {
+        if (autoRecoveryStatusView == null) return;
+        autoRecoveryStatusView.setText(enabled
+                ? (MonitorService.running
+                    ? "Включено. Восстанавливаются только Bridge, DroidMCP и REA Android. 401/403 требуют ручной проверки; 429 и сетевые ошибки только откладывают повторную проверку."
+                    : "Включено, но начнёт действовать после запуска мониторинга.")
+                : "Выключено. Новые автоматические действия отменены; уже отправленная команда завершится. Ручное управление доступно.");
+        autoRecoveryStatusView.setTextColor(enabled ? AMBER : MUTED);
     }
 
     private void refreshLiveStatuses() {
         for (Map.Entry<String, TextView> entry : liveStatusViews.entrySet()) {
             entry.getValue().setText(liveStatusLabel(entry.getKey()));
         }
+    }
+
+    private String profileIdForComponent(String componentId) {
+        if ("rea-bridge".equals(componentId)) return "bridge";
+        if ("droidmcp".equals(componentId)) return "droidmcp";
+        if ("rea-android".equals(componentId)) return "rea-android";
+        return null;
+    }
+
+    private String componentIdForProfile(String profileId) {
+        if ("bridge".equals(profileId)) return "rea-bridge";
+        if ("droidmcp".equals(profileId)) return "droidmcp";
+        if ("rea-android".equals(profileId)) return "rea-android";
+        return "rea-stack";
+    }
+
+    private String profileTitle(String profileId) {
+        if ("bridge".equals(profileId)) return "REA-Termux-Bridge 0.1.3";
+        if ("droidmcp".equals(profileId)) return "DroidMCP-Filesystem";
+        if ("rea-android".equals(profileId)) return "REA-Termux-Android";
+        return "REA tunnel stack";
+    }
+
+    private JSONObject profileReport(TermuxCommandResult result) {
+        try {
+            String output = result.stdout == null ? "" : result.stdout.trim();
+            int newline = output.lastIndexOf('\n');
+            if (newline >= 0) output = output.substring(newline + 1).trim();
+            return new JSONObject(output);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private ComponentStatus profileComponentStatus(String result) {
+        if ("started_ready".equals(result) || "already_running".equals(result)) return ComponentStatus.READY;
+        if ("stopped".equals(result) || "already_stopped".equals(result)) return ComponentStatus.STOPPED;
+        if ("process_running_not_ready".equals(result) || "started_not_ready".equals(result)) return ComponentStatus.NOT_READY;
+        if ("blocked".equals(result) || "restart_aborted".equals(result)) return ComponentStatus.BLOCKED;
+        return ComponentStatus.ERROR;
+    }
+
+    private String profileReportDetail(JSONObject report, TermuxCommandResult command) {
+        if (report == null) return "Profile command returned no structured result; exit=" + command.exitCode;
+        StringBuilder detail = new StringBuilder(report.optString("result", "unknown"));
+        String reason = report.optString("reason", "");
+        if (!reason.isEmpty()) detail.append(" • ").append(reason);
+        int pid = report.optInt("pid", report.optInt("spawned_pid", 0));
+        if (pid > 0) detail.append(" • PID ").append(pid);
+        if (report.optBoolean("stale_pid_file", false)) detail.append(" • stale PID metadata retained/checked");
+        return detail.toString();
+    }
+
+    private void runProfileStatus(String profileId, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("LIVE: проверка недоступна. Сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-status", "profile.status");
+        if (!submission.accepted()) {
+            statusView.setText("Другая операция выполняется. Проверка поставлена на паузу.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> executeProfileStatus(profileId, statusView, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            statusView.setText("Ручная проверка поставлена в приоритетную очередь.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void executeProfileStatus(String profileId, TextView statusView, long requestId) {
+        statusView.setText("LIVE: проверка процесса, профиля и полной готовности…");
+        TermuxCommandClient.runProfileControl(this, profileId, "status", result -> {
+            if (isFinishing() || isDestroyed()) {
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
+            JSONObject report = profileReport(result);
+            String state = report == null ? "error" : report.optString("result", "unknown");
+            String detail = profileReportDetail(report, result);
+            String componentId = componentIdForProfile(profileId);
+            saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+            statusView.setText(liveStatusLabel(componentId));
+            logControlEvent(componentId, "PROFILE_STATUS", detail);
+            completeProfileOperation(requestId);
+        });
+    }
+
+    private void runProfileLogs(String profileId, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("Журналы недоступны: сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId + "-logs", "profile.logs");
+        if (!submission.accepted()) {
+            statusView.setText("Другая операция выполняется. Просмотр журнала будет доступен после неё.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> executeProfileLogs(profileId, statusView, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            statusView.setText("Запрос журнала поставлен в приоритетную очередь.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void executeProfileLogs(String profileId, TextView statusView, long requestId) {
+        statusView.setText("Чтение последних строк журнала с локальным редактированием секретов…");
+        TermuxCommandClient.runProfileControl(this, profileId, "logs", result -> {
+            if (isFinishing() || isDestroyed()) {
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
+            JSONObject report = profileReport(result);
+            String state = report == null ? "error" : report.optString("result", "unknown");
+            String safeText = report == null ? "Не удалось прочитать журнал. Код: " + result.exitCode
+                    : report.optString("text", report.optString("reason", "Журнал недоступен."));
+            statusView.setText("Журнал: " + state);
+            logControlEvent(componentIdForProfile(profileId), "PROFILE_LOGS_VIEWED",
+                    "Redacted log view requested; result=" + state);
+            completeProfileOperation(requestId);
+            new AlertDialog.Builder(this)
+                    .setTitle("Журнал • " + profileTitle(profileId))
+                    .setMessage(safeText)
+                    .setPositiveButton("Закрыть", null)
+                    .show();
+        });
+    }
+
+    private void requestProfileOperation(String profileId, String mode, TextView statusView) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            statusView.setText("Управление недоступно: сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual(profileId, "profile." + mode);
+        if (!submission.accepted()) {
+            statusView.setText("Другая операция уже выполняется. Новая команда не отправлена.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> executeProfileOperation(profileId, mode, statusView, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            statusView.setText("Ручная команда поставлена в приоритетную очередь. Текущий автоматический шаг завершится первым.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void executeProfileOperation(String profileId, String mode, TextView statusView, long requestId) {
+        String componentId = componentIdForProfile(profileId);
+        statusView.setText("ПРЕДПРОВЕРКА: " + profileTitle(profileId) + " • " + mode);
+        if (globalControlStatusView != null) globalControlStatusView.setText("Выполняется ручная операция: " + profileTitle(profileId) + " • " + mode);
+        TermuxCommandClient.runProfileControl(this, profileId, "preflight", preflight -> {
+            JSONObject report = profileReport(preflight);
+            String state = report == null ? "unknown" : report.optString("result", "unknown");
+            boolean stopped = "ready_to_start".equals(state);
+            boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
+            if (isFinishing() || isDestroyed()) {
+                if ("stop".equals(mode) && stopped) {
+                    MonitorService.setManualHold(getApplicationContext(), profileId, true);
+                } else if ("start".equals(mode) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(getApplicationContext(), profileId, false);
+                }
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
+            if (report == null || "blocked".equals(state) || "unknown".equals(state)
+                    || ("start".equals(mode) && !(stopped || "already_running".equals(state)))
+                    || ("stop".equals(mode) && !(running || stopped))
+                    || ("restart".equals(mode) && !(stopped || running))) {
+                String detail = profileReportDetail(report, preflight);
+                statusView.setText("ОПЕРАЦИЯ НЕ ЗАПУЩЕНА: " + detail);
+                saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+                logControlEvent(componentId, "PROFILE_PREFLIGHT_BLOCKED", detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if ("start".equals(mode) && "already_running".equals(state)) {
+                MonitorService.setManualHold(this, profileId, false);
+                String detail = "Процесс уже запущен и полная готовность подтверждена.";
+                statusView.setText(detail);
+                saveProbeSnapshot(componentId, ComponentStatus.READY, detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if ("stop".equals(mode) && stopped) {
+                MonitorService.setManualHold(this, profileId, true);
+                String detail = report.optBoolean("stale_pid_file", false)
+                        ? "Процесс не найден; устаревший PID сохранён для безопасной ручной проверки."
+                        : "Профиль уже остановлен. Никакой сигнал не отправлялся.";
+                statusView.setText(detail);
+                saveProbeSnapshot(componentId, ComponentStatus.STOPPED, detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            String actionLabel = "start".equals(mode) ? "запустить" : "stop".equals(mode) ? "остановить" : "перезапустить";
+            String message = "Подтверждаете " + actionLabel + " только «" + profileTitle(profileId) + "»?\n\n"
+                    + "Другие профили и Buddy не затрагиваются. Перед остановкой повторно проверяется точная идентичность PID, бинарника и YAML. "
+                    + "Используется только SIGTERM; SIGKILL не применяется.";
+            new AlertDialog.Builder(this)
+                    .setTitle("Ручное управление туннелем")
+                    .setMessage(message)
+                    .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
+                    .setPositiveButton("Подтвердить", (dialog, which) -> {
+                        if (!commandGate.mayExecute("profile." + mode, true, true, true)) {
+                            statusView.setText("Команда заблокирована политикой безопасности.");
+                            completeProfileOperation(requestId);
+                            return;
+                        }
+                        // The active manual operation already excludes automatic recovery.
+                        // Persist the hold only after the command's final state is known, so a
+                        // failed stop cannot silently suppress recovery for a still-running profile.
+                        statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
+                        if ("stop".equals(mode)) {
+                            // Persist the user's stop intent before dispatch. If the process dies
+                            // before the result callback, auto-recovery remains safely held.
+                            if (!MonitorService.setManualHoldPending(getApplicationContext(), profileId, true)) {
+                                statusView.setText("ОСТАНОВКА НЕ ОТПРАВЛЕНА: не удалось надёжно сохранить ручной запрет автовосстановления.");
+                                completeProfileOperation(requestId);
+                                return;
+                            }
+                        }
+                        TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
+                            JSONObject finalReport = profileReport(command);
+                            String finalState = finalReport == null ? "error"
+                                    : finalReport.optString("result", "unknown");
+                            String detail = profileReportDetail(finalReport, command);
+                            if ("stop".equals(mode)) {
+                                MonitorService.setManualHold(getApplicationContext(), profileId, "stopped".equals(finalState));
+                            } else if (("start".equals(mode) || "restart".equals(mode))
+                                    && ("started_ready".equals(finalState) || "already_running".equals(finalState))) {
+                                MonitorService.setManualHold(getApplicationContext(), profileId, false);
+                            }
+                            if (isFinishing() || isDestroyed()) {
+                                completeProfileOperationAfterActivityGone(requestId);
+                                return;
+                            }
+                            saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
+                            statusView.setText(detail);
+                            logControlEvent(componentId, "PROFILE_" + mode.toUpperCase(java.util.Locale.ROOT), detail);
+                            completeProfileOperation(requestId);
+                            if ("started_ready".equals(finalState) || "stopped".equals(finalState)) {
+                                MonitorService.pollNow(this);
+                            }
+                        });
+                    })
+                    .setOnCancelListener(dialog -> completeProfileOperation(requestId))
+                    .show();
+        });
+    }
+
+    private void completeProfileOperation(long requestId) {
+        OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
+        DISPATCHED_MANUAL_REQUESTS.remove(requestId);
+        refreshTermuxControls();
+        if (next != null) dispatchManualRequest(next);
+    }
+
+    private void completeProfileOperationAfterActivityGone(long requestId) {
+        OperationCoordinator.Request next = profileOperationCoordinator.complete(requestId);
+        DISPATCHED_MANUAL_REQUESTS.remove(requestId);
+        if (next != null) {
+            sendBroadcast(new Intent(ACTION_MANUAL_REQUEST_READY).setPackage(getPackageName()));
+        }
+    }
+
+    private void dispatchActiveManualRequest() {
+        if (!activityResumed || isFinishing() || isDestroyed()) return;
+        OperationCoordinator.Request active = profileOperationCoordinator.activeRequest();
+        if (active != null && active.kind == OperationCoordinator.Kind.MANUAL) {
+            dispatchManualRequest(active);
+        }
+    }
+
+    private void dispatchManualRequest(OperationCoordinator.Request request) {
+        if (request == null || request.kind != OperationCoordinator.Kind.MANUAL
+                || !activityResumed || isFinishing() || isDestroyed()) return;
+        if (!DISPATCHED_MANUAL_REQUESTS.add(request.id)) return;
+        String operation = request.operation == null ? "manual" : request.operation;
+        String target = request.componentId;
+        if ("profile.status".equals(operation)) {
+            String profileId = target.endsWith("-status")
+                    ? target.substring(0, target.length() - "-status".length()) : target;
+            TextView status = liveStatusViews.get(componentIdForProfile(profileId));
+            executeProfileStatus(profileId, status == null ? globalControlStatusView : status, request.id);
+        } else if ("profile.logs".equals(operation)) {
+            String profileId = target.endsWith("-logs")
+                    ? target.substring(0, target.length() - "-logs".length()) : target;
+            TextView status = liveStatusViews.get(componentIdForProfile(profileId));
+            executeProfileLogs(profileId, status == null ? globalControlStatusView : status, request.id);
+        } else if (operation.startsWith("profile.")) {
+            String mode = operation.substring("profile.".length());
+            TextView status = liveStatusViews.get(componentIdForProfile(target));
+            executeProfileOperation(target, mode, status == null ? globalControlStatusView : status, request.id);
+        } else if (operation.startsWith("stack.")) {
+            confirmAndRunProfileStack(operation.substring("stack.".length()), request.id);
+        } else {
+            logControlEvent(target, "MANUAL_REQUEST_REJECTED", "Unknown queued operation " + operation);
+            completeProfileOperation(request.id);
+        }
+    }
+
+    private void requestProfileStackOperation(String mode) {
+        TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
+        if (!install.canInvoke() || !termuxBridgeVerified()) {
+            if (globalControlStatusView != null) globalControlStatusView.setText("Сначала выполните безопасную проверку Termux.");
+            refreshTermuxControls();
+            return;
+        }
+        OperationCoordinator.Submission submission = profileOperationCoordinator.requestManual("rea-stack", "stack." + mode);
+        if (!submission.accepted()) {
+            globalControlStatusView.setText("Другая операция уже выполняется. Повторная команда отклонена.");
+            return;
+        }
+        long requestId = submission.request.id;
+        Runnable action = () -> confirmAndRunProfileStack(mode, requestId);
+        if (submission.status == OperationCoordinator.Status.QUEUED_AFTER_AUTOMATIC) {
+            globalControlStatusView.setText("Ручная команда поставлена выше следующих автоматических попыток.");
+            refreshTermuxControls();
+            return;
+        }
+        refreshTermuxControls();
+        action.run();
+    }
+
+    private void confirmAndRunProfileStack(String mode, long requestId) {
+        String label = "start".equals(mode) ? "запустить" : "stop".equals(mode) ? "остановить" : "перезапустить";
+        String order = "start".equals(mode) ? ProfileStackPlanner.startOrder().toString()
+                : "stop".equals(mode) ? ProfileStackPlanner.stopOrder().toString()
+                : "обратная остановка, затем запуск в штатном порядке";
+        String message = "Подтверждаете " + label + " все три REA-профиля?\n\n"
+                + "Порядок: " + order + ".\n"
+                + "Buddy исключён из этой операции и останется нетронутым. "
+                + "Каждый профиль проходит отдельную проверку процесса и полной готовности. "
+                + "При первой ошибке последовательность останавливается; бесконечных повторов нет.";
+        new AlertDialog.Builder(this)
+                .setTitle("Ручное управление REA-туннелями")
+                .setMessage(message)
+                .setNegativeButton("Отмена", (dialog, which) -> completeProfileOperation(requestId))
+                .setPositiveButton("Подтвердить", (dialog, which) -> {
+                    // Persist per-profile manual holds only after the corresponding final state is confirmed.
+                    List<ProfileStackPlanner.Step> steps = "start".equals(mode)
+                            ? ProfileStackPlanner.startPlan()
+                            : "stop".equals(mode) ? ProfileStackPlanner.stopPlan()
+                            : ProfileStackPlanner.restartOrder();
+                    runProfileStackStep(steps, 0, requestId, mode);
+                })
+                .setOnCancelListener(dialog -> completeProfileOperation(requestId))
+                .show();
+    }
+
+    private void runProfileStackStep(List<ProfileStackPlanner.Step> steps, int index, long requestId, String requestedMode) {
+        if (index >= steps.size()) {
+            globalControlStatusView.setText("Готово: все шаги REA-стека завершены. Buddy не затрагивался.");
+            logControlEvent("rea-stack", "STACK_OPERATION_COMPLETE", "All requested profile steps completed");
+            completeProfileOperation(requestId);
+            return;
+        }
+        ProfileStackPlanner.Step step = steps.get(index);
+        String componentId = componentIdForProfile(step.profileId);
+        globalControlStatusView.setText("Проверка " + profileTitle(step.profileId) + " • " + step.operation);
+        TermuxCommandClient.runProfileControl(this, step.profileId, "preflight", preflight -> {
+            JSONObject report = profileReport(preflight);
+            String state = report == null ? "unknown" : report.optString("result", "unknown");
+            boolean running = "already_running".equals(state) || "process_running_not_ready".equals(state);
+            boolean stopped = "ready_to_start".equals(state);
+            if (isFinishing() || isDestroyed()) {
+                if ("stop".equals(requestedMode) && "stop".equals(step.operation) && stopped) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, true);
+                } else if ("start".equals(step.operation) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, false);
+                }
+                completeProfileOperationAfterActivityGone(requestId);
+                return;
+            }
+            if (report == null || "blocked".equals(state)
+                    || ("start".equals(step.operation) && "process_running_not_ready".equals(state))
+                    || ("start".equals(step.operation) && !running && !stopped)
+                    || ("stop".equals(step.operation) && !running && !stopped)) {
+                String detail = profileReportDetail(report, preflight);
+                globalControlStatusView.setText("ОСТАНОВЛЕНО НА ШАГЕ " + profileTitle(step.profileId) + ": " + detail);
+                saveProbeSnapshot(componentId, profileComponentStatus(state), detail);
+                logControlEvent("rea-stack", "STACK_STEP_BLOCKED", step.profileId + " " + detail);
+                completeProfileOperation(requestId);
+                return;
+            }
+            if (("start".equals(step.operation) && "already_running".equals(state))
+                    || ("stop".equals(step.operation) && stopped)) {
+                if ("stop".equals(requestedMode) && "stop".equals(step.operation) && stopped) {
+                    MonitorService.setManualHold(this, step.profileId, true);
+                } else if ("start".equals(step.operation) && "already_running".equals(state)) {
+                    MonitorService.setManualHold(this, step.profileId, false);
+                }
+                globalControlStatusView.setText(profileTitle(step.profileId) + ": шаг уже выполнен, продолжаю…");
+                runProfileStackStep(steps, index + 1, requestId, requestedMode);
+                return;
+            }
+            if (!commandGate.mayExecute("profile." + step.operation, true, true, true)) {
+                globalControlStatusView.setText("Шаг заблокирован CommandGate: " + profileTitle(step.profileId));
+                completeProfileOperation(requestId);
+                return;
+            }
+            globalControlStatusView.setText("ВЫПОЛНЯЕТСЯ " + step.operation + ": " + profileTitle(step.profileId));
+            if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                if (!MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, true)) {
+                    globalControlStatusView.setText("ПОСЛЕДОВАТЕЛЬНОСТЬ ОСТАНОВЛЕНА: не удалось надёжно сохранить ручной запрет автовосстановления.");
+                    completeProfileOperation(requestId);
+                    return;
+                }
+            }
+            TermuxCommandClient.runProfileControl(this, step.profileId, step.operation, command -> {
+                JSONObject finalReport = profileReport(command);
+                String finalState = finalReport == null ? "error" : finalReport.optString("result", "unknown");
+                boolean success = command.succeeded()
+                        && (("start".equals(step.operation) && ("started_ready".equals(finalState) || "already_running".equals(finalState)))
+                        || ("stop".equals(step.operation) && ("stopped".equals(finalState) || "already_stopped".equals(finalState))));
+                String detail = profileReportDetail(finalReport, command);
+                if (success && "stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, true);
+                } else if (success && "start".equals(step.operation)) {
+                    MonitorService.setManualHold(getApplicationContext(), step.profileId, false);
+                } else if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                    MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, false);
+                }
+                if (isFinishing() || isDestroyed()) {
+                    completeProfileOperationAfterActivityGone(requestId);
+                    return;
+                }
+                saveProbeSnapshot(componentId, profileComponentStatus(finalState), detail);
+                logControlEvent("rea-stack", success ? "STACK_STEP_OK" : "STACK_STEP_FAILED",
+                        step.profileId + " " + step.operation + " • " + detail);
+                if (!success) {
+                    globalControlStatusView.setText("ПОСЛЕДОВАТЕЛЬНОСТЬ ОСТАНОВЛЕНА: " + profileTitle(step.profileId) + " • " + detail);
+                    completeProfileOperation(requestId);
+                    return;
+                }
+                globalControlStatusView.setText("Подтверждено: " + profileTitle(step.profileId) + " • " + detail);
+                runProfileStackStep(steps, index + 1, requestId, requestedMode);
+            });
+        });
     }
 
     private void addComponentCard(LinearLayout parent, ComponentSpec item) {
@@ -1042,11 +1336,32 @@ public final class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         Button inspect = button("Live-проверка");
         Button restart = button("Перезапустить");
-        inspect.setEnabled(false);
-        restart.setEnabled(false);
-        actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
-        actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
-        addTop(card, actions, 8);
+        String profileId = profileIdForComponent(item.id);
+        if (profileId != null) {
+            Button start = button("Запустить");
+            Button stop = button("Остановить");
+            Button logs = button("Журналы");
+            inspect.setOnClickListener(v -> runProfileStatus(profileId, live));
+            start.setOnClickListener(v -> requestProfileOperation(profileId, "start", live));
+            stop.setOnClickListener(v -> requestProfileOperation(profileId, "stop", live));
+            restart.setOnClickListener(v -> requestProfileOperation(profileId, "restart", live));
+            logs.setOnClickListener(v -> runProfileLogs(profileId, live));
+            actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            LinearLayout lifecycle = new LinearLayout(this);
+            lifecycle.addView(start, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            lifecycle.addView(stop, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            lifecycle.addView(logs, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            addTop(card, actions, 8);
+            addTop(card, lifecycle, 4);
+            profileActionButtons.put(profileId, Arrays.asList(inspect, start, stop, restart, logs));
+        } else {
+            inspect.setEnabled(false);
+            restart.setEnabled(false);
+            actions.addView(inspect, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            actions.addView(restart, new LinearLayout.LayoutParams(0, dp(40), 1f));
+            addTop(card, actions, 8);
+        }
         addCard(parent, card, 7);
     }
 

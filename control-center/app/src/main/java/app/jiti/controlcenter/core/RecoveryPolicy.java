@@ -1,7 +1,7 @@
 package app.jiti.controlcenter.core;
 
 public final class RecoveryPolicy {
-    public enum ErrorClass { TRANSIENT, PROCESS_MISSING, READINESS_FAILED, AUTHENTICATION, CONFIGURATION, PERMISSION, UNKNOWN }
+    public enum ErrorClass { TRANSIENT, RATE_LIMITED, PROCESS_MISSING, READINESS_FAILED, AUTHENTICATION, REMOTE_POLICY, CONFIGURATION, PERMISSION, UNKNOWN }
 
     public static final class Decision {
         public final boolean retry;
@@ -24,9 +24,29 @@ public final class RecoveryPolicy {
         this.maxDelayMillis = maxDelayMillis;
     }
 
+    /**
+     * Applies symmetric jitter to a bounded backoff. sample must be supplied
+     * by the scheduler in [0,1], which keeps this policy deterministic in tests.
+     */
+    public static long applyJitter(long delayMillis, int jitterPercent, double sample) {
+        if (delayMillis < 0 || jitterPercent < 0 || jitterPercent > 50
+                || Double.isNaN(sample) || sample < 0.0 || sample > 1.0) {
+            throw new IllegalArgumentException("invalid jitter parameters");
+        }
+        double spread = jitterPercent / 100.0;
+        double multiplier = 1.0 - spread + (2.0 * spread * sample);
+        double adjusted = delayMillis * multiplier;
+        return adjusted >= Long.MAX_VALUE ? Long.MAX_VALUE : Math.round(adjusted);
+    }
+
+    public int maxAttempts() {
+        return maxAttempts;
+    }
+
     public Decision decide(ErrorClass error, int attemptsAlreadyMade) {
         if (attemptsAlreadyMade < 0) throw new IllegalArgumentException("attempts must be >= 0");
-        if (error == ErrorClass.AUTHENTICATION || error == ErrorClass.CONFIGURATION || error == ErrorClass.PERMISSION)
+        if (error == ErrorClass.AUTHENTICATION || error == ErrorClass.REMOTE_POLICY
+                || error == ErrorClass.CONFIGURATION || error == ErrorClass.PERMISSION)
             return new Decision(false, true, 0);
         if (attemptsAlreadyMade >= maxAttempts)
             return new Decision(false, true, 0);

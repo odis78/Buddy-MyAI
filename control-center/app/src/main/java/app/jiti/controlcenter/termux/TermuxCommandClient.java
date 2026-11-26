@@ -57,6 +57,7 @@ public final class TermuxCommandClient {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ConcurrentHashMap<Integer, Runnable> TIMEOUTS = new ConcurrentHashMap<>();
     private static final long COMMAND_TIMEOUT_MS = 30000;
+    private static final long PROFILE_CONTROL_TIMEOUT_MS = 90000;
 
     private TermuxCommandClient() {}
 
@@ -94,41 +95,11 @@ public final class TermuxCommandClient {
         }
     }
 
-    public static void runBuddyLaunchPreflight(Context context, Callback callback) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
-            return;
-        }
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyLaunch(prefix, "preflight");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_LAUNCH, callback);
-        } catch (Exception e) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy launch preflight rejected: " + e.getClass().getSimpleName(), false));
-        }
-    }
-
-    public static String startBuddyTunnel(Context context) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) return state.message;
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyLaunch(prefix, "start");
-            startBackgroundTask(context, state, spec,
-                    "JITI: start Buddy Tunnel Client", "Validated Buddy profile background task");
-            return "";
-        } catch (Exception e) {
-            return "Buddy Tunnel Client start request failed: " + e.getClass().getSimpleName();
-        }
-    }
-
     public static void runBuddyLaunchStatus(Context context, Callback callback) {
         run(context, TermuxOperation.BUDDY_LAUNCH_STATUS, callback);
     }
 
-    public static void runBuddyStopPreflight(Context context, Callback callback) {
+    public static void runProfileControl(Context context, String profileId, String mode, Callback callback) {
         InstallState state = inspect(context);
         if (!state.canInvoke()) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
@@ -136,43 +107,12 @@ public final class TermuxCommandClient {
         }
         try {
             String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "preflight");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
+            TermuxCommandSpec spec = TermuxCommandSpec.forProfileControl(prefix, profileId, mode);
+            runSpec(context, state, spec, TermuxOperation.PROFILE_CONTROL, callback);
         } catch (Exception e) {
             deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy stop preflight rejected: " + e.getClass().getSimpleName(), false));
+                    "Profile control request rejected: " + e.getClass().getSimpleName(), false));
         }
-    }
-
-    public static void runBuddyStop(Context context, Callback callback) {
-        InstallState state = inspect(context);
-        if (!state.canInvoke()) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0, state.message, false));
-            return;
-        }
-        try {
-            String prefix = state.dataDir + "/files/usr";
-            TermuxCommandSpec spec = TermuxCommandSpec.forBuddyStop(prefix, "stop");
-            runSpec(context, state, spec, TermuxOperation.BUDDY_STOP, callback);
-        } catch (Exception e) {
-            deliver(callback, new TermuxCommandResult(0, "", "", -1, 0,
-                    "Buddy stop request rejected: " + e.getClass().getSimpleName(), false));
-        }
-    }
-
-    private static void startBackgroundTask(Context context, InstallState state, TermuxCommandSpec spec,
-                                            String commandLabel, String description) {
-        if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
-        Intent intent = new Intent();
-        intent.setClassName(TERMUX_PACKAGE, RUN_COMMAND_SERVICE);
-        intent.setAction(ACTION_RUN_COMMAND);
-        intent.putExtra(EXTRA_PATH, spec.executable);
-        intent.putExtra(EXTRA_ARGUMENTS, spec.arguments.toArray(new String[0]));
-        intent.putExtra(EXTRA_WORKDIR, state.dataDir + "/files/home");
-        intent.putExtra(EXTRA_BACKGROUND, true);
-        intent.putExtra(EXTRA_LABEL, commandLabel);
-        intent.putExtra(EXTRA_DESCRIPTION, description);
-        context.startService(intent);
     }
 
     public static void runBuddyMcpAuthProbe(Context context, int pid, Callback callback) {
@@ -234,7 +174,9 @@ public final class TermuxCommandClient {
                 Runnable timeout = () -> deliver(new TermuxCommandResult(timeoutId, "", "", -1, 0,
                         "Termux command timed out or Termux service did not return a result", false));
                 TIMEOUTS.put(requestId, timeout);
-                MAIN.postDelayed(timeout, COMMAND_TIMEOUT_MS);
+                long timeoutMs = operation == TermuxOperation.PROFILE_CONTROL
+                        ? PROFILE_CONTROL_TIMEOUT_MS : COMMAND_TIMEOUT_MS;
+                MAIN.postDelayed(timeout, timeoutMs);
             }
 
             Intent resultIntent = new Intent(context, TermuxResultService.class);
@@ -251,7 +193,9 @@ public final class TermuxCommandClient {
             intent.putExtra(EXTRA_WORKDIR, home);
             intent.putExtra(EXTRA_BACKGROUND, spec.background);
             intent.putExtra(EXTRA_LABEL, label(operation));
-            intent.putExtra(EXTRA_DESCRIPTION, "JITI Control Center read-only diagnostic");
+            intent.putExtra(EXTRA_DESCRIPTION, operation == TermuxOperation.PROFILE_CONTROL
+                    ? "JITI Control Center confirmed profile lifecycle operation"
+                    : "JITI Control Center read-only diagnostic");
             intent.putExtra(EXTRA_PENDING_INTENT, resultPendingIntent);
             context.startService(intent);
         } catch (Exception e) {
@@ -282,8 +226,6 @@ public final class TermuxCommandClient {
             case TUNNEL_CLIENT_VERSION: return "JITI: Tunnel Client version check";
             case PROCESS_LIST: return "JITI: Android process list";
             case BUDDY_MCP_AUTH_PROBE: return "JITI: authenticated Buddy MCP initialize and tools/list";
-            case BUDDY_LAUNCH: return "JITI: Buddy Tunnel Client preflight";
-            case BUDDY_STOP: return "JITI: stop verified Buddy Tunnel Client";
             case BUDDY_LAUNCH_STATUS: return "JITI: read Buddy launcher status";
             case PROCESS_EXECUTABLE: return "JITI: verify Tunnel Client executable";
             case PROCESS_CMDLINE: return "JITI: verify Tunnel Client config identity";

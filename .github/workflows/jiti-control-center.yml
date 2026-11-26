@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - project/jiti-control-center
+      - fix/jiti-control-center-manual-recovery-20261126
     paths:
       - "control-center/**"
       - ".github/workflows/jiti-control-center.yml"
@@ -49,11 +50,13 @@ jobs:
           gradle-version: "8.9"
       - name: Run JVM unit tests
         run: gradle -p control-center testDebugUnitTest
-      - name: Assemble debug APK
+      - name: Run Android Lint
+        run: gradle -p control-center lintDebug
+      - name: Assemble clean-install 0.2.1 APK
         run: gradle -p control-center assembleDebug
-      - name: Upload debug APK
+      - name: Upload 0.2.1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: jiti-control-center-debug
+          name: jiti-control-center-0.2.1-debug
           path: control-center/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

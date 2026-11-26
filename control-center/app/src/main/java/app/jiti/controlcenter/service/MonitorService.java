@@ -7,6 +7,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
@@ -19,12 +23,21 @@ import org.json.JSONArray;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import app.jiti.controlcenter.MainActivity;
 import app.jiti.controlcenter.core.DiagnosticEvent;
 import app.jiti.controlcenter.core.ComponentStatus;
 import app.jiti.controlcenter.core.RuntimeSnapshot;
+import app.jiti.controlcenter.core.OperationCoordinator;
+import app.jiti.controlcenter.core.RecoveryErrorClassifier;
+import app.jiti.controlcenter.core.RecoveryPolicy;
+import app.jiti.controlcenter.core.RecoverySupervisor;
 import app.jiti.controlcenter.core.ToolCatalogAudit;
+import app.jiti.controlcenter.core.SessionGeneration;
 import app.jiti.controlcenter.storage.EventStore;
 import app.jiti.controlcenter.termux.TermuxCommandClient;
 import app.jiti.controlcenter.termux.TermuxCommandResult;
@@ -39,6 +52,9 @@ public final class MonitorService extends Service {
     private static final int NOTIFICATION_ID = 4101;
     private static final long POLL_INTERVAL_MS = 60000L;
     private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L;
+    private static final String RECOVERY_PREFS = "jiti_auto_recovery";
+    private static final String PREF_AUTO_ENABLED = "enabled";
+    private static final String[] AUTO_RECOVERY_PROFILES = {"bridge", "droidmcp", "rea-android"};
     private static final TermuxOperation[] AUXILIARY_PROFILE_HEALTH = new TermuxOperation[]{
             TermuxOperation.BRIDGE_TUNNEL_HEALTH,
             TermuxOperation.DROIDMCP_TUNNEL_HEALTH,
@@ -49,8 +65,13 @@ public final class MonitorService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private EventStore eventStore;
+    private SharedPreferences recoveryPreferences;
+    private final RecoverySupervisor recoverySupervisor = new RecoverySupervisor();
+    private final Map<String, PendingRecovery> pendingRecoveries = new LinkedHashMap<>();
+    private final Map<String, Runnable> scheduledRecoveryTasks = new LinkedHashMap<>();
     private PowerManager.WakeLock wakeLock;
     private boolean monitoring;
+    private final SessionGeneration sessionGeneration = new SessionGeneration();
     private boolean inFlight;
     private boolean pollRequested;
     private String lastHealthState = "";
@@ -59,12 +80,239 @@ public final class MonitorService extends Service {
     private long lastAuthProbeAtEpochMillis = 0L;
     private String notificationText = "Ожидание первой проверки";
 
-    private final Runnable poll = this::pollOnce;
+    private Runnable poll;
+
+    private boolean isCurrentSession(long generation) {
+        return monitoring && sessionGeneration.isCurrent(generation);
+    }
+
+    private void runForCurrentSession(TermuxOperation operation, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.run(this, operation, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProcessExecutableForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProcessExecutable(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProcessCmdlineForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProcessCmdline(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runBuddyMcpAuthProbeForCurrentSession(int pid, TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runBuddyMcpAuthProbe(this, pid, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private void runProfileControlForCurrentSession(String profileId, String mode,
+                                                    TermuxCommandClient.Callback callback) {
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProfileControl(this, profileId, mode, result -> {
+            if (isCurrentSession(generation)) callback.onResult(result);
+        });
+    }
+
+    private static final class PendingRecovery {
+        final String profileId;
+        final String mode;
+        final long delayMillis;
+        final int attempt;
+        final String reason;
+
+        PendingRecovery(String profileId, String mode, long delayMillis, int attempt, String reason) {
+            this.profileId = profileId;
+            this.mode = mode;
+            this.delayMillis = delayMillis;
+            this.attempt = attempt;
+            this.reason = reason;
+        }
+    }
 
     @Override public void onCreate() {
         super.onCreate();
         eventStore = new EventStore(this);
+        recoveryPreferences = getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE);
+        restoreRecoveryState();
+        syncRecoverySettings();
         createNotificationChannel();
+    }
+
+    public static boolean isAutoRecoveryEnabled(Context context) {
+        return context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_AUTO_ENABLED, false);
+    }
+
+    public static void setAutoRecoveryEnabled(Context context, boolean enabled) {
+        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean(PREF_AUTO_ENABLED, enabled).apply();
+        if (enabled) OperationCoordinator.shared().setAutomaticEnabled(true);
+        else OperationCoordinator.shared().cancelAutomatic();
+    }
+
+    public static void setManualHold(Context context, String profileId, boolean hold) {
+        if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
+                && !"rea-android".equals(profileId)) return;
+        context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit()
+                .putBoolean("manual_hold." + profileId, hold)
+                .putBoolean("manual_hold_pending." + profileId, false)
+                .apply();
+    }
+
+    public static boolean setManualHoldPending(Context context, String profileId, boolean pending) {
+        if (!"bridge".equals(profileId) && !"droidmcp".equals(profileId)
+                && !"rea-android".equals(profileId)) return false;
+        // A stop command must not be sent until the intent is durably stored.
+        return context.getSharedPreferences(RECOVERY_PREFS, MODE_PRIVATE)
+                .edit().putBoolean("manual_hold_pending." + profileId, pending).commit();
+    }
+
+    private boolean isManualHold(String profileId) {
+        return recoveryPreferences != null
+                && (recoveryPreferences.getBoolean("manual_hold." + profileId, false)
+                || recoveryPreferences.getBoolean("manual_hold_pending." + profileId, false));
+    }
+
+    private void syncRecoverySettings() {
+        boolean enabled = monitoring && isAutoRecoveryEnabled(this);
+        recoverySupervisor.setEnabled(enabled);
+        OperationCoordinator.shared().setAutomaticEnabled(enabled);
+        if (!enabled) {
+            pendingRecoveries.clear();
+            for (Runnable task : scheduledRecoveryTasks.values()) handler.removeCallbacks(task);
+            scheduledRecoveryTasks.clear();
+        }
+    }
+
+    private void restoreRecoveryState() {
+        if (recoveryPreferences == null) return;
+        for (String profile : AUTO_RECOVERY_PROFILES) {
+            try {
+                recoverySupervisor.restore(profile,
+                        recoveryPreferences.getInt("attempts." + profile, 0),
+                        recoveryPreferences.getLong("next_allowed." + profile, 0L),
+                        recoveryPreferences.getInt("consecutive." + profile, 0));
+            } catch (Exception ignored) {
+                log("system", "RECOVERY_STATE_INVALID", "Ignored invalid saved state for " + profile);
+            }
+        }
+    }
+
+    private void persistRecoveryState(String profile) {
+        if (recoveryPreferences == null) return;
+        RecoverySupervisor.Snapshot snapshot = recoverySupervisor.snapshot(profile);
+        recoveryPreferences.edit()
+                .putInt("attempts." + profile, snapshot.attempts)
+                .putLong("next_allowed." + profile, snapshot.nextAllowedAt)
+                .putInt("consecutive." + profile, snapshot.consecutiveFailures)
+                .apply();
+    }
+
+    private boolean hasValidatedInternet() {
+        try {
+            ConnectivityManager manager = getSystemService(ConnectivityManager.class);
+            if (manager == null) return false;
+            Network network = manager.getActiveNetwork();
+            NetworkCapabilities capabilities = network == null ? null : manager.getNetworkCapabilities(network);
+            return capabilities != null
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private int findNumericField(JSONObject object, String... names) {
+        if (object == null) return -1;
+        Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = object.opt(key);
+            String normalized = key.toLowerCase(java.util.Locale.ROOT)
+                    .replace("_", "").replace("-", "");
+            for (String name : names) {
+                if (normalized.equals(name)) {
+                    if (value instanceof Number) return ((Number) value).intValue();
+                    try { return Integer.parseInt(String.valueOf(value)); } catch (Exception ignored) { }
+                }
+            }
+            if (value instanceof JSONObject) {
+                int nested = findNumericField((JSONObject) value, names);
+                if (nested >= 0) return nested;
+            } else if (value instanceof JSONArray) {
+                JSONArray array = (JSONArray) value;
+                for (int i = 0; i < array.length(); i++) {
+                    Object item = array.opt(i);
+                    if (item instanceof JSONObject) {
+                        int nested = findNumericField((JSONObject) item, names);
+                        if (nested >= 0) return nested;
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    private int findHttpStatus(JSONObject report) {
+        return Math.max(0, findNumericField(report, "httpstatus", "statuscode", "httpstatuscode"));
+    }
+
+    private long findLongField(JSONObject object, String... names) {
+        if (object == null) return -1L;
+        Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = object.opt(key);
+            String normalized = key.toLowerCase(java.util.Locale.ROOT)
+                    .replace("_", "").replace("-", "");
+            for (String name : names) {
+                if (normalized.equals(name)) {
+                    if (value instanceof Number) return ((Number) value).longValue();
+                    try { return Long.parseLong(String.valueOf(value)); } catch (Exception ignored) { }
+                }
+            }
+            if (value instanceof JSONObject) {
+                long nested = findLongField((JSONObject) value, names);
+                if (nested >= 0L) return nested;
+            } else if (value instanceof JSONArray) {
+                JSONArray array = (JSONArray) value;
+                for (int i = 0; i < array.length(); i++) {
+                    Object item = array.opt(i);
+                    if (item instanceof JSONObject) {
+                        long nested = findLongField((JSONObject) item, names);
+                        if (nested >= 0L) return nested;
+                    }
+                }
+            }
+        }
+        return -1L;
+    }
+
+    private long findRetryAfterMillis(JSONObject report) {
+        long millis = findLongField(report, "retryafterms", "retryaftermillis");
+        if (millis >= 0L) return Math.min(millis, 900000L);
+        long seconds = findLongField(report, "retryafterseconds", "retryafter");
+        if (seconds >= 0L) return seconds >= 900L ? 900000L : seconds * 1000L;
+        return -1L;
+    }
+
+    private String profileIdForOperation(TermuxOperation operation) {
+        switch (operation) {
+            case BRIDGE_TUNNEL_HEALTH: return "bridge";
+            case DROIDMCP_TUNNEL_HEALTH: return "droidmcp";
+            case REA_ANDROID_TUNNEL_HEALTH: return "rea-android";
+            default: return "";
+        }
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
@@ -75,12 +323,13 @@ public final class MonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_POLL_NOW.equals(intent.getAction())) {
+            syncRecoverySettings();
             if (!monitoring) {
                 stopSelf(startId);
                 return START_NOT_STICKY;
             }
             if (inFlight) pollRequested = true;
-            else {
+            else if (poll != null) {
                 handler.removeCallbacks(poll);
                 handler.post(poll);
             }
@@ -90,9 +339,11 @@ public final class MonitorService extends Service {
         if ((Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                 || notificationManager == null || !notificationManager.areNotificationsEnabled()) {
+            sessionGeneration.invalidate();
             running = false;
             monitoring = false;
-            handler.removeCallbacks(poll);
+            if (poll != null) handler.removeCallbacks(poll);
+            poll = null;
             releaseWakeLock();
             log("system", "BLOCKED", "POST_NOTIFICATIONS permission is not granted");
             saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Notification permission required", 0);
@@ -101,9 +352,13 @@ public final class MonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (!monitoring) {
+            final long generation = sessionGeneration.begin();
+            poll = () -> { if (isCurrentSession(generation)) pollOnce(); };
             monitoring = true;
             running = true;
+            syncRecoverySettings();
             if (!startAsForegroundSafely()) {
+                sessionGeneration.invalidate();
                 monitoring = false;
                 running = false;
                 saveSnapshot("jiti-monitor-service", ComponentStatus.BLOCKED, "Android refused foreground service start", 0);
@@ -115,8 +370,11 @@ public final class MonitorService extends Service {
             handler.removeCallbacks(poll);
             handler.post(poll);
         } else if (!startAsForegroundSafely()) {
+            sessionGeneration.invalidate();
             monitoring = false;
             running = false;
+            if (poll != null) handler.removeCallbacks(poll);
+            poll = null;
             releaseWakeLock();
             stopSelf(startId);
             return START_NOT_STICKY;
@@ -177,7 +435,7 @@ public final class MonitorService extends Service {
             lastGateState = "";
         }
         inFlight = true;
-        TermuxCommandClient.run(this, TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
+        runForCurrentSession(TermuxOperation.BUDDY_TUNNEL_HEALTH, this::onHealthResult);
     }
 
     private void onHealthResult(TermuxCommandResult result) {
@@ -217,7 +475,7 @@ public final class MonitorService extends Service {
 
         TermuxCommandClient.InstallState currentInstall = TermuxCommandClient.inspect(this);
         String home = currentInstall.dataDir == null ? "" : currentInstall.dataDir + "/files/home";
-        TermuxCommandClient.runProcessExecutable(this, pid, executable -> {
+        runProcessExecutableForCurrentSession( pid, executable -> {
             if (!monitoring) { inFlight = false; return; }
             boolean executableMatches = executable.succeeded() && !home.isEmpty()
                     && TunnelProcessIdentity.matchesExecutable(executable.stdout, home);
@@ -226,7 +484,7 @@ public final class MonitorService extends Service {
                         healthSummary + "; PID exists but executable identity did not match");
                 return;
             }
-            TermuxCommandClient.runProcessCmdline(this, pid, commandLine -> {
+            runProcessCmdlineForCurrentSession( pid, commandLine -> {
                 if (!monitoring) { inFlight = false; return; }
                 boolean configMatches = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProcessIdentity.matchesBuddyConfig(commandLine.stdout, home);
@@ -257,9 +515,9 @@ public final class MonitorService extends Service {
         long now = System.currentTimeMillis();
         if (ready && now - lastAuthProbeAtEpochMillis >= 300000L) {
             lastAuthProbeAtEpochMillis = now;
-            TermuxCommandClient.runBuddyMcpAuthProbe(this, pid, this::onAuthenticatedMcpResult);
+            runBuddyMcpAuthProbeForCurrentSession( pid, this::onAuthenticatedMcpResult);
         } else {
-            TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+            runForCurrentSession(TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
         }
     }
 
@@ -298,7 +556,7 @@ public final class MonitorService extends Service {
         }
         updateNotification();
         if ("NOT_READY".equals(lastHealthState)) {
-            TermuxCommandClient.run(this, TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
+            runForCurrentSession(TermuxOperation.PROCESS_LIST, this::onProcessSnapshot);
         } else {
             runAuxiliaryProfileChecks(0);
         }
@@ -376,7 +634,7 @@ public final class MonitorService extends Service {
         log("buddy-mcp-auth", authStatus.name(), detail);
         notificationText = "Buddy MCP auth probe: " + state;
         updateNotification();
-        TermuxCommandClient.run(this, TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
+        runForCurrentSession(TermuxOperation.BUDDY_MCP_LISTENER_CHALLENGE, this::onMcpChallenge);
     }
 
     private void onProcessSnapshot(TermuxCommandResult result) {
@@ -398,12 +656,23 @@ public final class MonitorService extends Service {
         }
         if (index >= AUXILIARY_PROFILE_HEALTH.length) {
             inFlight = false;
+            dispatchPendingAutomaticRecovery();
             updateNotification();
             scheduleNext();
             return;
         }
         TermuxOperation operation = AUXILIARY_PROFILE_HEALTH[index];
-        TermuxCommandClient.run(this, operation,
+        String profileId = profileIdForOperation(operation);
+        long now = System.currentTimeMillis();
+        RecoverySupervisor.Snapshot recoveryState = recoverySupervisor.snapshot(profileId);
+        if (!recoverySupervisor.isProbeAllowed(profileId, now)) {
+            log(profileComponentIdForId(profileId), "HEALTH_PROBE_BACKOFF",
+                    "Upstream health probe deferred until " + recoveryState.nextAllowedAt
+                            + " (Retry-After/backoff); no probe or lifecycle command sent.");
+            runAuxiliaryProfileChecks(index + 1);
+            return;
+        }
+        runForCurrentSession(operation,
                 result -> checkAuxiliaryProfileIdentity(operation, result,
                         () -> runAuxiliaryProfileChecks(index + 1)));
     }
@@ -422,26 +691,40 @@ public final class MonitorService extends Service {
             if (process == null) {
                 ComponentStatus status = health.internalError != -1 || health.exitCode == 127
                         ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
-                recordProfileStatus(componentId, status, 0, "Health report has no process object");
+                String detail = "Health report has no process object";
+                recordProfileStatus(componentId, status, 0, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.UNKNOWN,
+                        "health_report_missing_process", -1L, detail);
                 next.run();
                 return;
             }
             if (!process.optString("error", "").isEmpty()) {
-                recordProfileStatus(componentId, ComponentStatus.ERROR, process.optInt("pid", 0),
-                        "Tunnel PID file could not be read or parsed");
+                String detail = "Tunnel PID file could not be read or parsed";
+                recordProfileStatus(componentId, ComponentStatus.ERROR, process.optInt("pid", 0), detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "pid_file_invalid", -1L, detail);
                 next.run();
                 return;
             }
             if (!process.optBoolean("running")) {
-                recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0),
-                        "Tunnel Client process is not running");
+                String detail = "Tunnel Client process is not running";
+                recordProfileStatus(componentId, ComponentStatus.STOPPED, process.optInt("pid", 0), detail);
+                int httpStatus = findHttpStatus(report);
+                RecoveryPolicy.ErrorClass error = httpStatus > 0
+                        ? RecoveryErrorClassifier.fromHttpStatus(httpStatus)
+                        : RecoveryPolicy.ErrorClass.PROCESS_MISSING;
+                String signature = httpStatus > 0 ? "http_" + httpStatus : "process_missing";
+                handleRecoveryObservation(profileIdForOperation(operation), error,
+                        signature, findRetryAfterMillis(report), detail);
                 next.run();
                 return;
             }
             pid = process.optInt("pid", 0);
             if (pid <= 0) {
-                recordProfileStatus(componentId, ComponentStatus.ERROR, 0,
-                        "Health report says running but PID is invalid");
+                String detail = "Health report says running but PID is invalid";
+                recordProfileStatus(componentId, ComponentStatus.ERROR, 0, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "invalid_pid", -1L, detail);
                 next.run();
                 return;
             }
@@ -449,7 +732,10 @@ public final class MonitorService extends Service {
         } catch (Exception e) {
             ComponentStatus status = health.internalError != -1 || health.exitCode == 127
                     ? ComponentStatus.UNAVAILABLE : ComponentStatus.ERROR;
-            recordProfileStatus(componentId, status, 0, "Invalid health JSON");
+            String detail = "Invalid health JSON";
+            recordProfileStatus(componentId, status, 0, detail);
+            handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.UNKNOWN,
+                    "invalid_health_json", -1L, detail);
             next.run();
             return;
         }
@@ -458,16 +744,18 @@ public final class MonitorService extends Service {
         final boolean ready = endpointsReady;
         TermuxCommandClient.InstallState install = TermuxCommandClient.inspect(this);
         final String home = install.dataDir == null ? "" : install.dataDir + "/files/home";
-        TermuxCommandClient.runProcessExecutable(this, targetPid, executable -> {
+        runProcessExecutableForCurrentSession( targetPid, executable -> {
             if (!monitoring) { inFlight = false; return; }
             if (!executable.succeeded() || home.isEmpty()
                     || !TunnelProfileIdentity.matchesExecutable(executable.stdout, home)) {
-                recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid,
-                        "PID exists but exact Tunnel Client executable identity does not match");
+                String detail = "PID exists but exact Tunnel Client executable identity does not match";
+                recordProfileStatus(componentId, ComponentStatus.PID_PRESENT, targetPid, detail);
+                handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                        "process_identity_mismatch", -1L, detail);
                 next.run();
                 return;
             }
-            TermuxCommandClient.runProcessCmdline(this, targetPid, commandLine -> {
+            runProcessCmdlineForCurrentSession( targetPid, commandLine -> {
                 if (!monitoring) { inFlight = false; return; }
                 boolean identity = commandLine.succeeded() && !home.isEmpty()
                         && TunnelProfileIdentity.matchesProfile(executable.stdout, commandLine.stdout,
@@ -479,9 +767,240 @@ public final class MonitorService extends Service {
                         : ready ? "Health endpoints and exact profile process identity verified"
                         : "Exact profile process identity verified; health endpoints are not ready";
                 recordProfileStatus(componentId, status, targetPid, detail);
+                if (ready) {
+                    recordRecoverySuccess(profileIdForOperation(operation), detail);
+                } else if (!identity) {
+                    handleRecoveryObservation(profileIdForOperation(operation), RecoveryPolicy.ErrorClass.CONFIGURATION,
+                            "profile_config_identity_mismatch", -1L, detail);
+                } else {
+                    int httpStatus = findHttpStatus(report);
+                    RecoveryPolicy.ErrorClass error = httpStatus > 0
+                            ? RecoveryErrorClassifier.fromHttpStatus(httpStatus)
+                            : RecoveryPolicy.ErrorClass.READINESS_FAILED;
+                    String signature = httpStatus > 0 ? "http_" + httpStatus : "readiness_failed";
+                    handleRecoveryObservation(profileIdForOperation(operation), error,
+                            signature, findRetryAfterMillis(report), detail);
+                }
                 next.run();
             });
         });
+    }
+
+    private void recordRecoverySuccess(String profileId, String detail) {
+        if (profileId == null || profileId.isEmpty()) return;
+        RecoverySupervisor.Snapshot before = recoverySupervisor.snapshot(profileId);
+        recoverySupervisor.recordSuccess(profileId);
+        persistRecoveryState(profileId);
+        pendingRecoveries.remove(profileId);
+        Runnable scheduled = scheduledRecoveryTasks.remove(profileId);
+        if (scheduled != null) handler.removeCallbacks(scheduled);
+        if (before.attempts > 0 || before.consecutiveFailures > 0) {
+            log(profileComponentIdForId(profileId), "AUTO_RECOVERY_STABLE",
+                    "Profile returned to READY; retry budget reset. " + detail);
+        }
+    }
+
+    private void handleRecoveryObservation(String profileId, RecoveryPolicy.ErrorClass error,
+                                          String signature, long retryAfterMillis, String detail) {
+        if (profileId == null || profileId.isEmpty()) return;
+        if (!isAutoRecoveryEnabled(this)) {
+            recoverySupervisor.setEnabled(false);
+            return;
+        }
+        recoverySupervisor.setEnabled(true);
+        if (isManualHold(profileId)) {
+            log(profileComponentIdForId(profileId), "AUTO_RECOVERY_HELD",
+                    "Manual hold is active; automatic action suppressed.");
+            return;
+        }
+        boolean networkAvailable = hasValidatedInternet();
+        RecoverySupervisor.Plan plan = recoverySupervisor.plan(profileId, error, signature,
+                System.currentTimeMillis(), networkAvailable, retryAfterMillis,
+                ThreadLocalRandom.current().nextDouble());
+        persistRecoveryState(profileId);
+        String event = "action=" + plan.action + ", attempts=" + plan.attempts
+                + ", delayMs=" + plan.delayMillis + ", reason=" + plan.reason;
+        log(profileComponentIdForId(profileId), "AUTO_RECOVERY_PLAN", event + "; " + detail);
+        if (plan.action == RecoverySupervisor.Action.RECOVER) {
+            String mode = error == RecoveryPolicy.ErrorClass.PROCESS_MISSING ? "start" : "restart";
+            pendingRecoveries.put(profileId, new PendingRecovery(profileId, mode,
+                    plan.delayMillis, plan.attempts, plan.reason));
+        } else if (plan.action == RecoverySupervisor.Action.MANUAL_REQUIRED
+                || plan.action == RecoverySupervisor.Action.CIRCUIT_OPEN
+                || plan.action == RecoverySupervisor.Action.EXHAUSTED) {
+            notificationText = "Автовосстановление остановлено: требуется ручная проверка • " + profileId;
+            updateNotification();
+        } else if (plan.action == RecoverySupervisor.Action.RECHECK_ONLY
+                || plan.action == RecoverySupervisor.Action.WAIT_FOR_COOLDOWN
+                || plan.action == RecoverySupervisor.Action.WAIT_FOR_NETWORK) {
+            notificationText = "Проверка туннеля отложена • " + profileId;
+            updateNotification();
+        }
+    }
+
+    private void dispatchPendingAutomaticRecovery() {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || pendingRecoveries.isEmpty()) return;
+        for (PendingRecovery pending : new ArrayList<>(pendingRecoveries.values())) {
+            pendingRecoveries.remove(pending.profileId);
+            if (scheduledRecoveryTasks.containsKey(pending.profileId)) continue;
+            final long generation = sessionGeneration.current();
+            Runnable task = () -> {
+                if (!isCurrentSession(generation)) return;
+                scheduledRecoveryTasks.remove(pending.profileId);
+                if (!isAutoRecoveryEnabled(this)) return;
+                executeAutomaticRecovery(pending);
+            };
+            scheduledRecoveryTasks.put(pending.profileId, task);
+            handler.postDelayed(task, Math.max(0L, pending.delayMillis));
+            break; // One lifecycle mutation per monitor cycle.
+        }
+    }
+
+    private void executeAutomaticRecovery(PendingRecovery pending) {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
+        if (!hasValidatedInternet()) {
+            log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                    "Validated network disappeared before preflight; no process command sent.");
+            return;
+        }
+        // Revalidate immediately before mutation. A manual start may have
+        // repaired the profile while this recovery was waiting in cooldown.
+        runProfileControlForCurrentSession( pending.profileId, "preflight", preflight -> {
+            if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
+            JSONObject report = null;
+            String state = "invalid_preflight";
+            try {
+                report = new JSONObject(preflight.stdout);
+                state = report.optString("result", "unknown");
+            } catch (Exception ignored) { }
+            if (preflight.succeeded() && "already_running".equals(state)) {
+                recordRecoverySuccess(pending.profileId,
+                        "Preflight found the profile already fully ready; stale recovery cancelled.");
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SUPERSEDED",
+                        "Profile became READY before the scheduled recovery command.");
+                dispatchPendingAutomaticRecovery();
+                return;
+            }
+            if (preflight.succeeded() && "process_running_not_ready".equals(state) && report != null) {
+                int httpStatus = findHttpStatus(report);
+                if (httpStatus >= 300) {
+                    RecoveryPolicy.ErrorClass error = RecoveryErrorClassifier.fromHttpStatus(httpStatus);
+                    handleRecoveryObservation(pending.profileId, error, "preflight_http_" + httpStatus,
+                            findRetryAfterMillis(report), "Preflight reported an HTTP policy/transport failure.");
+                    dispatchPendingAutomaticRecovery();
+                    return;
+                }
+                if (httpStatus <= 0) {
+                    log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_BLOCKED",
+                            "Preflight did not provide an HTTP status; refusing restart because remote/network failure cannot be excluded.");
+                    notificationText = "Автовосстановление заблокировано: неизвестен HTTP-статус • " + pending.profileId;
+                    updateNotification();
+                    dispatchPendingAutomaticRecovery();
+                    return;
+                }
+            }
+
+            String mode;
+            if (preflight.succeeded() && "ready_to_start".equals(state)) {
+                // No validated process remains. Starting is safer than asking
+                // restart to stop a stale PID record.
+                mode = "start";
+            } else if (preflight.succeeded() && "process_running_not_ready".equals(state)
+                    && "restart".equals(pending.mode)) {
+                mode = "restart";
+            } else if (preflight.succeeded() && "process_running_not_ready".equals(state)) {
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                        "A process appeared after the original missing-process observation; it is not restarted.");
+                dispatchPendingAutomaticRecovery();
+                return;
+            } else {
+                String safeState = report == null ? "invalid_preflight" : state;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_BLOCKED",
+                        "Preflight refused automatic mutation; state=" + safeState
+                                + ", exit=" + preflight.exitCode
+                                + ", internalError=" + preflight.internalError);
+                notificationText = "Автовосстановление заблокировано проверкой • " + pending.profileId;
+                updateNotification();
+                dispatchPendingAutomaticRecovery();
+                return;
+            }
+
+            if (!hasValidatedInternet()) {
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_DEFERRED",
+                        "Validated network disappeared after preflight; no lifecycle command sent.");
+                return;
+            }
+            PendingRecovery verified = new PendingRecovery(pending.profileId, mode,
+                    pending.delayMillis, pending.attempt, pending.reason);
+            beginAutomaticRecovery(verified);
+        });
+    }
+
+    private void beginAutomaticRecovery(PendingRecovery pending) {
+        if (!monitoring || !isAutoRecoveryEnabled(this) || isManualHold(pending.profileId)) return;
+        OperationCoordinator coordinator = OperationCoordinator.shared();
+        OperationCoordinator.Submission submission = coordinator.requestAutomatic(
+                pending.profileId, "recover." + pending.mode);
+        if (!submission.accepted()) {
+            log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SKIPPED",
+                    "Exclusive operation slot unavailable: " + submission.status);
+            return;
+        }
+        long requestId = submission.request.id;
+        notificationText = "Автовосстановление: " + pending.profileId + " • " + pending.mode;
+        updateNotification();
+        log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_STARTED",
+                "Attempt " + pending.attempt + "; " + pending.reason);
+        final long generation = sessionGeneration.current();
+        TermuxCommandClient.runProfileControl(this, pending.profileId, pending.mode, result -> {
+            if (!isCurrentSession(generation)) {
+                // The OS command may already have completed after stop/destroy.
+                // Release only its own coordinator slot; never publish stale state.
+                OperationCoordinator.Request next = coordinator.complete(requestId);
+                if (next != null && next.kind == OperationCoordinator.Kind.MANUAL) {
+                    sendBroadcast(new Intent(MainActivity.ACTION_MANUAL_REQUEST_READY)
+                            .setPackage(getPackageName()));
+                }
+                return;
+            }
+            JSONObject report = null;
+            String state = "invalid_result";
+            try {
+                report = new JSONObject(result.stdout);
+                state = report.optString("result", "unknown");
+            } catch (Exception ignored) { }
+            boolean success = result.succeeded()
+                    && ("started_ready".equals(state) || "already_running".equals(state));
+            if (success) {
+                recordRecoverySuccess(pending.profileId,
+                        "Automatic " + pending.mode + " completed and local readiness was confirmed.");
+                notificationText = "Туннель восстановлен • " + pending.profileId;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_SUCCEEDED",
+                        "Attempt " + pending.attempt + " confirmed by " + state);
+            } else {
+                persistRecoveryState(pending.profileId);
+                String safeState = report == null ? "invalid_result" : state;
+                log(profileComponentIdForId(pending.profileId), "AUTO_RECOVERY_FAILED",
+                        "Attempt " + pending.attempt + " failed; state=" + safeState
+                                + ", exit=" + result.exitCode + ", internalError=" + result.internalError);
+                notificationText = "Автовосстановление не удалось • " + pending.profileId;
+            }
+            OperationCoordinator.Request next = coordinator.complete(requestId);
+            if (next != null && next.kind == OperationCoordinator.Kind.MANUAL) {
+                sendBroadcast(new Intent(MainActivity.ACTION_MANUAL_REQUEST_READY)
+                        .setPackage(getPackageName()));
+            } else {
+                dispatchPendingAutomaticRecovery();
+            }
+            updateNotification();
+        });
+    }
+
+    private String profileComponentIdForId(String profileId) {
+        if ("bridge".equals(profileId)) return "rea-bridge";
+        if ("droidmcp".equals(profileId)) return "droidmcp";
+        if ("rea-android".equals(profileId)) return "rea-android";
+        return "system";
     }
 
     private String profileComponentId(TermuxOperation operation) {
@@ -573,7 +1092,7 @@ public final class MonitorService extends Service {
     }
 
     private void scheduleNext() {
-        if (monitoring) {
+        if (monitoring && poll != null) {
             renewWakeLock();
             handler.removeCallbacks(poll);
             if (pollRequested) {
@@ -668,12 +1187,26 @@ public final class MonitorService extends Service {
         } catch (Exception ignored) { }
     }
 
+    private void clearPendingAutomaticRecoveries(String reason) {
+        int cancelled = scheduledRecoveryTasks.size();
+        for (Runnable task : scheduledRecoveryTasks.values()) handler.removeCallbacks(task);
+        scheduledRecoveryTasks.clear();
+        pendingRecoveries.clear();
+        if (cancelled > 0) {
+            log("system", "AUTO_RECOVERY_QUEUE_CLEARED",
+                    reason + "; cancelled delayed tasks=" + cancelled);
+        }
+    }
+
     private void stopMonitoring() {
         monitoring = false;
+        sessionGeneration.invalidate();
         running = false;
         inFlight = false;
         pollRequested = false;
-        handler.removeCallbacks(poll);
+        if (poll != null) handler.removeCallbacks(poll);
+        poll = null;
+        clearPendingAutomaticRecoveries("monitor_stopped");
         releaseWakeLock();
         log("system", "MONITOR_STOPPED", "User stopped monitoring");
         saveSnapshot("jiti-monitor-service", ComponentStatus.STOPPED, "User stopped foreground monitor", 0);
@@ -687,8 +1220,12 @@ public final class MonitorService extends Service {
     }
 
     @Override public void onDestroy() {
+        sessionGeneration.invalidate();
         monitoring = false;
         running = false;
+        if (poll != null) handler.removeCallbacks(poll);
+        poll = null;
+        clearPendingAutomaticRecoveries("service_destroyed");
         handler.removeCallbacksAndMessages(null);
         releaseWakeLock();
         if (eventStore != null) eventStore.close();

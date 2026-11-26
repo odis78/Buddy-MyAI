@@ -10,8 +10,8 @@ android {
         applicationId = "app.jiti.controlcenter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-alpha"
+        versionCode = 3
+        versionName = "0.2.1-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -23,6 +23,9 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    // The 0.2.1 validation APK uses the production applicationId.
+    // Install it only after intentionally uninstalling the preserved 0.2.0 checkpoint.
 }
 
 dependencies {

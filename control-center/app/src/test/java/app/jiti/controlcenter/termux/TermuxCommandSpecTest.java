@@ -7,8 +7,8 @@ public class TermuxCommandSpecTest {
     @Test public void onlyFixedAbsoluteReadOnlyOperationsAreAvailable() {
         for (TermuxOperation op : TermuxOperation.values()) {
             if (op == TermuxOperation.PROCESS_CMDLINE || op == TermuxOperation.PROCESS_EXECUTABLE
-                    || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE || op == TermuxOperation.BUDDY_LAUNCH
-                    || op == TermuxOperation.BUDDY_STOP) continue;
+                    || op == TermuxOperation.BUDDY_MCP_AUTH_PROBE
+                    || op == TermuxOperation.PROFILE_CONTROL) continue;
             TermuxCommandSpec spec = TermuxCommandSpec.forOperation(op,
                     "/data/data/com.termux/files/usr",
                     "/data/data/com.termux/files/home");
@@ -119,41 +119,11 @@ public class TermuxCommandSpecTest {
         assertTrue(probe.isSafeFixedCommand());
     }
 
-    @Test public void buddyLaunchAndStopScriptsAreFixedAndIdentityGuarded() {
-        TermuxCommandSpec preflight = TermuxCommandSpec.forBuddyLaunch(
-                "/data/data/com.termux/files/usr", "preflight");
-        TermuxCommandSpec start = TermuxCommandSpec.forBuddyLaunch(
-                "/data/data/com.termux/files/usr", "start");
-        TermuxCommandSpec stopPreflight = TermuxCommandSpec.forBuddyStop(
-                "/data/data/com.termux/files/usr", "preflight");
-        TermuxCommandSpec stop = TermuxCommandSpec.forBuddyStop(
-                "/data/data/com.termux/files/usr", "stop");
-        assertTrue(preflight.isSafeFixedCommand());
-        assertTrue(start.isSafeFixedCommand());
-        assertTrue(stopPreflight.isSafeFixedCommand());
-        assertTrue(stop.isSafeFixedCommand());
-        assertEquals("preflight", stopPreflight.arguments.get(2));
-        assertTrue(preflight.arguments.get(1).contains(".config/termux-bridge/runtime.env"));
-        assertTrue(preflight.arguments.get(1).contains(".config/tunnel-client-buddy/buddy.token"));
-        assertTrue(preflight.arguments.get(1).contains("CONTROL_PLANE_API_KEY"));
-        assertTrue(preflight.arguments.get(1).contains("BUDDY_TOKEN"));
-        assertTrue(preflight.arguments.get(1).contains("buddy_token_file_symlink_not_allowed"));
-        assertTrue(preflight.arguments.get(1).contains("insecure_buddy_token_file_permissions"));
-        assertTrue(preflight.arguments.get(1).contains("auth_from_token_file"));
-        assertTrue(stop.arguments.get(1).contains("signal.SIGTERM"));
-        assertFalse(stop.arguments.get(1).contains("signal.SIGKILL"));
-        assertTrue(stop.arguments.get(1).contains("pid_identity_mismatch"));
-        assertTrue(stop.arguments.get(1).contains("def finish(value, code=0):"));
-        assertTrue(stop.arguments.get(1).contains("if mode == \"stop\":\n        write_status(value)"));
-        assertFalse(stop.arguments.get(1).contains("emit(result)\n    write_status(result)"));
-        assertTrue(stopPreflight.arguments.get(1).contains("if mode == \"preflight\":\n    finish({\"result\": \"ready_to_stop\""));
-    }
-
-    @Test public void buddyLaunchRejectsUnsupportedMode() {
-        try {
-            TermuxCommandSpec.forBuddyLaunch("/data/data/com.termux/files/usr", "shell");
-            fail("unsupported launch mode must be rejected");
-        } catch (IllegalArgumentException expected) { }
+    @Test public void buddyLifecycleOperationTypesAreNotExposed() {
+        for (TermuxOperation operation : TermuxOperation.values()) {
+            assertNotEquals("BUDDY_LAUNCH", operation.name());
+            assertNotEquals("BUDDY_STOP", operation.name());
+        }
     }
 
     @Test public void authenticatedMcpProbeIsFixedAndNeverReturnsSecretMaterial() {
@@ -179,6 +149,37 @@ public class TermuxCommandSpecTest {
     @Test(expected = IllegalArgumentException.class)
     public void authenticatedMcpProbeRejectsNonPositivePid() {
         TermuxCommandSpec.forBuddyMcpAuthProbe("/data/data/com.termux/files/usr", -1);
+    }
+
+    @Test public void profileControlUsesOnlyThreeFixedProfilesAndFiveFixedModes() {
+        String prefix = "/data/data/com.termux/files/usr";
+        for (String profile : java.util.Arrays.asList("bridge", "droidmcp", "rea-android")) {
+            for (String mode : java.util.Arrays.asList("preflight", "status", "start", "stop", "restart", "logs")) {
+                TermuxCommandSpec spec = TermuxCommandSpec.forProfileControl(prefix, profile, mode);
+                assertEquals(TermuxOperation.PROFILE_CONTROL, spec.operation);
+                assertEquals(prefix + "/bin/python", spec.executable);
+                assertEquals("-c", spec.arguments.get(0));
+                assertEquals(ProfileControlScript.SCRIPT, spec.arguments.get(1));
+                assertEquals(mode, spec.arguments.get(2));
+                assertEquals(profile, spec.arguments.get(3));
+                assertTrue(spec.isSafeFixedCommand());
+            }
+        }
+        assertTrue(ProfileControlScript.SCRIPT.contains("signal.SIGTERM"));
+        assertFalse(ProfileControlScript.SCRIPT.contains("signal.SIGKILL"));
+        assertTrue(ProfileControlScript.SCRIPT.contains("jiti-profile-control.lock"));
+        assertTrue(ProfileControlScript.SCRIPT.contains("existing_tunnel_manager_busy"));
+        assertFalse(ProfileControlScript.SCRIPT.contains("buddy-myai.yaml"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void profileControlRejectsUnknownProfile() {
+        TermuxCommandSpec.forProfileControl("/data/data/com.termux/files/usr", "buddy", "start");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void profileControlRejectsUnknownMode() {
+        TermuxCommandSpec.forProfileControl("/data/data/com.termux/files/usr", "bridge", "shell");
     }
 
     @Test public void dynamicProcReadsRequirePositiveNumericPid() {
