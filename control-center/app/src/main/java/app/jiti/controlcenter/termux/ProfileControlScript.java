@@ -345,7 +345,18 @@ def stop_profile(profile):
             return {"result": "stopped", "pid": pid}
         current_start = process_start_time(pid)
         if current_start and (current_start != initial_start or not process_identity(pid, profile)):
-            return {"result": "blocked", "reason": "process_identity_changed", "pid": pid}
+            # Never signal a PID after its identity changes. If no matching
+            # Tunnel Client remains, the old PID record is stale metadata.
+            if find_matching(profile):
+                return {"result": "blocked", "reason": "process_identity_changed", "pid": pid}
+            try:
+                if open(pid_path, "r", encoding="utf-8").read().strip() == str(pid):
+                    os.unlink(pid_path)
+                    if os.path.isfile(profile["url"]) and not os.path.islink(profile["url"]):
+                        os.unlink(profile["url"])
+            except Exception:
+                pass
+            return {"result": "stopped", "pid": pid, "identity_lost": True}
         time.sleep(1)
     return {"result": "stop_timeout_no_sigkill", "pid": pid}
 
