@@ -134,6 +134,10 @@ public final class RecoverySupervisor {
         return new Snapshot(state.attempts, state.nextAllowedAt);
     }
 
+    public synchronized void restore(String profileId, int attempts, long nextAllowedAt) {
+        restore(profileId, new Snapshot(attempts, nextAllowedAt));
+    }
+
     public synchronized void restore(String profileId, Snapshot snapshot) {
         requireProfile(profileId);
         if (snapshot == null || snapshot.attempts < 0 || snapshot.attempts > policy.maxAttempts()
