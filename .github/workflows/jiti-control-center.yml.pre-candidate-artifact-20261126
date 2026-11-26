@@ -1,0 +1,60 @@
+name: JITI Control Center Android
+
+on:
+  push:
+    branches:
+      - project/jiti-control-center
+      - fix/jiti-control-center-manual-recovery-20261126
+    paths:
+      - "control-center/**"
+      - ".github/workflows/jiti-control-center.yml"
+  pull_request:
+    paths:
+      - "control-center/**"
+      - ".github/workflows/jiti-control-center.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: jiti-control-center-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Validate embedded Termux Python control scripts
+        run: python3 control-center/tools/validate_termux_scripts.py
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Locate Android SDK manager
+        id: android-sdk
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          sdkmanager_path="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "${sdkmanager_path}"
+          echo "sdkmanager=${sdkmanager_path}" >> "$GITHUB_OUTPUT"
+      - name: Install Android platform and build tools
+        run: '"${{ steps.android-sdk.outputs.sdkmanager }}" "platforms;android-35" "build-tools;35.0.0"'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Run JVM unit tests
+        run: gradle -p control-center testDebugUnitTest
+      - name: Assemble debug APK
+        run: gradle -p control-center assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiti-control-center-debug
+          path: control-center/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
