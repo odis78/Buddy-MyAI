@@ -1020,9 +1020,28 @@ public final class MainActivity extends Activity {
                     + "\nМониторинг удерживает CPU активным и увеличивает расход батареи; остановка снимает wake lock.");
             termuxStatusView.setTextColor(termuxBridgeVerified() ? GREEN : AMBER);
         }
-        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke() && !diagnosticsInFlight);
+        if (termuxCheckButton != null) termuxCheckButton.setEnabled(state.canInvoke() && !diagnosticsInFlight
+                && !profileOperationCoordinator.isBusy());
         if (monitorStartButton != null) monitorStartButton.setEnabled(state.canInvoke() && !MonitorService.running);
         if (monitorStopButton != null) monitorStopButton.setEnabled(MonitorService.running);
+        boolean profileControlsReady = state.canInvoke() && termuxBridgeVerified()
+                && !diagnosticsInFlight && !profileOperationCoordinator.isBusy();
+        if (globalCheckButton != null) globalCheckButton.setEnabled(state.canInvoke()
+                && !diagnosticsInFlight && !profileOperationCoordinator.isBusy());
+        if (globalStartButton != null) globalStartButton.setEnabled(profileControlsReady);
+        if (globalRestartButton != null) globalRestartButton.setEnabled(profileControlsReady);
+        if (globalStopButton != null) globalStopButton.setEnabled(profileControlsReady);
+        for (List<Button> buttons : profileActionButtons.values()) {
+            for (Button actionButton : buttons) actionButton.setEnabled(profileControlsReady);
+        }
+        if (globalControlStatusView != null) {
+            globalControlStatusView.setText(profileControlsReady
+                    ? "Ручное управление REA-туннелями доступно. Buddy не затрагивается."
+                    : !state.canInvoke() ? "Сначала устраните блокировку Termux RUN_COMMAND."
+                    : !termuxBridgeVerified() ? "Сначала выполните безопасную проверку Termux."
+                    : diagnosticsInFlight ? "Выполняется проверка. Управление временно заблокировано."
+                    : "Выполняется другая операция. Повторные команды заблокированы.");
+        }
         boolean controlsReady = state.canInvoke() && termuxBridgeVerified() && MonitorService.running;
         boolean buddyBusy = BUDDY_OPERATION_GATE.isInFlight();
         boolean buddyControlsEnabled = controlsReady && !buddyBusy;
