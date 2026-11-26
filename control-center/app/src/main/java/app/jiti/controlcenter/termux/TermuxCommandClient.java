@@ -115,21 +115,6 @@ public final class TermuxCommandClient {
         }
     }
 
-    private static void startBackgroundTask(Context context, InstallState state, TermuxCommandSpec spec,
-                                            String commandLabel, String description) {
-        if (!spec.isSafeFixedCommand()) throw new SecurityException("Command rejected by fixed-operation policy");
-        Intent intent = new Intent();
-        intent.setClassName(TERMUX_PACKAGE, RUN_COMMAND_SERVICE);
-        intent.setAction(ACTION_RUN_COMMAND);
-        intent.putExtra(EXTRA_PATH, spec.executable);
-        intent.putExtra(EXTRA_ARGUMENTS, spec.arguments.toArray(new String[0]));
-        intent.putExtra(EXTRA_WORKDIR, state.dataDir + "/files/home");
-        intent.putExtra(EXTRA_BACKGROUND, true);
-        intent.putExtra(EXTRA_LABEL, commandLabel);
-        intent.putExtra(EXTRA_DESCRIPTION, description);
-        context.startService(intent);
-    }
-
     public static void runBuddyMcpAuthProbe(Context context, int pid, Callback callback) {
         InstallState state = inspect(context);
         if (!state.canInvoke()) {
