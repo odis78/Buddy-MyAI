@@ -10,6 +10,12 @@ package app.jiti.controlcenter.core;
  * returned request to the single operation runner.
  */
 public final class OperationCoordinator {
+    private static final OperationCoordinator SHARED = new OperationCoordinator();
+
+    public static OperationCoordinator shared() {
+        return SHARED;
+    }
+
     public enum Kind { MANUAL, AUTOMATIC }
 
     public enum Status {
