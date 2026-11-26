@@ -1084,6 +1084,11 @@ public final class MainActivity extends Activity {
                         // Persist the hold only after the command's final state is known, so a
                         // failed stop cannot silently suppress recovery for a still-running profile.
                         statusView.setText("ВЫПОЛНЯЕТСЯ: " + profileTitle(profileId) + " • " + mode);
+                        if ("stop".equals(mode)) {
+                            // Persist the user's stop intent before dispatch. If the process dies
+                            // before the result callback, auto-recovery remains safely held.
+                            MonitorService.setManualHoldPending(getApplicationContext(), profileId, true);
+                        }
                         TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
                             JSONObject finalReport = profileReport(command);
                             String finalState = finalReport == null ? "error"
@@ -1265,6 +1270,9 @@ public final class MainActivity extends Activity {
                 return;
             }
             globalControlStatusView.setText("ВЫПОЛНЯЕТСЯ " + step.operation + ": " + profileTitle(step.profileId));
+            if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, true);
+            }
             TermuxCommandClient.runProfileControl(this, step.profileId, step.operation, command -> {
                 JSONObject finalReport = profileReport(command);
                 String finalState = finalReport == null ? "error" : finalReport.optString("result", "unknown");
@@ -1276,6 +1284,8 @@ public final class MainActivity extends Activity {
                     MonitorService.setManualHold(getApplicationContext(), step.profileId, true);
                 } else if (success && "start".equals(step.operation)) {
                     MonitorService.setManualHold(getApplicationContext(), step.profileId, false);
+                } else if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
+                    MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, false);
                 }
                 if (isFinishing() || isDestroyed()) {
                     completeProfileOperationAfterActivityGone(requestId);
