@@ -39,6 +39,10 @@ public final class RecoveryPolicy {
         return adjusted >= Long.MAX_VALUE ? Long.MAX_VALUE : Math.round(adjusted);
     }
 
+    public int maxAttempts() {
+        return maxAttempts;
+    }
+
     public Decision decide(ErrorClass error, int attemptsAlreadyMade) {
         if (attemptsAlreadyMade < 0) throw new IllegalArgumentException("attempts must be >= 0");
         if (error == ErrorClass.AUTHENTICATION || error == ErrorClass.REMOTE_POLICY
