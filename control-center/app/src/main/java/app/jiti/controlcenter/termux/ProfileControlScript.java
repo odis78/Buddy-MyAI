@@ -167,7 +167,10 @@ def health_ok(profile):
         parsed = urlsplit(url)
         if parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost"):
             return False
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         with opener.open(url + "/readyz", timeout=3) as response:
             return response.status == 200
     except Exception:
@@ -334,8 +337,14 @@ def main():
             report = {"result": "stopped", "stale_pid_file": report.get("stale_pid_file", False)}
         emit(report.pop("result"), **report)
         return 0
-    os.makedirs(STATE, exist_ok=True)
-    lock_fd = os.open(LOCK, os.O_CREAT | os.O_RDWR, 0o600)
+    if os.path.islink(LOCK):
+        emit("blocked", reason="lock_file_symlink")
+        return 3
+    lock_flags = os.O_CREAT | os.O_RDWR
+    if hasattr(os, "O_NOFOLLOW"):
+        lock_flags |= os.O_NOFOLLOW
+    lock_fd = os.open(LOCK, lock_flags, 0o600)
+    os.fchmod(lock_fd, 0o600)
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
