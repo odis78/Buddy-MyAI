@@ -14,9 +14,7 @@ import java.security.MessageDigest;
  */
 final class RuntimeBinaryLocator {
     static final String LIBRARY_NAME = "libtunnel-client.so";
-    static final String CLOUDFLARED_LIBRARY_NAME = "libcloudflared.so";
-    static final String EXPECTED_SHA256 = "f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e";
-    static final String EXPECTED_CLOUDFLARED_SHA256 = "2874a150cba8a51e148ef6e17d5c581cea801f45fe35a6ef6aa4c354acd923c7";
+    static final String EXPECTED_SHA256 = "cc013fae9b04523b078e6417fe5d379972e1d0d1b11b2f77b072d5f2442516eb";
 
     private RuntimeBinaryLocator() { }
 
@@ -35,15 +33,6 @@ final class RuntimeBinaryLocator {
         if (!binary.isFile() || !binary.canExecute() || !loader.isFile()) {
             throw new IOException("Bundled PRoot runtime or loader is missing");
         }
-        return binary;
-    }
-
-    static File locateCloudflared(Context context) throws IOException {
-        File binary = new File(context.getApplicationInfo().nativeLibraryDir, CLOUDFLARED_LIBRARY_NAME);
-        if (!binary.isFile() || !binary.canExecute()) {
-            throw new IOException("Pinned cloudflared companion is missing or not executable");
-        }
-        verify(binary, EXPECTED_CLOUDFLARED_SHA256);
         return binary;
     }
 

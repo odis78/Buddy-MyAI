@@ -22,6 +22,9 @@ jobs:
         run: bash linux/test/run.sh
 
   apk:
+    # This isolated runtime candidate is built by autonomous-runtime-audit.yml, which embeds its pinned ARM64 payload.
+    # Do not publish a second, incomplete APK from the generic workflow for this specific candidate PR.
+    if: github.event_name != 'pull_request' || github.base_ref != 'feature/buddy-autonomous-runtime-audit-20261124'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

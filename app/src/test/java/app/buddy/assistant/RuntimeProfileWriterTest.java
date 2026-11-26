@@ -14,8 +14,9 @@ public class RuntimeProfileWriterTest {
     private static final String REA_COMMAND = "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 /usr/bin/node /root/rea/scripts/rea.mjs mcp";
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
-        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
+        String yaml = RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"));
         assertTrue(yaml.contains("url: \"http://127.0.0.1:8766/mcp\""));
+        assertFalse(yaml.contains("cloudflared:"));
         assertTrue(yaml.contains("api_key: \"file:/tmp/buddy-runtime/control-plane-api-key\""));
         assertTrue(yaml.contains("extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-auth-header\""));
         assertTrue(yaml.contains("discovery_extra_headers:\n    Authorization: \"file:/tmp/buddy-runtime/buddy-discovery-auth-header\""));
@@ -36,17 +37,17 @@ public class RuntimeProfileWriterTest {
             while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
             bytes = out.toByteArray();
         }
-        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so")));
+        assertEquals(new String(bytes, StandardCharsets.UTF_8), RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime")));
     }
 
     @Test public void reaProfileUsesCompactStdioMcpCommand() {
         String yaml = RuntimeProfileWriter.renderReaProfile(REA_TUNNEL,
-                new File("/tmp/buddy-rea"), new File("/tmp/libcloudflared.so"),
-                java.util.Collections.singletonList(REA_COMMAND));
+                new File("/tmp/buddy-rea"), java.util.Collections.singletonList(REA_COMMAND));
         assertTrue(yaml.contains("tunnel_id: \"" + REA_TUNNEL + "\""));
         assertTrue(yaml.contains("commands:\n    - channel: main\n      command: \"" + REA_COMMAND + "\""));
         assertTrue(yaml.contains("REA_MCP_INPUT_SCHEMA_PROFILE=compact"));
         assertTrue(yaml.contains("REA_MCP_OUTPUT_SCHEMA_PROFILE=off"));
+        assertFalse(yaml.contains("cloudflared:"));
         assertFalse(yaml.contains("server_urls:"));
         assertFalse(yaml.contains("Bearer "));
     }
@@ -63,7 +64,7 @@ public class RuntimeProfileWriterTest {
         }
         assertEquals(new String(bytes, StandardCharsets.UTF_8),
                 RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, new File("/tmp/buddy-rea"),
-                        new File("/tmp/libcloudflared.so"), java.util.Collections.singletonList(REA_COMMAND)));
+                        java.util.Collections.singletonList(REA_COMMAND)));
     }
 
     @Test public void generatedBridgeProfileMatchesPinnedFixture() throws Exception {
@@ -88,24 +89,23 @@ public class RuntimeProfileWriterTest {
         }
         assertEquals(new String(bytes, StandardCharsets.UTF_8),
                 RuntimeProfileWriter.renderStdioProfile(tunnelId, new File("/tmp/buddy-helper"),
-                        new File("/tmp/libcloudflared.so"), java.util.Collections.singletonList(command)));
+                        java.util.Collections.singletonList(command)));
     }
 
     @Test public void writeReaProfileCreatesCompleteAtomicProfile() throws Exception {
         File dir = Files.createTempDirectory("rea-profile").toFile();
         File target = new File(dir, "rea-mcp.yaml");
-        File cloudflared = new File(dir, "libcloudflared.so");
-        RuntimeProfileWriter.writeReaProfile(target, REA_TUNNEL, dir, cloudflared,
+        RuntimeProfileWriter.writeReaProfile(target, REA_TUNNEL, dir,
                 java.util.Collections.singletonList(REA_COMMAND));
         assertTrue(target.isFile());
-        assertEquals(RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, dir, cloudflared,
+        assertEquals(RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, dir,
                         java.util.Collections.singletonList(REA_COMMAND)),
                 new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
     }
 
     @Test public void rejectsMalformedTunnelId() {
         try {
-            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"), new File("/tmp/buddy-runtime/libcloudflared.so"));
+            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
             fail("invalid tunnel id accepted");
         } catch (IllegalArgumentException expected) { }
     }
@@ -115,7 +115,7 @@ public class RuntimeProfileWriterTest {
         File target = new File(dir, "buddy-myai.yaml");
         try {
             Files.write(target.toPath(), "old".getBytes(StandardCharsets.UTF_8));
-            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"), new File(dir, "libcloudflared.so"));
+            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"));
             String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
             assertTrue(yaml.contains(TUNNEL));
             assertTrue(yaml.contains("discovery_extra_headers"));
