@@ -1087,7 +1087,11 @@ public final class MainActivity extends Activity {
                         if ("stop".equals(mode)) {
                             // Persist the user's stop intent before dispatch. If the process dies
                             // before the result callback, auto-recovery remains safely held.
-                            MonitorService.setManualHoldPending(getApplicationContext(), profileId, true);
+                            if (!MonitorService.setManualHoldPending(getApplicationContext(), profileId, true)) {
+                                statusView.setText("ОСТАНОВКА НЕ ОТПРАВЛЕНА: не удалось надёжно сохранить ручной запрет автовосстановления.");
+                                completeProfileOperation(requestId);
+                                return;
+                            }
                         }
                         TermuxCommandClient.runProfileControl(this, profileId, mode, command -> {
                             JSONObject finalReport = profileReport(command);
@@ -1271,7 +1275,11 @@ public final class MainActivity extends Activity {
             }
             globalControlStatusView.setText("ВЫПОЛНЯЕТСЯ " + step.operation + ": " + profileTitle(step.profileId));
             if ("stop".equals(requestedMode) && "stop".equals(step.operation)) {
-                MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, true);
+                if (!MonitorService.setManualHoldPending(getApplicationContext(), step.profileId, true)) {
+                    globalControlStatusView.setText("ПОСЛЕДОВАТЕЛЬНОСТЬ ОСТАНОВЛЕНА: не удалось надёжно сохранить ручной запрет автовосстановления.");
+                    completeProfileOperation(requestId);
+                    return;
+                }
             }
             TermuxCommandClient.runProfileControl(this, step.profileId, step.operation, command -> {
                 JSONObject finalReport = profileReport(command);
