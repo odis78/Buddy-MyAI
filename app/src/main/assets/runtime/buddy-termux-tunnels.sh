@@ -169,8 +169,8 @@ start_one() {
     IFS= read -r pid < "$PID_FILE" || pid=""
     if pid_matches "$pid" "$PROFILE"; then
       if wait_health; then echo "$name: READY (existing PID $pid)"; return 0; fi
-      echo "$name: RUNNING (PID $pid), health not ready"
-      return 1
+      echo "$name: UNHEALTHY (PID $pid); requesting graceful restart"
+      stop_one "$name" || return 1
     fi
     if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
       echo "$name: CONFLICT (PID file points to a different live process; left untouched)"
@@ -181,8 +181,8 @@ start_one() {
       0)
         printf '%s\n' "$found" > "$PID_FILE"
         if wait_health; then echo "$name: READY (recovered PID $found)"; return 0; fi
-        echo "$name: RUNNING (recovered PID $found), health not ready"
-        return 1
+        echo "$name: UNHEALTHY (recovered PID $found); requesting graceful restart"
+        stop_one "$name" || return 1
         ;;
       2) return 1 ;;
     esac
@@ -198,8 +198,8 @@ start_one() {
     0)
       printf '%s\n' "$found" > "$PID_FILE"
       if wait_health; then echo "$name: READY (adopted PID $found)"; return 0; fi
-      echo "$name: RUNNING (adopted PID $found), health not ready"
-      return 1
+      echo "$name: UNHEALTHY (adopted PID $found); requesting graceful restart"
+      stop_one "$name" || return 1
       ;;
     2) return 1 ;;
   esac
