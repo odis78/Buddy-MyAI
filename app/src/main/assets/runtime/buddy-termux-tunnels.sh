@@ -27,17 +27,23 @@ resolve_binary() {
 }
 
 discover_profile() {
-  local name="$1" directory file pattern
+  local name="$1" directory file expected_id expected_port
   local -a matches=()
   case "$name" in
-    bridge) pattern='bridge-013|TERMUX_BRIDGE_REA_ROOT|18080' ;;
-    droidmcp) pattern='droidmcp|41507' ;;
+    bridge)
+      expected_id='tunnel_6ae28b8f01788191b42901f090964502'
+      expected_port='18080'
+      ;;
+    droidmcp)
+      expected_id='tunnel_6af1637e86788191aa429d5518d41938'
+      expected_port='41507'
+      ;;
     *) return 2 ;;
   esac
   for directory in "$HOME_DIR/.config" "$HOME_DIR/droidmcp-stage-v0.4.0"; do
     [[ -d "$directory" ]] || continue
     while IFS= read -r -d '' file; do
-      if grep -Eqi "$pattern" "$file" && grep -q 'tunnel_id:' "$file" && grep -q 'url_file:' "$file"; then
+      if grep -Fq "$expected_id" "$file" && grep -q "$expected_port" "$file" && grep -q 'url_file:' "$file"; then
         matches+=("$file")
       fi
     done < <(find "$directory" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
@@ -84,6 +90,14 @@ component_paths() {
       return 2
     }
   fi
+  case "$1" in
+    bridge) expected_id='tunnel_6ae28b8f01788191b42901f090964502'; expected_port='18080' ;;
+    droidmcp) expected_id='tunnel_6af1637e86788191aa429d5518d41938'; expected_port='41507' ;;
+  esac
+  if ! grep -Fq "$expected_id" "$PROFILE" || ! grep -q "$expected_port" "$PROFILE"; then
+    echo "$1: refusing profile with an unexpected tunnel ID or health port"
+    return 2
+  fi
   HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
     echo "$1: profile has no health.url_file entry"
     return 2
@@ -116,6 +130,12 @@ find_matching_pid() {
   printf '%s\n' "$found"
 }
 
+legacy_bridge_health_live() {
+  [[ -x "$PREFIX/bin/curl" ]] || return 1
+  "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 \
+    "http://127.0.0.1:8080/readyz" >/dev/null 2>&1
+}
+
 health_ok() {
   local url
   [[ -s "$HEALTH_FILE" && -x "$PREFIX/bin/curl" ]] || return 1
@@ -138,6 +158,11 @@ start_one() {
   component_paths "$name" || return 2
   resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   [[ -s "$PROFILE" ]] || { echo "$name: profile missing"; return 1; }
+  [[ -x "$PREFIX/bin/curl" ]] || { echo "$name: curl is required for safe health checks"; return 1; }
+  if [[ "$name" == "bridge" ]] && legacy_bridge_health_live; then
+    echo "bridge: LEGACY_READY (port 8080 already live; refusing to start a duplicate 18080 tunnel)"
+    return 0
+  fi
   mkdir -p "$STATE" || return 1
 
   if [[ -s "$PID_FILE" ]]; then
