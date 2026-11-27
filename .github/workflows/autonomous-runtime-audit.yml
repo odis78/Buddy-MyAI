@@ -6,6 +6,7 @@ on:
       - feature/buddy-autonomous-runtime-audit-20261124
       - fix/buddy-runtime-cloudflared-flavor-20261125
       - fix/buddy-mcp-runtime-independent-20261127
+      - work/buddy-myai-final-product-20261127
   pull_request:
   workflow_dispatch:
 
@@ -294,7 +295,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
-      - name: Assemble isolated side-by-side test220 debug APK
+      - name: Assemble isolated side-by-side test222 debug APK
         run: ./gradlew --no-daemon assembleGithubDebug
       - name: Verify APK signature and package metadata
         shell: bash
@@ -306,7 +307,7 @@ jobs:
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner" && test -x "$BUILD_TOOLS/aapt"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signature-verification.txt
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test221'"
+          printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test222'"
           printf '%s\n' "$BADGING" | grep -F "versionCode='220'"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libtunnel-client.so'
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/rea-agents-6.5.0.tgz'
@@ -341,11 +342,11 @@ jobs:
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signing-identity.txt
           grep -Eq 'certificate SHA-256 digest: [0-9a-fA-F]{64}' dist/apk-signing-identity.txt
-          echo "PACKAGE_ISOLATION=app.buddy.myai.gt.test221" >> "$GITHUB_STEP_SUMMARY"
-          echo "The candidate uses a new package ID and is installed side-by-side; it does not replace test220 or the production package." >> "$GITHUB_STEP_SUMMARY"
+          echo "PACKAGE_ISOLATION=app.buddy.myai.gt.test222" >> "$GITHUB_STEP_SUMMARY"
+          echo "The candidate uses a new package ID and is installed side-by-side; it does not replace test222 or the production package." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: buddy-runtimefix-test221-debug
+          name: buddy-runtimefix-test222-debug
           path: |
             dist/buddy-runtimefix-debug.apk
             dist/apk-signature-verification.txt
