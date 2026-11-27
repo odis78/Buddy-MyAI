@@ -53,7 +53,7 @@ public final class RuntimeSettingsActivity extends Screen {
         ScrollView scroll = new ScrollView(this);
         LinearLayout body = column(this);
         body.setPaddingRelative(dp(this, 20), dp(this, 8), dp(this, 20), dp(this, 28));
-        body.addView(text(this, getString(R.string.runtime_settings_info), 14, MUTED), topGap(8));
+        body.addView(text(this, getString(R.string.runtime_settings_info, McpServer.PORT), 14, MUTED), topGap(8));
         body.addView(text(this, getString(R.string.runtime_termux_monitor_info), 12, MUTED), topGap(6));
 
         body.addView(sectionLabel(this, getString(R.string.runtime_api_key_label)), topGap(8));
