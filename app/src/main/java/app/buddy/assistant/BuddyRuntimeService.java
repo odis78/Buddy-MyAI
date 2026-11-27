@@ -298,7 +298,9 @@ public final class BuddyRuntimeService extends Service {
                 scheduleReaAttempt(delay);
             } else {
                 if (reaEnabled && reaTransport) reaRecovery.reset();
-                if (bridgeConflict) {
+                if (!hasApiKey) {
+                    updateNotification(getString(R.string.runtime_notification_setup));
+                } else if (bridgeConflict) {
                     updateNotification(getString(R.string.runtime_notification_termux_conflict));
                 } else if ((monitorBridge && !bridgeTransport) || (monitorDroid && !droidTransport)) {
                     updateNotification(getString(R.string.runtime_notification_waiting_termux));
