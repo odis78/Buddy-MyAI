@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 
 const VERSION = '0.1.3';
 const ROOT = path.resolve(process.env.TERMUX_BRIDGE_REA_ROOT || path.join(os.homedir(), 'rea'));
-const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$/.test(process.env.BUDDY_ANDROID_PACKAGE || '')
+const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(process.env.BUDDY_ANDROID_PACKAGE || '')
   ? process.env.BUDDY_ANDROID_PACKAGE : 'app.buddy.myai.gt';
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_OUTPUT = 16 * 1024;
