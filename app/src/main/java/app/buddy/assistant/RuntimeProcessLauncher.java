@@ -18,10 +18,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Starts the hardened Tunnel Client as a native Android child process, outside the agent PRoot. */
 final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
-    // Intentionally blank in isolated test221 so it cannot collide with the active Test220 tunnel.
+    // Intentionally blank in isolated test222 so it cannot collide with the active Test220 tunnel.
     static final String DEFAULT_TUNNEL_ID = "";
     static final String RESERVED_TEST220_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
-    static final String REA_TUNNEL_ID = "tunnel_6b0070cbe1508191b1b1463fa6ffeaa2";
     static final String BRIDGE_TUNNEL_ID = "tunnel_6ae28b8f01788191b42901f090964502";
     static final String DROIDMCP_TUNNEL_ID = "tunnel_6af1637e86788191aa429d5518d41938";
     static final String API_KEY_FILE = "control-plane-api-key";
@@ -57,7 +56,17 @@ final class RuntimeProcessLauncher {
             createSecretFifo(discoveryHeaderFifo);
             File binary = RuntimeBinaryLocator.locate(app);
             File config = new File(runtimeDir, "buddy-myai.yaml");
-            RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir);
+            java.util.List<String> reaCommand = null;
+            if (app.getSharedPreferences("runtime", Context.MODE_PRIVATE).getBoolean("rea_enabled", true)
+                    && ReaRuntimeInstaller.isReady(app)) {
+                Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+                guestEnvironment.put("REA_MCP_INPUT_SCHEMA_PROFILE", "compact");
+                guestEnvironment.put("REA_MCP_OUTPUT_SCHEMA_PROFILE", "off");
+                guestEnvironment.put("REA_MCP_MAX_RESPONSE_BYTES", "10485760");
+                reaCommand = Linux.commandAt(app, "/root/rea-source", guestEnvironment,
+                        "/usr/bin/node", "/root/rea/scripts/rea.mjs", "mcp");
+            }
+            RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir, reaCommand);
             chmod(config, 0600, "Buddy runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
