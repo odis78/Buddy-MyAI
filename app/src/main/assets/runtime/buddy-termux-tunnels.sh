@@ -47,7 +47,7 @@ discover_profile() {
         local listener
         listener="$(awk -F: '/^[[:space:]]*listen_addr:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/["[:space:]]/, "", $0); print $0; exit}' "$file")"
         if [[ "$listener" =~ ^127\.0\.0\.1:([0-9]{1,5})$ ]]; then
-          local candidate_port="${BASH_REMATCH[1]}"
+          local candidate_port="${listener##*:}"
           if (( 10#$candidate_port <= 65535 )); then matches+=("$file"); fi
         fi
       fi
@@ -105,7 +105,7 @@ component_paths() {
     echo "$1: refusing profile with an unexpected tunnel ID or non-loopback health listener"
     return 2
   fi
-  local configured_port="${BASH_REMATCH[1]}"
+  local configured_port="${listener##*:}"
   if (( 10#$configured_port > 65535 )); then
     echo "$1: refusing profile with an invalid health port"
     return 2
@@ -193,7 +193,8 @@ health_url_port() {
   [[ -s "$HEALTH_FILE" ]] || return 1
   IFS= read -r url < "$HEALTH_FILE" || return 1
   [[ "$url" =~ ^http://127\.0\.0\.1:([0-9]{1,5})/?$ ]] || return 1
-  port="${BASH_REMATCH[1]}"
+  port="${url##*:}"
+  port="${port%/}"
   (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
   printf '%s\\n' "$((10#$port))"
 }
