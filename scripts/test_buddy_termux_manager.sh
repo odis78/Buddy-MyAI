@@ -29,6 +29,12 @@ export DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_
 exec "$HOME/droidmcp-stage-v0.4.0/droidmcp-filesystem"
 SH
 chmod 700 "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
+mkdir -p "$HOME_DIR/droidmcp-sandbox"
+cat > "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-filesystem" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod 700 "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-filesystem"
 cat > "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" <<YAML
 control_plane:
   tunnel_id: "tunnel_6ae28b8f01788191b42901f090964502"
