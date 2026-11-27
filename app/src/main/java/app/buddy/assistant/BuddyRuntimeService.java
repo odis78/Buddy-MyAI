@@ -345,10 +345,10 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void updateMainMcpState() {
-        if (supervisor != null && supervisor.isRemoteConnected(0)) {
+        if (connections != null && connections.isBuddyRemoteConnected()) {
             setPersistentState("REMOTE_CONNECTED", "MCP catalog discovered; recent control-plane poll and accepted response confirmed");
             updateNotification(getString(R.string.runtime_notification_ready));
-        } else if (supervisor != null && supervisor.isMcpDiscovered(0)) {
+        } else if (connections != null && connections.isBuddyMcpDiscovered()) {
             setPersistentState("MCP_DISCOVERED", "MCP initialize and complete tools/list confirmed; waiting for recent remote poll and accepted response");
             updateNotification(getString(R.string.runtime_notification_waiting_remote));
         } else {
@@ -360,9 +360,9 @@ public final class BuddyRuntimeService extends Service {
     private void startMonitor() {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
-            if (stopping || supervisor == null) return;
-            if (!supervisor.isReady()) {
-                String message = supervisor.lastError();
+            if (stopping || connections == null) return;
+            if (!connections.isBuddyReady()) {
+                String message = connections.buddyLastError();
                 setPersistentState("DEGRADED", message);
                 long delay = recovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_retry,
@@ -380,13 +380,9 @@ public final class BuddyRuntimeService extends Service {
         if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
         if (helperExecutor != null) helperExecutor.shutdownNow();
-        if (TermuxRuntimeController.isInstalled(this)
-                && TermuxRuntimeController.hasPermission(this)
-                && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("termux_manager_installed", false)) {
-            TermuxRuntimeController.stop(this);
-        }
+        if (connections != null) connections.stopTermux();
         if (executor == null) {
-            if (supervisor != null) supervisor.stop();
+            if (connections != null) connections.stopBuddyTunnel();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
             return;
@@ -395,7 +391,7 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
-            if (supervisor != null) supervisor.stop();
+            if (connections != null) connections.stopBuddyTunnel();
             setPersistentState("STOPPED", "Buddy tunnel stopped.");
             setBridgePersistentState("STOP_REQUESTED", "Graceful stop requested through Termux RUN_COMMAND.");
             setDroidPersistentState("STOP_REQUESTED", "Graceful stop requested through Termux RUN_COMMAND.");
@@ -503,7 +499,7 @@ public final class BuddyRuntimeService extends Service {
         if (monitorTask != null) monitorTask.cancel(true);
         if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
-        if (supervisor != null) supervisor.stop();
+        if (connections != null) connections.stopBuddyTunnel();
         if (executor != null) executor.shutdownNow();
         if (helperExecutor != null) helperExecutor.shutdownNow();
         super.onDestroy();
