@@ -150,6 +150,7 @@ termux_manager_ok = (
     and "UNHEALTHY" in termux_manager
     and "pid_alive" in termux_manager
     and "health_endpoint_live" in termux_manager
+    and "droidmcp-readonly" in termux_manager
     and "start_one droidmcp" in termux_manager
 )
 add("termux_bridge_droidmcp_manager", "PASS" if termux_manager_ok else "FAIL",
