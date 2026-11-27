@@ -14,7 +14,7 @@ final class RuntimeConnectionManager {
 
     private final Context app;
     private final RuntimeSupervisor buddySupervisor;
-    private final RuntimeRecoveryPolicy termuxRecovery = new RuntimeRecoveryPolicy(60000, 300000);
+    private final RuntimeRecoveryPolicy termuxRecovery = new RuntimeRecoveryPolicy(90000, 300000);
     private long nextTermuxRecoveryAt;
 
     RuntimeConnectionManager(Context context) {
