@@ -43,7 +43,7 @@ discover_profile() {
   for directory in "$HOME_DIR/.config" "$HOME_DIR/droidmcp-stage-v0.4.0"; do
     [[ -d "$directory" ]] || continue
     while IFS= read -r -d '' file; do
-      if grep -Fq "$expected_id" "$file" && grep -q "$expected_port" "$file" && grep -q 'url_file:' "$file"; then
+      if grep -Fq "$expected_id" "$file" && grep -Fq "127.0.0.1:$expected_port" "$file" && grep -q 'url_file:' "$file"; then
         matches+=("$file")
       fi
     done < <(find "$directory" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
@@ -94,7 +94,7 @@ component_paths() {
     bridge) expected_id='tunnel_6ae28b8f01788191b42901f090964502'; expected_port='18080' ;;
     droidmcp) expected_id='tunnel_6af1637e86788191aa429d5518d41938'; expected_port='41507' ;;
   esac
-  if ! grep -Fq "$expected_id" "$PROFILE" || ! grep -q "$expected_port" "$PROFILE"; then
+  if ! grep -Fq "$expected_id" "$PROFILE" || ! grep -Fq "127.0.0.1:$expected_port" "$PROFILE"; then
     echo "$1: refusing profile with an unexpected tunnel ID or health port"
     return 2
   fi
