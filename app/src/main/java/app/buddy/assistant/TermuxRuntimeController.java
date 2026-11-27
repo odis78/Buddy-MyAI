@@ -50,8 +50,8 @@ final class TermuxRuntimeController {
                     .getString("termux_manager_installed_hash", "");
             context.getSharedPreferences("runtime", Context.MODE_PRIVATE).edit()
                     .putString("termux_manager_expected_hash", expectedHash).apply();
-            String command = "set -eu; mkdir -p \"$HOME/bin\"; trap 'rm -f \"$tmp\"' EXIT; "
-                    + "target=\"$HOME/bin/buddy-tunnels\"; tmp=\"$target.installing\"; "
+            String command = "set -eu; mkdir -p \"$HOME/bin\"; "
+                    + "target=\"$HOME/bin/buddy-tunnels\"; tmp=\"$target.installing\"; trap 'rm -f \"$tmp\"' EXIT; "
                     + "printf '%s' '" + encoded + "' | base64 -d > \"$tmp\"; "
                     + "printf '%s  %s\\n' '" + expectedHash + "' \"$tmp\" | sha256sum -c - >/dev/null; chmod 700 \"$tmp\"; "
                     + "if [ -e \"$target\" ]; then "
