@@ -287,7 +287,7 @@ public final class BuddyRuntimeService extends Service {
                         ? "Use Connect Termux once to install Buddy's separate, reversible manager script."
                         : lastError + " Enable allow-external-apps=true in Termux if RUN_COMMAND was blocked.");
             } else {
-                setTermuxPersistentState("CONNECTED", "Buddy manages only Bridge 0.1.3 and DroidMCP 0.4.0; the legacy Termux REA tunnel is not started.");
+                setTermuxPersistentState("MANAGER_INSTALLED", "Buddy can manage Bridge 0.1.3 and DroidMCP 0.4.0; the legacy Termux REA tunnel is not started.");
             }
 
             if (!monitorBridge) {
