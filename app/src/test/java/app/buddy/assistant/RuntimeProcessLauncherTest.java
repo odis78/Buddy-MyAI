@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import static org.junit.Assert.*;
 
 public class RuntimeProcessLauncherTest {
+    private static final String TEST_TUNNEL_ID = "tunnel_11111111111111111111111111111111";
     @Test public void credentialsStayOutOfArgvEnvironmentAndProfile() throws Exception {
         File dir = Files.createTempDirectory("buddy-launch-test").toFile();
         File binary = new File(dir, "libtunnel-client.so");
@@ -22,7 +23,7 @@ public class RuntimeProcessLauncherTest {
             Files.write(new File(dir, RuntimeProcessLauncher.DISCOVERY_AUTH_HEADER_FILE).toPath(),
                     ("Bearer " + buddyToken).getBytes(StandardCharsets.UTF_8));
             RuntimeProfileWriter.writeBuddyProfile(config,
-                    RuntimeProcessLauncher.DEFAULT_TUNNEL_ID, dir);
+                    TEST_TUNNEL_ID, dir);
             ProcessBuilder builder = RuntimeProcessLauncher.createProcessBuilder(binary, config, dir);
             assertEquals(binary.getAbsolutePath(), builder.command().get(0));
             assertFalse(builder.command().toString().contains(apiKey));
