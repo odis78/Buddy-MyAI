@@ -2238,6 +2238,7 @@
     <string name="runtime_notification_starting">Запускаю защищённое соединение…</string>
     <string name="runtime_notification_ready">Соединение с ChatGPT активно</string>
     <string name="runtime_notification_waiting_mcp">Туннель запущен; ожидаю MCP initialize и tools/list.</string>
+    <string name="runtime_notification_waiting_remote">Инструменты MCP обнаружены; ожидаю успешный опрос и подтверждённую доставку ответа.</string>
     <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP и REA: MCP-инструменты проверены</string>
     <string name="runtime_notification_rea_installing">Buddy подключён. %1$s</string>
     <string name="runtime_notification_rea_retry">Buddy активен. Повтор запуска помощников через %1$d с.</string>
