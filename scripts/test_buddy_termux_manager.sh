@@ -152,4 +152,4 @@ rm -f "$STATE/buddy-bridge.pid"
 ! grep -Eq 'kill[[:space:]]+(-9|-KILL)' "$MANAGER"
 grep -q 'kill -TERM' "$MANAGER"
 
-echo "Termux manager tests passed: start, status, idempotency, graceful stop, stale PID recovery, foreign PID protection."
+echo "Termux manager tests passed: start/status, idempotency, legacy Bridge avoidance, independent channels, graceful stop/recovery, stale and foreign PID protection."
