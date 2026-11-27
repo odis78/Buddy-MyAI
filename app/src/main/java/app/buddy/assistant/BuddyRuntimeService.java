@@ -287,6 +287,7 @@ public final class BuddyRuntimeService extends Service {
             int bridgePort = termux.bridgePort;
             boolean bridgeTransport = termux.bridgeTransport;
             boolean droidTransport = termux.droidTransport;
+            int droidPort = getSharedPreferences("runtime", MODE_PRIVATE).getInt("termux_droidmcp_port", 0);
             boolean bridgeMcp = termux.bridgeMcp;
             boolean droidMcp = termux.droidMcp;
             boolean bridgeRemote = termux.bridgeRemote;
@@ -328,7 +329,9 @@ public final class BuddyRuntimeService extends Service {
             if (!monitorDroid) {
                 setDroidPersistentState("DISABLED", "DroidMCP management and monitoring are disabled.");
             } else if (!droidTransport) {
-                setDroidPersistentState("STARTING_OR_UNAVAILABLE", "Waiting for Termux DroidMCP on 127.0.0.1:41507.");
+                setDroidPersistentState("STARTING_OR_UNAVAILABLE", droidPort > 0
+                        ? "Waiting for Termux DroidMCP health on discovered port " + droidPort + "."
+                        : "Waiting for Termux DroidMCP to publish its dynamic health port.");
             } else if (droidRemote) {
                 setDroidPersistentState("REMOTE_CONNECTED", "DroidMCP MCP 5/5; recent control-plane poll and accepted response confirmed.");
             } else if (droidMcp) {
