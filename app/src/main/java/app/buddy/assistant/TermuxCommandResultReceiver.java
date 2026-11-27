@@ -27,6 +27,12 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
         if (error.length() > 1000) error = error.substring(0, 1000);
 
         android.content.SharedPreferences prefs = context.getSharedPreferences("runtime", Context.MODE_PRIVATE);
+        long requestGeneration = intent.getLongExtra(TermuxRuntimeController.EXTRA_REQUEST_GENERATION, -1L);
+        long latestGeneration = prefs.getLong("termux_command_generation", 0L);
+        // RUN_COMMAND callbacks can arrive out of order. An older stop/reconcile result
+        // must never overwrite the health port published by a newer manager invocation.
+        if (requestGeneration < 0L || requestGeneration != latestGeneration) return;
+
         android.content.SharedPreferences.Editor editor = prefs.edit()
                 .putString("termux_last_command", commandId)
                 .putInt("termux_last_exit_code", exitCode)
