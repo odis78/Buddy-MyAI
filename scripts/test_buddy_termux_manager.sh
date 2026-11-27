@@ -57,8 +57,8 @@ while (($#)); do
 done
 health_file="$(awk -F: '/^[[:space:]]*url_file:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/"/, "", $0); print $0; exit}' "$profile")"
 case "$profile" in
-  *bridge-013.yaml) printf '%s\\n' "http://127.0.0.1:18080" > "$health_file" ;;
-  *droidmcp-filesystem.yaml) printf '%s\\n' "http://127.0.0.1:41507" > "$health_file" ;;
+  *bridge-013.yaml) printf '%s\n' "http://127.0.0.1:18080" > "$health_file" ;;
+  *droidmcp-filesystem.yaml) printf '%s\n' "http://127.0.0.1:41507" > "$health_file" ;;
   *) exit 20 ;;
 esac
 child=""
