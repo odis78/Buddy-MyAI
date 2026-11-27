@@ -2218,6 +2218,9 @@
     <string name="runtime_settings_title">Автономная Buddy</string>
     <string name="runtime_settings_subtitle">Поддерживать связь с ChatGPT без Termux</string>
     <string name="runtime_settings_info">Tunnel Client запускается из собственного пакета Buddy. Адрес MCP для ChatGPT остаётся прежним: 127.0.0.1:8766. Нужен API-ключ управляющего сервера туннеля.</string>
+    <string name="runtime_termux_monitor_info">Buddy наблюдает за уже запущенными в Termux туннелями Bridge (порты 18080/8080) и read-only DroidMCP (41507). Buddy не запускает и не останавливает процессы Termux, чтобы не создавать дубликаты tunnel ID.</string>
+    <string name="runtime_notification_waiting_termux">Ожидаю уже запущенные в Termux процессы Bridge и DroidMCP.</string>
+    <string name="runtime_notification_termux_conflict">Оба порта Termux Bridge отвечают. Нужно устранить дублирующие процессы в Termux.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
     <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится через Android Keystore.</string>
     <string name="runtime_api_key_saved">Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.</string>
