@@ -146,6 +146,7 @@ termux_manager_ok = (
     and "rea-all" not in termux_manager
     and "tunnel_6ae28b8f01788191b42901f090964502" in termux_manager
     and "tunnel_6af1637e86788191aa429d5518d41938" in termux_manager
+    and "tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64" in termux_manager
     and "LEGACY_READY" in termux_manager
     and "UNHEALTHY" in termux_manager
     and "pid_alive" in termux_manager
