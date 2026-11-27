@@ -86,8 +86,9 @@ final class ReaRuntimeInstaller {
                     || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
                     || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)
                     || !value.contains(HELPER_PROBE_SHA256)) return false;
+            // Shared storage is mounted only for the DroidMCP child, not in generic Linux.exec checks.
             String output = Linux.exec(context,
-                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -f /root/rea/scripts/helper_mcp_catalog_probe.mjs && node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("/root/rea/.buddy-helper-mcp-probe.json","utf8")); if(r.bridge?.version!=="0.1.3" || r.bridge?.tools!==6 || !r.bridge?.sampleOk || r.droidmcp?.version!=="0.4.0" || r.droidmcp?.tools!==5 || !r.droidmcp?.sampleOk) process.exit(2);' && test -d /storage/emulated/0",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -f /root/rea/scripts/helper_mcp_catalog_probe.mjs && node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("/root/rea/.buddy-helper-mcp-probe.json","utf8")); if(r.bridge?.version!=="0.1.3" || r.bridge?.tools!==6 || !r.bridge?.sampleOk || r.droidmcp?.version!=="0.4.0" || r.droidmcp?.tools!==5 || !r.droidmcp?.sampleOk) process.exit(2);'",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
