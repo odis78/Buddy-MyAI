@@ -69,7 +69,7 @@ public class RuntimeProfileWriterTest {
 
     @Test public void generatedBridgeProfileMatchesPinnedFixture() throws Exception {
         assertProfileFixture("bridge-mcp-tunnel-profile.yaml", BRIDGE_TUNNEL,
-                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERMUX_BRIDGE_REA_ROOT=/root/rea-source /usr/bin/node /root/bridge/server/index.mjs");
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERMUX_BRIDGE_REA_ROOT=/root/rea-source BUDDY_ANDROID_PACKAGE=app.buddy.myai.gt.test221 /usr/bin/node /root/bridge/server/index.mjs");
     }
 
     @Test public void generatedDroidMcpProfileMatchesPinnedFixture() throws Exception {
