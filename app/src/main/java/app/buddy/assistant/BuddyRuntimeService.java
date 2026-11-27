@@ -283,6 +283,7 @@ public final class BuddyRuntimeService extends Service {
             connections.recoverTermuxIfUnavailable(termux, monitorBridge, monitorDroid);
 
             boolean bridgeConflict = termux.bridgeConflict;
+            boolean bridgeLegacyOnly = termux.bridgeLegacyOnly;
             int bridgePort = termux.bridgePort;
             boolean bridgeTransport = termux.bridgeTransport;
             boolean droidTransport = termux.droidTransport;
@@ -312,6 +313,8 @@ public final class BuddyRuntimeService extends Service {
                 setBridgePersistentState("DISABLED", "Bridge management and monitoring are disabled.");
             } else if (bridgeConflict) {
                 setBridgePersistentState("CONFLICT", "Both Termux Bridge health ports 18080 and 8080 are live. Buddy will not start a duplicate.");
+            } else if (bridgeLegacyOnly) {
+                setBridgePersistentState("LEGACY_ONLY", "Legacy Bridge on port 8080 detected. Stop it in Termux to start the required Bridge 0.1.3 on port 18080.");
             } else if (!bridgeTransport) {
                 setBridgePersistentState("STARTING_OR_UNAVAILABLE", "Waiting for the Termux Bridge manager on 127.0.0.1:18080 or :8080.");
             } else if (bridgeRemote) {
@@ -360,6 +363,8 @@ public final class BuddyRuntimeService extends Service {
                 updateNotification(getString(R.string.runtime_notification_setup));
             } else if (bridgeConflict) {
                 updateNotification(getString(R.string.runtime_notification_termux_conflict));
+            } else if (bridgeLegacyOnly) {
+                updateNotification(getString(R.string.runtime_notification_bridge_legacy));
             } else if ((monitorBridge && !bridgeTransport) || (monitorDroid && !droidTransport)) {
                 updateNotification(getString(R.string.runtime_notification_waiting_termux));
             } else if (!mainMcp || !bridgeMcp || !droidMcp) {
