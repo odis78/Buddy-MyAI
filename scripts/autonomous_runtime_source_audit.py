@@ -147,6 +147,8 @@ termux_manager_ok = (
     and "tunnel_6ae28b8f01788191b42901f090964502" in termux_manager
     and "tunnel_6af1637e86788191aa429d5518d41938" in termux_manager
     and "LEGACY_READY" in termux_manager
+    and "UNHEALTHY" in termux_manager
+    and "pid_alive" in termux_manager
     and "start_one droidmcp" in termux_manager
 )
 add("termux_bridge_droidmcp_manager", "PASS" if termux_manager_ok else "FAIL",
@@ -165,6 +167,8 @@ three_channel_ok = (
     and "TermuxRuntimeController.reconcile" in runtime_connection_manager
     and "RuntimeSupervisor" in runtime_connection_manager
     and "recoverTermuxIfUnavailable" in runtime_connection_manager
+    and "bridgeLegacyOnly" in runtime_connection_manager
+    and "LEGACY_ONLY" in runtime_service
     and "com.termux.permission.RUN_COMMAND" in manifest
     and 'android:name="com.termux"' in manifest
     and "startBridgeConfigured" not in runtime_service
