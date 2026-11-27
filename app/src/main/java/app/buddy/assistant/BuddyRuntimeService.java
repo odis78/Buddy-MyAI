@@ -42,6 +42,7 @@ public final class BuddyRuntimeService extends Service {
     private final RuntimeLifecycleGate helperLifecycle = new RuntimeLifecycleGate();
     private boolean retryScheduled;
     private boolean reaRetryScheduled;
+    private volatile boolean reaAttemptInProgress;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -147,7 +148,8 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void attemptReaStart() {
-        if (stopping || reaSupervisor == null) return;
+        if (stopping || reaSupervisor == null || reaAttemptInProgress) return;
+        reaAttemptInProgress = true;
         try {
             ReaRuntimeInstaller.ensureReady(getApplicationContext(),
                     message -> {
@@ -186,6 +188,8 @@ public final class BuddyRuntimeService extends Service {
             updateNotification(getString(R.string.runtime_notification_rea_retry,
                     Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
             scheduleReaAttempt(delay);
+        } finally {
+            reaAttemptInProgress = false;
         }
     }
 
@@ -252,7 +256,7 @@ public final class BuddyRuntimeService extends Service {
                 return;
             }
 
-            if (!reaTransport) {
+            if (!reaTransport && !reaAttemptInProgress) {
                 long delay = reaRecovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_rea_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
