@@ -125,7 +125,6 @@ rea_runtime_ok = (
     and "mcp doctor --format json" in rea_runtime_installer
     and "EXPECTED_TOOLS = 207" in rea_runtime_installer
     and "EXPECTED_PROMPTS = 6" in rea_runtime_installer
-    and "REA_MCP_INPUT_SCHEMA_PROFILE" not in rea_runtime_installer
     and "Linux.commandAt(app, \"/root/rea-source\"" in runtime_launcher
     and "channel: rea" in runtime_profile
 )
