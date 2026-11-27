@@ -195,7 +195,7 @@ public final class RuntimeSettingsActivity extends Screen {
     private boolean saveSettings() {
         String key = apiKey.getText().toString().trim();
         String id = tunnelId.getText().toString().trim();
-        if (!id.matches("tunnel_[a-fA-F0-9]{32}")) {
+        if (!id.isEmpty() && !id.matches("tunnel_[a-fA-F0-9]{32}")) {
             tunnelId.setError(getString(R.string.runtime_invalid_tunnel_id));
             tunnelId.requestFocus();
             return false;
