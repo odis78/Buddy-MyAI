@@ -23,7 +23,7 @@ Buddy does not overwrite the user's existing Termux manager or profiles.
 - If the exact DroidMCP profile cannot be uniquely discovered, the script refuses to start it rather than guessing.
 - The script verifies process command lines against the exact profile before signalling a process.
 - It uses SIGTERM and bounded graceful waits only. It never uses SIGKILL.
-- A live legacy Bridge on port 8080 is detected and not duplicated. The required Bridge 0.1.3 endpoint is port 18080. If only the legacy endpoint is present, Buddy reports it as legacy-only and does not count it as the required Bridge 0.1.3 connection.
+- A live legacy Bridge on port 8080 is detected and not duplicated. The required Bridge 0.1.3 endpoint is port 18080. If only the legacy endpoint is present, Buddy reports it as legacy-only, does not count it as the required Bridge 0.1.3 connection, and waits for the old process to be stopped before starting 0.1.3.
 - Bridge and DroidMCP are reconciled independently. Failure of one does not prevent an attempt to start the other.
 - An owned process whose local health endpoint remains unavailable is gracefully stopped and retried. Remote control-plane failures such as HTTP 429 do not trigger process-kill loops.
 - The app pins the manager script's SHA-256. A changed app-owned script is updated only when the installed file still matches the previously recorded hash; the old file is preserved as a timestamped backup. User-modified or unknown files are not overwritten.
