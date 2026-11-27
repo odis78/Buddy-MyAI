@@ -131,7 +131,7 @@ jobs:
             if err := loadBuddyProfile(t, data); err != nil {
               t.Fatalf("standard runtime rejected Buddy profile: %v", err)
             }
-            unsupported := strings.Replace(string(data), "health:\\n", "cloudflared:\\n  path: /tmp/cloudflared\\nhealth:\\n", 1)
+            unsupported := strings.Replace(string(data), "health:\n", "cloudflared:\n  path: /tmp/cloudflared\nhealth:\n", 1)
             if err := loadBuddyProfile(t, []byte(unsupported)); err == nil || !strings.Contains(err.Error(), "runtime configuration rejects cloudflared settings") {
               t.Fatalf("standard runtime should reject an injected cloudflared setting, got: %v", err)
             }
