@@ -58,9 +58,9 @@ android {
     buildTypes {
         debug {
             // Keep this test build beside both the installed release and the previous test APK.
-            applicationIdSuffix = ".test221"
-            versionNameSuffix = "-test221"
-            // Isolate test221 from the active Test220 MCP listener on port 8766.
+            applicationIdSuffix = ".test222"
+            versionNameSuffix = "-test222"
+            // Isolate test222 from the active Test220 MCP listener on port 8766.
             buildConfigField("int", "MCP_PORT", "18766")
         }
         release {
