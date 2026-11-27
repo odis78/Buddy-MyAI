@@ -41,6 +41,7 @@ public final class BuddyRuntimeService extends Service {
     private boolean retryScheduled;
     private volatile boolean reaChannelConfigured;
     private volatile boolean reaInstallInProgress;
+    private volatile long lastTermuxReconcileAt;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -264,6 +265,17 @@ public final class BuddyRuntimeService extends Service {
             boolean droidMcp = !monitorDroid || (droidTransport && RuntimeHealthProbe.isMcpDiscoveredAtPort(DROIDMCP_PORT, 5));
             boolean bridgeRemote = !monitorBridge || (bridgeMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(bridgePort, 6));
             boolean droidRemote = !monitorDroid || (droidMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(DROIDMCP_PORT, 5));
+
+            boolean managerInstalled = prefs.getBoolean("termux_manager_installed", false);
+            if (managerInstalled && TermuxRuntimeController.isInstalled(this)
+                    && TermuxRuntimeController.hasPermission(this)
+                    && ((monitorBridge && !bridgeTransport) || (monitorDroid && !droidTransport))) {
+                long now = System.currentTimeMillis();
+                if (now - lastTermuxReconcileAt >= 60000L) {
+                    lastTermuxReconcileAt = now;
+                    TermuxRuntimeController.reconcile(this, monitorBridge, monitorDroid);
+                }
+            }
 
             if (!TermuxRuntimeController.isInstalled(this)) {
                 setTermuxPersistentState("NOT_INSTALLED", "Install Termux to enable the two external MCP channels.");
