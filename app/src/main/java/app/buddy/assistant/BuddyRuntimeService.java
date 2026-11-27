@@ -354,7 +354,7 @@ public final class BuddyRuntimeService extends Service {
             boolean mainMcp = connections.isBuddyMcpDiscovered();
             boolean mainRemote = connections.isBuddyRemoteConnected();
             if (mainRemote && bridgeRemote && droidRemote) {
-                updateNotification(reaToggle && reaChannelConfigured
+                updateNotification(monitorBridge && monitorDroid && reaToggle && reaChannelConfigured
                         ? getString(R.string.runtime_notification_ready_with_rea)
                         : getString(R.string.runtime_notification_ready));
                 return;
