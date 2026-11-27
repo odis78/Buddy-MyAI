@@ -37,10 +37,12 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
                 .apply();
 
         if ("install".equals(commandId) && exitCode == 0) {
-            prefs.edit().putBoolean("termux_manager_installed", true).apply();
+            String expectedHash = prefs.getString("termux_manager_expected_hash", "");
+            prefs.edit()
+                    .putBoolean("termux_manager_installed", true)
+                    .putString("termux_manager_installed_hash", expectedHash)
+                    .apply();
             BuddyRuntimeService.termuxManagerReady(context);
-        } else if ("install".equals(commandId) && exitCode != 0) {
-            prefs.edit().putBoolean("termux_manager_installed", false).apply();
         }
     }
 }
