@@ -20,6 +20,7 @@ final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
     // Intentionally blank in isolated test221 so it cannot collide with the active Test220 tunnel.
     static final String DEFAULT_TUNNEL_ID = "";
+    static final String RESERVED_TEST220_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
     static final String REA_TUNNEL_ID = "tunnel_6b0070cbe1508191b1b1463fa6ffeaa2";
     static final String BRIDGE_TUNNEL_ID = "tunnel_6ae28b8f01788191b42901f090964502";
     static final String DROIDMCP_TUNNEL_ID = "tunnel_6af1637e86788191aa429d5518d41938";
