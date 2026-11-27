@@ -42,6 +42,10 @@ jobs:
         run: node --test mcp-bridge/sse-response.test.mjs
       - name: Recorded agent output tests
         run: bash linux/test/run.sh
+      - name: Termux tunnel manager syntax and lifecycle tests
+        run: |
+          bash -n app/src/main/assets/runtime/buddy-termux-tunnels.sh
+          bash scripts/test_buddy_termux_manager.sh
 
   tunnel-client-runtime:
     name: Pinned standard Tunnel Client runtime tests and Linux ARM64 build
