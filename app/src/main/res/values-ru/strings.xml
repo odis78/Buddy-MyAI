@@ -2255,6 +2255,7 @@
     <string name="runtime_notification_retry">Соединение не готово. Повтор через %1$d с.</string>
     <string name="runtime_notification_setup">Откройте настройки Buddy и укажите API-ключ туннеля.</string>
     <string name="runtime_unique_tunnel_id_required">Для test221 нужен новый уникальный tunnel ID. Не используй ID активной сборки Test220.</string>
+    <string name="runtime_test220_tunnel_id_reserved">Этот tunnel ID закреплён за активной сборкой Test220. Для test221 используй новый ID.</string>
     <string name="runtime_notification_stop">Остановить</string>
     <string name="runtime_toast_saved">Настройки runtime сохранены.</string>
     <string name="runtime_toast_started">Запрос на запуск runtime отправлен.</string>
