@@ -1,5 +1,9 @@
 name: Buddy Autonomous Runtime Audit
 
+concurrency:
+  group: buddy-autonomous-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
