@@ -89,6 +89,18 @@ legacy_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
 test ! -e "$STATE/buddy-bridge.pid"
 unset BUDDY_TEST_LEGACY_BRIDGE
 
+# A Bridge profile failure must not prevent the independent DroidMCP channel from being attempted.
+DROID_PROFILE_TEST="$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
+mv "$DROID_PROFILE_TEST" "$DROID_PROFILE_TEST.disabled"
+if bash "$HOME_DIR/bin/buddy-tunnels" start all >/dev/null 2>&1; then
+  echo "start all should report the missing DroidMCP profile" >&2
+  exit 1
+fi
+test -s "$STATE/buddy-bridge.pid"
+test ! -e "$STATE/buddy-droidmcp.pid"
+bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
+mv "$DROID_PROFILE_TEST.disabled" "$DROID_PROFILE_TEST"
+
 bash "$HOME_DIR/bin/buddy-tunnels" start all
 test -s "$STATE/buddy-bridge.pid"
 test -s "$STATE/buddy-droidmcp.pid"
