@@ -246,10 +246,13 @@ start_one() {
     found="$(find_matching_pid "$PROFILE")"
     case "$?" in
       0)
-        printf '%s\n' "$found" > "$PID_FILE"
-        if wait_health "$name"; then echo "$name: READY (recovered PID $found)"; return 0; fi
-        echo "$name: UNHEALTHY (recovered PID $found); requesting graceful restart"
-        stop_one "$name" || return 1
+        rm -f "$PID_FILE"
+        if wait_health "$name"; then
+          echo "$name: EXTERNAL_READY (PID $found; no Buddy ownership marker; left untouched)"
+          return 0
+        fi
+        echo "$name: CONFLICT (matching process PID $found has no Buddy ownership marker; left untouched)"
+        return 1
         ;;
       2) return 1 ;;
     esac
@@ -263,10 +266,12 @@ start_one() {
   found="$(find_matching_pid "$PROFILE")"
   case "$?" in
     0)
-      printf '%s\n' "$found" > "$PID_FILE"
-      if wait_health "$name"; then echo "$name: READY (adopted PID $found)"; return 0; fi
-      echo "$name: UNHEALTHY (adopted PID $found); requesting graceful restart"
-      stop_one "$name" || return 1
+      if wait_health "$name"; then
+        echo "$name: EXTERNAL_READY (PID $found; no Buddy ownership marker; left untouched)"
+        return 0
+      fi
+      echo "$name: CONFLICT (matching process PID $found has no Buddy ownership marker; left untouched)"
+      return 1
       ;;
     2) return 1 ;;
   esac
@@ -305,7 +310,10 @@ stop_one() {
   if [[ ! -s "$PID_FILE" ]]; then
     found="$(find_matching_pid "$PROFILE")"
     case "$?" in
-      0) pid="$found"; printf '%s\n' "$pid" > "$PID_FILE" ;;
+      0)
+        echo "$name: CONFLICT (matching process PID $found has no Buddy ownership marker; left untouched)"
+        return 1
+        ;;
       1)
         if health_endpoint_live "$name"; then
           echo "$name: CONFLICT (health endpoint is live without a verified PID; left untouched)"
@@ -370,7 +378,14 @@ status_one() {
   fi
   found="$(find_matching_pid "$PROFILE")"
   case "$?" in
-    0) echo "$name: RUNNING_UNTRACKED (PID $found)"; return 1 ;;
+    0)
+      if wait_health "$name"; then
+        echo "$name: EXTERNAL_READY (PID $found; not owned by Buddy)"
+        return 0
+      fi
+      echo "$name: EXTERNAL_UNHEALTHY (PID $found; not owned by Buddy)"
+      return 1
+      ;;
     2) return 1 ;;
   esac
   if health_ok || health_endpoint_live "$name"; then echo "$name: HEALTH_ENDPOINT_UNOWNED"; return 1; fi
