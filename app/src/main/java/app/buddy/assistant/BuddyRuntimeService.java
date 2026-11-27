@@ -321,14 +321,13 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
+            // The external Termux-owned Bridge and DroidMCP processes are not stopped by Buddy.
             helperLifecycle.cleanup(() -> {
-                if (bridgeSupervisor != null) bridgeSupervisor.stop();
-                if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
                 if (reaSupervisor != null) reaSupervisor.stop();
             });
             setPersistentState("STOPPED", "");
-            setBridgePersistentState("STOPPED", "");
-            setDroidPersistentState("STOPPED", "");
+            setBridgePersistentState("NOT_MONITORED", "Buddy monitor stopped; external Termux process is not affected.");
+            setDroidPersistentState("NOT_MONITORED", "Buddy monitor stopped; external Termux process is not affected.");
             setReaPersistentState("STOPPED", "");
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -427,9 +426,8 @@ public final class BuddyRuntimeService extends Service {
         if (reaMonitorTask != null) reaMonitorTask.cancel(true);
         if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
+        // Termux owns the external Bridge and DroidMCP processes; Buddy never kills them.
         helperLifecycle.cleanup(() -> {
-            if (bridgeSupervisor != null) bridgeSupervisor.stop();
-            if (droidMcpSupervisor != null) droidMcpSupervisor.stop();
             if (reaSupervisor != null) reaSupervisor.stop();
         });
         if (executor != null) executor.shutdownNow();
