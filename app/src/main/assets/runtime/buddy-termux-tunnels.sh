@@ -8,6 +8,8 @@ BIN="$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm
 STATE="$HOME_DIR/.local/state/tunnels"
 BRIDGE_PROFILE="$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
 DROID_PROFILE="$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
+PATH="$PREFIX/bin:$HOME_DIR/bin:$PATH"
+export PATH
 
 component_paths() {
   case "$1" in
@@ -85,11 +87,24 @@ start_one() {
       return 1
     fi
     if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-      echo "$name: CONFLICT (PID file points to a different process; left untouched)"
+      echo "$name: CONFLICT (PID file points to a different live process; left untouched)"
       return 1
     fi
-    echo "$name: CONFLICT (stale or invalid PID file; left untouched)"
-    return 1
+    found="$(find_matching_pid "$PROFILE")"
+    case "$?" in
+      0)
+        printf '%s\\n' "$found" > "$PID_FILE"
+        if wait_health; then echo "$name: READY (recovered PID $found)"; return 0; fi
+        echo "$name: RUNNING (recovered PID $found), health not ready"
+        return 1
+        ;;
+      2) return 1 ;;
+    esac
+    if health_ok; then
+      echo "$name: CONFLICT (stale PID file but health endpoint is live; left untouched)"
+      return 1
+    fi
+    rm -f "$PID_FILE" "$HEALTH_FILE"
   fi
 
   found="$(find_matching_pid "$PROFILE")"
@@ -139,8 +154,25 @@ stop_one() {
   fi
   IFS= read -r pid < "$PID_FILE" || pid=""
   if ! pid_matches "$pid" "$PROFILE"; then
-    echo "$name: CONFLICT (PID ownership could not be verified; process and files left untouched)"
-    return 1
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      echo "$name: CONFLICT (PID ownership could not be verified; live process left untouched)"
+      return 1
+    fi
+    found="$(find_matching_pid "$PROFILE")"
+    case "$?" in
+      0)
+        echo "$name: CONFLICT (matching process PID $found is not the registered owner; left untouched)"
+        return 1
+        ;;
+      2) return 1 ;;
+    esac
+    if health_ok; then
+      echo "$name: CONFLICT (health endpoint is live without a verified PID; left untouched)"
+      return 1
+    fi
+    rm -f "$PID_FILE" "$HEALTH_FILE"
+    echo "$name: STOPPED (stale manager state cleared; no live process found)"
+    return 0
   fi
   kill -TERM "$pid" 2>/dev/null || {
     echo "$name: STOP_FAILED (TERM was not accepted)"
