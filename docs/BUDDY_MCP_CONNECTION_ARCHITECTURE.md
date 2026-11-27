@@ -41,7 +41,7 @@ The user must:
 2. Grant Buddy the Termux `RUN_COMMAND` permission when Android prompts.
 3. Enable `allow-external-apps=true` in `~/.termux/termux.properties`, then restart Termux.
 4. Run `termux-setup-storage` once if DroidMCP needs shared-storage access.
-5. Ensure `curl` is installed in Termux (`pkg install curl` if needed).
+5. Ensure Node.js and `curl` are installed in Termux (`pkg install nodejs-lts curl` if needed).
 
 Buddy does not silently change Termux properties or install Termux packages.
 
