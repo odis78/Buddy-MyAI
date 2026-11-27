@@ -167,6 +167,7 @@ dynamic_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start droidmcp)"
 [[ "$dynamic_output" == *"BUDDY_DROIDMCP_PORT=53219"* ]]
 bash "$HOME_DIR/bin/buddy-tunnels" stop droidmcp
 unset BUDDY_TEST_DROID_PORT
+bash "$HOME_DIR/bin/buddy-tunnels" start bridge
 
 # An owned but unhealthy Bridge is stopped gracefully before a replacement is attempted.
 OLD_BRIDGE_PID="$(cat "$STATE/buddy-bridge.pid")"
