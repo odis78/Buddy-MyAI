@@ -108,6 +108,16 @@ legacy_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
 test ! -e "$STATE/buddy-bridge.pid"
 unset BUDDY_TEST_LEGACY_BRIDGE
 
+# A modified wrapper that no longer disables every write operation must be rejected.
+cp "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly" "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly.backup"
+sed -i 's/write_file,delete_file,move_file,copy_file/write_file/' "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
+if bash "$HOME_DIR/bin/buddy-tunnels" start droidmcp >/dev/null 2>&1; then
+  echo "unsafe DroidMCP wrapper was accepted" >&2
+  exit 1
+fi
+test ! -e "$STATE/buddy-droidmcp.pid"
+mv "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly.backup" "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
+
 # A live health endpoint without a verifiable process must never be duplicated or killed.
 printf '%s\\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
 if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
