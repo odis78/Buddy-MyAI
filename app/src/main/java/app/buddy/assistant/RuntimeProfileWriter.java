@@ -151,8 +151,13 @@ final class RuntimeProfileWriter {
     }
 
     static void writeBuddyProfile(File target, String tunnelId, File runtimeDir) throws IOException {
+        writeBuddyProfile(target, tunnelId, runtimeDir, null);
+    }
+
+    static void writeBuddyProfile(File target, String tunnelId, File runtimeDir,
+                                  java.util.List<String> reaCommand) throws IOException {
         if (target == null) throw new IllegalArgumentException("Profile target is required");
-        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = renderBuddyProfile(tunnelId, runtimeDir, reaCommand).getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
             throw new IOException("Tunnel Client profile directory is unavailable");
