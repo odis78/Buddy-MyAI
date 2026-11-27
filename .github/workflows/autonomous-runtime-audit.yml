@@ -325,7 +325,7 @@ jobs:
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/buddy-termux-tunnels.sh'
           mkdir -p dist
           cp "$APK" dist/buddy-runtimefix-test224-debug.apk
-          sha256sum dist/buddy-runtimefix-debug.apk | tee dist/apk-sha256.txt
+          sha256sum dist/buddy-runtimefix-test224-debug.apk | tee dist/apk-sha256.txt
       - name: Record isolated candidate signing identity
         shell: bash
         run: |
