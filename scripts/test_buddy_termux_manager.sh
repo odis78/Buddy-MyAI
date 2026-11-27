@@ -100,6 +100,15 @@ legacy_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
 test ! -e "$STATE/buddy-bridge.pid"
 unset BUDDY_TEST_LEGACY_BRIDGE
 
+# A live health endpoint without a verifiable process must never be duplicated or killed.
+printf '%s\\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
+if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
+  echo "unowned live health endpoint should be treated as a conflict" >&2
+  exit 1
+fi
+test ! -e "$STATE/buddy-bridge.pid"
+rm -f "$STATE/bridge-013.health.url"
+
 # A Bridge profile failure must not prevent the independent DroidMCP channel from being attempted.
 DROID_PROFILE_TEST="$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
 mv "$DROID_PROFILE_TEST" "$DROID_PROFILE_TEST.disabled"
