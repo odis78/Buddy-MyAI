@@ -309,8 +309,11 @@ case "${1:-status}" in
       bridge) start_one bridge ;;
       droidmcp) start_one droidmcp ;;
       all)
-        start_one bridge || exit $?
-        start_one droidmcp || exit $?
+        bridge_status=0
+        droid_status=0
+        start_one bridge || bridge_status=$?
+        start_one droidmcp || droid_status=$?
+        (( bridge_status == 0 && droid_status == 0 ))
         ;;
       *) echo "Usage: buddy-tunnels start [bridge|droidmcp|all]"; exit 2 ;;
     esac
@@ -332,10 +335,12 @@ case "${1:-status}" in
   reconcile)
     [[ "${2:-}" == on || "${2:-}" == off ]] || { echo "Usage: buddy-tunnels reconcile <on|off> <on|off>"; exit 2; }
     [[ "${3:-}" == on || "${3:-}" == off ]] || { echo "Usage: buddy-tunnels reconcile <on|off> <on|off>"; exit 2; }
-    if [[ "${3:-}" == off ]]; then stop_one droidmcp || exit $?; fi
-    if [[ "${2:-}" == off ]]; then stop_one bridge || exit $?; fi
-    if [[ "${2:-}" == on ]]; then start_one bridge || exit $?; fi
-    if [[ "${3:-}" == on ]]; then start_one droidmcp || exit $?; fi
+    reconcile_status=0
+    if [[ "${3:-}" == off ]]; then stop_one droidmcp || reconcile_status=1; fi
+    if [[ "${2:-}" == off ]]; then stop_one bridge || reconcile_status=1; fi
+    if [[ "${2:-}" == on ]]; then start_one bridge || reconcile_status=1; fi
+    if [[ "${3:-}" == on ]]; then start_one droidmcp || reconcile_status=1; fi
+    (( reconcile_status == 0 ))
     ;;
   status)
     bridge_status=0
