@@ -142,6 +142,26 @@ fi
 test ! -e "$STATE/buddy-bridge.pid"
 rm -f "$STATE/bridge-013.health.url"
 
+# A live matching tunnel without Buddy's PID ownership marker is external and must never be adopted or stopped.
+"$BIN" run --config "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" >> "$STATE/external-bridge.log" 2>&1 &
+CONFLICT_PID="$!"
+for attempt in $(seq 1 10); do
+  [[ -s "$STATE/bridge-013.health.url" ]] && break
+  sleep 0.1
+done
+external_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
+[[ "$external_output" == *"EXTERNAL_READY"* ]]
+test ! -e "$STATE/buddy-bridge.pid"
+if bash "$HOME_DIR/bin/buddy-tunnels" stop bridge >/dev/null 2>&1; then
+  echo "Buddy manager stopped an unowned external tunnel" >&2
+  exit 1
+fi
+kill -0 "$CONFLICT_PID"
+kill -TERM "$CONFLICT_PID"
+wait "$CONFLICT_PID" 2>/dev/null || true
+CONFLICT_PID=""
+rm -f "$STATE/bridge-013.health.url"
+
 # A Bridge profile failure must not prevent the independent DroidMCP channel from being attempted.
 DROID_PROFILE_TEST="$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
 mv "$DROID_PROFILE_TEST" "$DROID_PROFILE_TEST.disabled"
