@@ -242,7 +242,7 @@ public final class BuddyRuntimeService extends Service {
 
     private void startConnectionMonitor() {
         if (connectionMonitorTask != null && !connectionMonitorTask.isDone()) return;
-        if (helperExecutor == null) return;
+        if (helperExecutor == null || connections == null) return;
         connectionMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
             android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
@@ -251,38 +251,32 @@ public final class BuddyRuntimeService extends Service {
             boolean reaToggle = prefs.getBoolean("rea_enabled", true);
             boolean hasApiKey = Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET);
             boolean reaInstalled = reaToggle && hasApiKey && ReaRuntimeInstaller.isReady(this);
-            boolean bridgePrimary = monitorBridge && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_PRIMARY);
-            boolean bridgeLegacy = monitorBridge && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_LEGACY);
-            boolean bridgeConflict = monitorBridge && bridgePrimary && bridgeLegacy;
-            int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY
-                    : bridgeLegacy ? TERMUX_BRIDGE_PORT_LEGACY : 0;
-            boolean bridgeTransport = !monitorBridge || (bridgePort > 0 && !bridgeConflict);
-            boolean droidTransport = !monitorDroid || RuntimeHealthProbe.isReadyAtPort(DROIDMCP_PORT);
-            boolean bridgeMcp = !monitorBridge || (bridgeTransport && RuntimeHealthProbe.isMcpDiscoveredAtPort(bridgePort, 6));
-            boolean droidMcp = !monitorDroid || (droidTransport && RuntimeHealthProbe.isMcpDiscoveredAtPort(DROIDMCP_PORT, 5));
-            boolean bridgeRemote = !monitorBridge || (bridgeMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(bridgePort, 6));
-            boolean droidRemote = !monitorDroid || (droidMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(DROIDMCP_PORT, 5));
+            RuntimeConnectionManager.TermuxSnapshot termux =
+                    connections.inspectTermux(monitorBridge, monitorDroid);
+            connections.recoverTermuxIfUnavailable(termux, monitorBridge, monitorDroid);
 
-            boolean managerInstalled = prefs.getBoolean("termux_manager_installed", false);
-            if (managerInstalled && TermuxRuntimeController.isInstalled(this)
-                    && TermuxRuntimeController.hasPermission(this)
-                    && ((monitorBridge && !bridgeTransport) || (monitorDroid && !droidTransport))) {
-                long now = System.currentTimeMillis();
-                if (now - lastTermuxReconcileAt >= 60000L) {
-                    lastTermuxReconcileAt = now;
-                    TermuxRuntimeController.reconcile(this, monitorBridge, monitorDroid);
-                }
-            }
+            boolean bridgeConflict = termux.bridgeConflict;
+            int bridgePort = termux.bridgePort;
+            boolean bridgeTransport = termux.bridgeTransport;
+            boolean droidTransport = termux.droidTransport;
+            boolean bridgeMcp = termux.bridgeMcp;
+            boolean droidMcp = termux.droidMcp;
+            boolean bridgeRemote = termux.bridgeRemote;
+            boolean droidRemote = termux.droidRemote;
 
-            if (!TermuxRuntimeController.isInstalled(this)) {
+            if (!termux.termuxInstalled) {
                 setTermuxPersistentState("NOT_INSTALLED", "Install Termux to enable the two external MCP channels.");
-            } else if (!TermuxRuntimeController.hasPermission(this)) {
+            } else if (!termux.permissionGranted) {
                 setTermuxPersistentState("NEEDS_PERMISSION", "Buddy needs the Termux RUN_COMMAND permission.");
-            } else if (!prefs.getBoolean("termux_manager_installed", false)) {
+            } else if (!termux.managerInstalled) {
                 String lastError = prefs.getString("termux_last_error", "");
-                setTermuxPersistentState("NOT_CONNECTED", lastError.isEmpty()
-                        ? "Use Connect Termux once to install Buddy's separate, reversible manager script."
-                        : lastError + " Enable allow-external-apps=true in Termux if RUN_COMMAND was blocked.");
+                setTermuxPersistentState("NOT_CONNECTED", termux.managerError.isEmpty()
+                        ? (lastError.isEmpty()
+                            ? "Use Connect Termux once to install Buddy's separate, reversible manager script."
+                            : lastError + " Enable allow-external-apps=true in Termux if RUN_COMMAND was blocked.")
+                        : termux.managerError);
+            } else if (!termux.managerError.isEmpty()) {
+                setTermuxPersistentState("ERROR", termux.managerError);
             } else {
                 setTermuxPersistentState("MANAGER_INSTALLED", "Buddy can manage Bridge 0.1.3 and DroidMCP 0.4.0; the legacy Termux REA tunnel is not started.");
             }
@@ -318,7 +312,7 @@ public final class BuddyRuntimeService extends Service {
                 setReaPersistentState("DISABLED", "REA channel disabled; no separate REA tunnel is created.");
             } else if (!hasApiKey) {
                 setReaPersistentState("NEEDS_SETUP", "Buddy API key is required to include the internal REA channel.");
-            } else if (reaInstalled && supervisor != null && supervisor.isReady() && reaChannelConfigured) {
+            } else if (reaInstalled && connections.isBuddyReady() && reaChannelConfigured) {
                 setReaPersistentState("CHANNEL_CONFIGURED", "REA 6.5.0 runs inside Buddy's existing Alpine/PRoot and is exposed as channel 'rea' under the Buddy tunnel. Local doctor: 207/207 tools, 6/6 prompts.");
             } else if (!reaInstalled) {
                 setReaPersistentState("INSTALL_REQUIRED", "Buddy-local REA 6.5.0 is not ready yet; the main Buddy tunnel remains independent.");
@@ -328,8 +322,8 @@ public final class BuddyRuntimeService extends Service {
                 if (!retryScheduled) scheduleAttempt(1000);
             }
 
-            boolean mainMcp = supervisor != null && supervisor.isMcpDiscovered(0);
-            boolean mainRemote = supervisor != null && supervisor.isRemoteConnected(0);
+            boolean mainMcp = connections.isBuddyMcpDiscovered();
+            boolean mainRemote = connections.isBuddyRemoteConnected();
             if (mainRemote && bridgeRemote && droidRemote) {
                 updateNotification(reaToggle && reaChannelConfigured
                         ? getString(R.string.runtime_notification_ready_with_rea)
