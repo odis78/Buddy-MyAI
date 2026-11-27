@@ -106,6 +106,17 @@ component_paths() {
   }
 }
 
+pid_alive() {
+  local pid="$1" state
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  if [[ -r "/proc/$pid/stat" ]]; then
+    state="$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null || true)"
+    [[ "$state" != "Z" ]] || return 1
+  fi
+  return 0
+}
+
 pid_matches() {
   local pid="$1" profile="$2" cmdline
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
@@ -174,7 +185,7 @@ start_one() {
       echo "$name: UNHEALTHY (PID $pid); requesting graceful restart"
       stop_one "$name" || return 1
     fi
-    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    if pid_alive "$pid"; then
       echo "$name: CONFLICT (PID file points to a different live process; left untouched)"
       return 1
     fi
@@ -222,10 +233,10 @@ start_one() {
   if pid_matches "$pid" "$PROFILE"; then
     kill -TERM "$pid" 2>/dev/null || true
     for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
-      kill -0 "$pid" 2>/dev/null || break
+      pid_alive "$pid" || break
       sleep 1
     done
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! pid_alive "$pid"; then
       rm -f "$PID_FILE" "$HEALTH_FILE"
     fi
   fi
