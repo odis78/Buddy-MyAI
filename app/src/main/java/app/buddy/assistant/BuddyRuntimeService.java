@@ -35,6 +35,7 @@ public final class BuddyRuntimeService extends Service {
     private static final int DROIDMCP_PORT = 41507;
     private RuntimeRecoveryPolicy recovery;
     private ScheduledFuture<?> monitorTask;
+    private ScheduledFuture<?> connectionMonitorTask;
     private ScheduledFuture<?> retryTask;
     private volatile boolean stopping;
     private boolean retryScheduled;
@@ -62,7 +63,7 @@ public final class BuddyRuntimeService extends Service {
         });
         Context app = getApplicationContext();
         supervisor = new RuntimeSupervisor(app);
-        helperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        helperExecutor = Executors.newScheduledThreadPool(2, r -> {
             Thread thread = new Thread(r, "buddy-termux-connection-monitor");
             thread.setDaemon(true);
             return thread;
@@ -242,9 +243,9 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void startConnectionMonitor() {
-        if (monitorTask != null && !monitorTask.isDone()) return;
+        if (connectionMonitorTask != null && !connectionMonitorTask.isDone()) return;
         if (helperExecutor == null) return;
-        monitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
+        connectionMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
             android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
             boolean monitorBridge = prefs.getBoolean("monitor_bridge", true);
@@ -371,6 +372,7 @@ public final class BuddyRuntimeService extends Service {
     private void requestStop() {
         stopping = true;
         if (monitorTask != null) monitorTask.cancel(true);
+        if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
         if (helperExecutor != null) helperExecutor.shutdownNow();
         if (TermuxRuntimeController.isInstalled(this)
@@ -386,6 +388,7 @@ public final class BuddyRuntimeService extends Service {
         }
         executor.execute(() -> {
             if (monitorTask != null) monitorTask.cancel(true);
+            if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
             setPersistentState("STOPPED", "Buddy tunnel stopped.");
@@ -493,6 +496,7 @@ public final class BuddyRuntimeService extends Service {
     @Override public void onDestroy() {
         stopping = true;
         if (monitorTask != null) monitorTask.cancel(true);
+        if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
         if (executor != null) executor.shutdownNow();
