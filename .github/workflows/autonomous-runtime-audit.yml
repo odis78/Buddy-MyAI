@@ -59,9 +59,7 @@ jobs:
       - name: Validate Buddy and helper profiles against pinned standard runtime schema
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
-          cp app/src/test/resources/rea-mcp-tunnel-profile.yaml tunnel-client/rea-profile-validation.yaml
-          cp app/src/test/resources/bridge-mcp-tunnel-profile.yaml tunnel-client/bridge-profile-validation.yaml
-          cp app/src/test/resources/droidmcp-tunnel-profile.yaml tunnel-client/droidmcp-profile-validation.yaml
+          cp app/src/test/resources/buddy-myai-rea-channel-profile.yaml tunnel-client/buddy-rea-profile-validation.yaml
           cat > tunnel-client/pkg/runtimeconfig/buddy_profile_validation_test.go <<'EOF'
           package runtimeconfig
 
@@ -71,7 +69,7 @@ jobs:
           )
 
           func TestBuddyGeneratedProfilesAcceptedByPinnedRuntime(t *testing.T) {
-            for _, name := range []string{"buddy-profile-validation.yaml", "bridge-profile-validation.yaml", "droidmcp-profile-validation.yaml", "rea-profile-validation.yaml"} {
+            for _, name := range []string{"buddy-profile-validation.yaml", "buddy-rea-profile-validation.yaml"} {
               data, err := os.ReadFile("../../" + name)
               if err != nil {
                 t.Fatalf("read profile fixture %s: %v", name, err)
@@ -94,14 +92,8 @@ jobs:
             "github.com/spf13/pflag"
           )
 
-          func TestBuddyProfileUsesStandardRuntimeWithoutCloudflared(t *testing.T) {
-            data, err := os.ReadFile("../../buddy-profile-validation.yaml")
-            if err != nil {
-              t.Fatal(err)
-            }
-            if strings.Contains(string(data), "cloudflared:") {
-              t.Fatal("Buddy profile must match the working no-cloudflared tunnel configuration")
-            }
+          func loadBuddyProfile(t *testing.T, data []byte) error {
+            t.Helper()
             dir := t.TempDir()
             profile := strings.ReplaceAll(string(data), "/tmp/buddy-runtime", dir)
             for name, value := range map[string]string{
@@ -117,35 +109,45 @@ jobs:
             if err := os.WriteFile(configPath, []byte(profile), 0o600); err != nil {
               t.Fatal(err)
             }
-
             flags := pflag.NewFlagSet("runtime", pflag.ContinueOnError)
             RegisterFlags(flags, FlavorRuntime)
             if err := flags.Parse([]string{"--config", configPath}); err != nil {
-              t.Fatal(err)
+              return err
             }
-            if _, err := LoadFromFlagSet(flags, func(string) (string, bool) {
-              return "", false
-            }); err != nil {
+            _, err := LoadFromFlagSet(flags, func(string) (string, bool) { return "", false })
+            return err
+          }
+
+          func TestBuddyProfileUsesStandardRuntimeWithoutCloudflared(t *testing.T) {
+            data, err := os.ReadFile("../../buddy-profile-validation.yaml")
+            if err != nil { t.Fatal(err) }
+            if strings.Contains(string(data), "cloudflared:") {
+              t.Fatal("Buddy profile must match the working no-cloudflared tunnel configuration")
+            }
+            if err := loadBuddyProfile(t, data); err != nil {
               t.Fatalf("standard runtime rejected Buddy profile: %v", err)
             }
-
-            unsupported := strings.Replace(string(data), "health:\n", "cloudflared:\n  path: /tmp/cloudflared\nhealth:\n", 1)
-            unsupported = strings.ReplaceAll(unsupported, "/tmp/buddy-runtime", dir)
-            if err := os.WriteFile(configPath, []byte(unsupported), 0o600); err != nil {
-              t.Fatal(err)
-            }
-            badFlags := pflag.NewFlagSet("runtime-cloudflared-settings-rejected", pflag.ContinueOnError)
-            RegisterFlags(badFlags, FlavorRuntime)
-            if err := badFlags.Parse([]string{"--config", configPath}); err != nil {
-              t.Fatal(err)
-            }
-            if _, err := LoadFromFlagSet(badFlags, func(string) (string, bool) {
-              return "", false
-            }); err == nil || !strings.Contains(err.Error(), "runtime configuration rejects cloudflared settings") {
+            unsupported := strings.Replace(string(data), "health:\\n", "cloudflared:\\n  path: /tmp/cloudflared\\nhealth:\\n", 1)
+            if err := loadBuddyProfile(t, []byte(unsupported)); err == nil || !strings.Contains(err.Error(), "runtime configuration rejects cloudflared settings") {
               t.Fatalf("standard runtime should reject an injected cloudflared setting, got: %v", err)
             }
           }
-          EOF
+
+          func TestBuddyProfileHostsREAAsSecondChannelUnderSameTunnel(t *testing.T) {
+            data, err := os.ReadFile("../../buddy-rea-profile-validation.yaml")
+            if err != nil { t.Fatal(err) }
+            profile := string(data)
+            if strings.Count(profile, "tunnel_id:") != 1 {
+              t.Fatalf("REA must not introduce another tunnel identity")
+            }
+            if !strings.Contains(profile, "channel: main") || !strings.Contains(profile, "channel: rea") {
+              t.Fatalf("expected main and rea MCP channels in one profile")
+            }
+            if err := loadBuddyProfile(t, data); err != nil {
+              t.Fatalf("standard runtime rejected Buddy+REA multi-channel profile: %v", err)
+            }
+          }
+          EOF     EOF
       - name: Run upstream runtime-focused Go tests
         run: |
           docker run --rm --cap-drop=SYS_PTRACE \
