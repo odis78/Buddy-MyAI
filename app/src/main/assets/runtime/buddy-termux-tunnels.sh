@@ -93,7 +93,7 @@ start_one() {
     found="$(find_matching_pid "$PROFILE")"
     case "$?" in
       0)
-        printf '%s\\n' "$found" > "$PID_FILE"
+        printf '%s\n' "$found" > "$PID_FILE"
         if wait_health; then echo "$name: READY (recovered PID $found)"; return 0; fi
         echo "$name: RUNNING (recovered PID $found), health not ready"
         return 1
