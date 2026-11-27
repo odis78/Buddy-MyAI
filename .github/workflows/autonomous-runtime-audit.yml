@@ -224,24 +224,12 @@ jobs:
               cp /work/scripts/rea_tools_list_probe.mjs /root/rea/scripts/
               cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
               node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
-              cp /work/app/src/main/assets/runtime/termux-bridge-0.1.3.mjs /root/rea/scripts/bridge.mjs
-              cp /work/app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs /root/rea/scripts/droidmcp.mjs
-              git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source
-              test "$(git -C /root/rea-source rev-parse HEAD)" = "3b79af28e80785afce9f5998d8f03289402a1847"
-              mkdir -p /root/bridge/server /root/droidmcp/server /system /apex /vendor /product /system_ext
-              cp /root/rea/scripts/bridge.mjs /root/bridge/server/index.mjs
-              cp /root/rea/scripts/droidmcp.mjs /root/droidmcp/server/index.mjs
-              node --check /root/bridge/server/index.mjs
-              node --check /root/droidmcp/server/index.mjs
-              cp /work/scripts/helper_mcp_catalog_probe.mjs /root/rea/scripts/
-              node /root/rea/scripts/helper_mcp_catalog_probe.mjs /root/rea/scripts/bridge.mjs /root/rea/scripts/droidmcp.mjs > /work/dist/helper-mcp-probe.json
               node --version
               npm --version
               java -version
               adb version
               apk info -v nodejs-current
             '
-          sha256sum dist/rea-agents-6.5.0.tgz dist/rea-mcp-doctor.json dist/rea-mcp-tools-probe.json dist/helper-mcp-probe.json app/src/main/assets/runtime/termux-bridge-0.1.3.mjs app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: rea-agents-6.5.0-alpine-arm64-smoke
@@ -249,7 +237,6 @@ jobs:
             dist/rea-agents-6.5.0.tgz
             dist/rea-mcp-doctor.json
             dist/rea-mcp-tools-probe.json
-            dist/helper-mcp-probe.json
 
   android-baseline-build:
     name: Buddy Android baseline build with pinned runtime payload
@@ -308,20 +295,11 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signature-verification.txt
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test222'"
-          printf '%s\n' "$BADGING" | grep -F "versionCode='220'"
+          printf '%s\n' "$BADGING" | grep -F "versionCode='221'"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libtunnel-client.so'
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/rea-agents-6.5.0.tgz'
-          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/termux-bridge-0.1.3.mjs'
-          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/droidmcp-filesystem-0.4.0.mjs'
-          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/helper_mcp_catalog_probe.mjs'
           REA_SHA="$(unzip -p "$APK" assets/runtime/rea-agents-6.5.0.tgz | sha256sum | cut -d ' ' -f1)"
           test "$REA_SHA" = '531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699'
-          BRIDGE_SHA="$(unzip -p "$APK" assets/runtime/termux-bridge-0.1.3.mjs | sha256sum | cut -d ' ' -f1)"
-          test "$BRIDGE_SHA" = '2b7add212d42e5b22502c4c56ded4423ae5de5de3d847c4970e2e845c7ae5da4'
-          DROID_SHA="$(unzip -p "$APK" assets/runtime/droidmcp-filesystem-0.4.0.mjs | sha256sum | cut -d ' ' -f1)"
-          test "$DROID_SHA" = '75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265'
-          PROBE_SHA="$(unzip -p "$APK" assets/runtime/helper_mcp_catalog_probe.mjs | sha256sum | cut -d ' ' -f1)"
-          test "$PROBE_SHA" = '4b2cbe541523eea21f4d60371e8aa4e97fee248dbc94ac0deb881a799e3e7805'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libbuddy.so' || true
           RUNTIME_SHA="$(unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | cut -d ' ' -f1)"
           test "$RUNTIME_SHA" = 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e'
@@ -329,6 +307,8 @@ jobs:
             echo 'Unexpected cloudflared payload in standard runtime APK' >&2
             exit 1
           fi
+          bash -n app/src/main/assets/runtime/buddy-termux-tunnels.sh
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/buddy-termux-tunnels.sh'
           mkdir -p dist
           cp "$APK" dist/buddy-runtimefix-debug.apk
           sha256sum dist/buddy-runtimefix-debug.apk | tee dist/apk-sha256.txt
