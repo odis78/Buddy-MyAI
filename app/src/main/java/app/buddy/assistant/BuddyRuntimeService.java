@@ -64,11 +64,11 @@ public final class BuddyRuntimeService extends Service {
         Context app = getApplicationContext();
         supervisor = new RuntimeSupervisor(app);
         bridgeSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/bridge-tunnel"),
-                () -> RuntimeProcessLauncher.startBridgeConfigured(app), true);
+                () -> RuntimeProcessLauncher.startBridgeConfigured(app), false);
         droidMcpSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/droidmcp-tunnel"),
-                () -> RuntimeProcessLauncher.startDroidMcpConfigured(app), true);
+                () -> RuntimeProcessLauncher.startDroidMcpConfigured(app), false);
         reaSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/rea-tunnel"),
-                () -> RuntimeProcessLauncher.startReaConfigured(app), true);
+                () -> RuntimeProcessLauncher.startReaConfigured(app), false);
         helperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "buddy-rea-supervisor");
             thread.setDaemon(true);
@@ -92,6 +92,7 @@ public final class BuddyRuntimeService extends Service {
         }
         promoteToForeground(getString(R.string.runtime_notification_starting));
         scheduleAttempt(0);
+        scheduleReaAttempt(0);
         return START_STICKY;
     }
 
@@ -110,10 +111,8 @@ public final class BuddyRuntimeService extends Service {
             boolean ready = supervisor.start();
             if (ready) {
                 recovery.reset();
-                setPersistentState("READY", "");
-                updateNotification(getString(R.string.runtime_notification_ready));
+                updateMainMcpState();
                 startMonitor();
-                scheduleReaAttempt(0);
             } else {
                 setPersistentState("WAITING", supervisor.lastError());
                 long delay = recovery.nextDelayMillis();
@@ -165,28 +164,27 @@ public final class BuddyRuntimeService extends Service {
             boolean bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                     () -> bridgeSupervisor.start(),
                     (state, detail) -> setBridgePersistentState(state, detail),
-                    "6 tools; Bridge 0.1.3",
+                    "Transport ready; awaiting MCP discovery (6 tools expected)",
                     () -> bridgeSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
             boolean droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                     () -> droidMcpSupervisor.start(),
                     (state, detail) -> setDroidPersistentState(state, detail),
-                    "5 read-only tools; DroidMCP 0.4.0",
+                    "Transport ready; awaiting MCP discovery (5 tools expected)",
                     () -> droidMcpSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
             boolean reaReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                     () -> reaSupervisor.start(),
                     (state, detail) -> setReaPersistentState(state, detail),
-                    "207 tools; 6 prompts",
+                    "Transport ready; awaiting MCP discovery (207 tools, 6 prompts expected)",
                     () -> reaSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
+            startReaMonitor();
             if (bridgeReady && droidReady && reaReady) {
                 reaRecovery.reset();
-                updateNotification(getString(R.string.runtime_notification_ready_with_rea));
-                startReaMonitor();
             } else {
                 long delay = reaRecovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_rea_retry,
@@ -211,32 +209,83 @@ public final class BuddyRuntimeService extends Service {
         if (reaMonitorTask != null && !reaMonitorTask.isDone()) return;
         if (helperExecutor == null) return;
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
-            if (stopping || reaSupervisor == null) return;
-            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady();
-            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
-            boolean reaReady = reaSupervisor.isReady();
-            if (bridgeReady && droidReady && reaReady) return;
-            if (!bridgeReady) setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "" : bridgeSupervisor.lastError());
-            if (!droidReady) setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "" : droidMcpSupervisor.lastError());
-            if (!reaReady) setReaPersistentState("DEGRADED", reaSupervisor.lastError());
-            long delay = reaRecovery.nextDelayMillis();
-            updateNotification(getString(R.string.runtime_notification_rea_retry,
-                    Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
-            scheduleReaAttempt(delay);
-        }, 30, 30, TimeUnit.SECONDS);
+            if (stopping) return;
+
+            boolean bridgeTransport = bridgeSupervisor != null && bridgeSupervisor.isReady();
+            boolean droidTransport = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
+            boolean reaTransport = reaSupervisor != null && reaSupervisor.isReady();
+
+            boolean bridgeMcp = bridgeTransport && bridgeSupervisor.isMcpDiscovered(6);
+            boolean droidMcp = droidTransport && droidMcpSupervisor.isMcpDiscovered(5);
+            boolean reaMcp = reaTransport && reaSupervisor.isMcpDiscovered(207);
+
+            if (!bridgeTransport) {
+                setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "Supervisor unavailable" : bridgeSupervisor.lastError());
+            } else if (bridgeMcp) {
+                setBridgePersistentState("READY", "MCP initialize and complete tools/list confirmed (6/6)");
+            } else {
+                setBridgePersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (6 expected)");
+            }
+
+            if (!droidTransport) {
+                setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "Supervisor unavailable" : droidMcpSupervisor.lastError());
+            } else if (droidMcp) {
+                setDroidPersistentState("READY", "MCP initialize and complete tools/list confirmed (5/5)");
+            } else {
+                setDroidPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (5 expected)");
+            }
+
+            if (!reaTransport) {
+                setReaPersistentState("DEGRADED", reaSupervisor == null ? "Supervisor unavailable" : reaSupervisor.lastError());
+            } else if (reaMcp) {
+                setReaPersistentState("READY", "MCP initialize and complete tools/list confirmed (207/207); installer validated 6/6 prompts");
+            } else {
+                setReaPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (207 expected; 6 prompts prevalidated)");
+            }
+
+            if (bridgeMcp && droidMcp && reaMcp) {
+                reaRecovery.reset();
+                updateNotification(getString(R.string.runtime_notification_ready_with_rea));
+                return;
+            }
+
+            boolean transportFailure = !bridgeTransport || !droidTransport || !reaTransport;
+            if (transportFailure) {
+                long delay = reaRecovery.nextDelayMillis();
+                updateNotification(getString(R.string.runtime_notification_rea_retry,
+                        Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
+                scheduleReaAttempt(delay);
+            } else {
+                reaRecovery.reset();
+                updateNotification(getString(R.string.runtime_notification_waiting_mcp));
+            }
+        }, 0, 15, TimeUnit.SECONDS);
+    }
+
+    private void updateMainMcpState() {
+        if (supervisor != null && supervisor.isMcpDiscovered(0)) {
+            setPersistentState("READY", "MCP initialize and complete tools/list confirmed");
+            updateNotification(getString(R.string.runtime_notification_ready));
+        } else {
+            setPersistentState("TRANSPORT_READY", "Tunnel Client process and /readyz confirmed; waiting for MCP initialize/tools/list");
+            updateNotification(getString(R.string.runtime_notification_waiting_mcp));
+        }
     }
 
     private void startMonitor() {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
             if (stopping || supervisor == null) return;
-            if (supervisor.isReady()) return;
-            String message = supervisor.lastError();
-            setPersistentState("DEGRADED", message);
-            long delay = recovery.nextDelayMillis();
-            updateNotification(getString(R.string.runtime_notification_retry,
-                    Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
-            scheduleAttempt(delay);
+            if (!supervisor.isReady()) {
+                String message = supervisor.lastError();
+                setPersistentState("DEGRADED", message);
+                long delay = recovery.nextDelayMillis();
+                updateNotification(getString(R.string.runtime_notification_retry,
+                        Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
+                scheduleAttempt(delay);
+                return;
+            }
+            updateMainMcpState();
         }, 15, 15, TimeUnit.SECONDS);
     }
 
