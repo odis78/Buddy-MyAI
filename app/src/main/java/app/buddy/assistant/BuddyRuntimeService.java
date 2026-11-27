@@ -180,8 +180,6 @@ public final class BuddyRuntimeService extends Service {
         } catch (Exception e) {
             if (stopping) return;
             String message = safeMessage(e);
-            setBridgePersistentState("ERROR", message);
-            setDroidPersistentState("ERROR", message);
             setReaPersistentState("ERROR", message);
             Log.w(TAG, "Helper runtime bootstrap failed: " + message);
             long delay = reaRecovery.nextDelayMillis();
