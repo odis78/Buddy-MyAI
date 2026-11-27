@@ -15,7 +15,7 @@ log:
 mcp:
   server_urls:
     - channel: main
-      url: "http://127.0.0.1:__MCP_PORT__/mcp"
+      url: "http://127.0.0.1:18766/mcp"
   extra_headers:
     Authorization: "file:/tmp/buddy-runtime/buddy-auth-header"
   discovery_extra_headers:
