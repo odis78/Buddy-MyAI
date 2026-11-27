@@ -334,7 +334,9 @@ public final class BuddyRuntimeService extends Service {
             boolean mainMcp = supervisor != null && supervisor.isMcpDiscovered(0);
             boolean mainRemote = supervisor != null && supervisor.isRemoteConnected(0);
             if (mainRemote && bridgeRemote && droidRemote) {
-                updateNotification(getString(R.string.runtime_notification_ready_with_rea));
+                updateNotification(reaToggle && reaChannelConfigured
+                        ? getString(R.string.runtime_notification_ready_with_rea)
+                        : getString(R.string.runtime_notification_ready));
                 return;
             }
             if (!hasApiKey) {
