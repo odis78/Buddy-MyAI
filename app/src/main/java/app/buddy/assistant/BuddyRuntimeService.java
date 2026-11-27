@@ -220,22 +220,21 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void reconcileTermuxConnections() {
-        if (stopping || helperExecutor == null) return;
+        if (stopping || helperExecutor == null || connections == null) return;
         android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
         if (!prefs.getBoolean("termux_manager_installed", false)) return;
-        if (!TermuxRuntimeController.isInstalled(this)) {
+        if (!connections.isTermuxInstalled()) {
             setTermuxPersistentState("NOT_INSTALLED", "Termux is not installed.");
             return;
         }
-        if (!TermuxRuntimeController.hasPermission(this)) {
+        if (!connections.hasTermuxPermission()) {
             setTermuxPersistentState("NEEDS_PERMISSION", "Grant Buddy the Termux RUN_COMMAND permission.");
             return;
         }
         boolean bridge = prefs.getBoolean("monitor_bridge", true);
         boolean droid = prefs.getBoolean("monitor_droidmcp", true);
         helperExecutor.execute(() -> {
-            if (!stopping) {
-                TermuxRuntimeController.reconcile(this, bridge, droid);
+            if (!stopping && connections.reconcileTermux(bridge, droid)) {
                 setTermuxPersistentState("RECONCILING", "Requested Bridge=" + bridge + ", DroidMCP=" + droid + " from Termux.");
             }
         });
