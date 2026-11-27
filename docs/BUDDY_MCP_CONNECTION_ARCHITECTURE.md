@@ -31,6 +31,8 @@ Buddy does not overwrite the user's existing Termux manager or profiles.
 
 The app no longer requests Android's broad `MANAGE_EXTERNAL_STORAGE` permission for DroidMCP. Termux owns filesystem access for the read-only DroidMCP channel.
 
+The historical `REA-Termux-Android` route is deliberately not started, stopped, or rewritten by this manager. It remains untouched until Buddy's internal `rea` channel is verified end-to-end on the physical device; only then can a separate, explicit handoff retire the old route.
+
 ## One-time Termux setup
 
 The user must:
