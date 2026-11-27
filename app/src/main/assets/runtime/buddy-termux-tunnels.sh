@@ -2,8 +2,8 @@
 # Buddy Termux tunnel manager. Installs beside existing Termux tooling; never edits profiles or legacy managers.
 set -u
 
-PREFIX="/data/data/com.termux/files/usr"
-HOME_DIR="/data/data/com.termux/files/home"
+PREFIX="${BUDDY_TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
+HOME_DIR="${BUDDY_TERMUX_HOME:-/data/data/com.termux/files/home}"
 BIN="$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 STATE="$HOME_DIR/.local/state/tunnels"
 BRIDGE_PROFILE="$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
