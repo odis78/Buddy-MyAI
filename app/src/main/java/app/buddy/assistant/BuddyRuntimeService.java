@@ -154,13 +154,13 @@ public final class BuddyRuntimeService extends Service {
         if (stopping || reaSupervisor == null || reaAttemptInProgress) return;
         reaAttemptInProgress = true;
         try {
-            if (!Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
-                setReaPersistentState("NEEDS_SETUP", "API key required for Buddy-local REA.");
-                return;
-            }
             if (!getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)) {
                 reaSupervisor.stop();
                 setReaPersistentState("DISABLED", "Buddy-local REA tunnel disabled by user.");
+                return;
+            }
+            if (!Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
+                setReaPersistentState("NEEDS_SETUP", "API key required for Buddy-local REA.");
                 return;
             }
             ReaRuntimeInstaller.ensureReady(getApplicationContext(),
