@@ -37,7 +37,7 @@ public class RuntimeProfileWriterTest {
             while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
             bytes = out.toByteArray();
         }
-        String expected = new String(bytes, StandardCharsets.UTF_8).replace("__MCP_PORT__", Integer.toString(McpServer.PORT));
+        String expected = new String(bytes, StandardCharsets.UTF_8).replace("18766", Integer.toString(McpServer.PORT));
         assertEquals(expected, RuntimeProfileWriter.renderBuddyProfile(TUNNEL, new File("/tmp/buddy-runtime")));
     }
 
