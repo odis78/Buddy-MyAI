@@ -27,14 +27,33 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
         if (error.length() > 1000) error = error.substring(0, 1000);
 
         android.content.SharedPreferences prefs = context.getSharedPreferences("runtime", Context.MODE_PRIVATE);
-        prefs.edit()
+        long requestGeneration = intent.getLongExtra(TermuxRuntimeController.EXTRA_REQUEST_GENERATION, -1L);
+        long latestGeneration = prefs.getLong("termux_command_generation", 0L);
+        // RUN_COMMAND callbacks can arrive out of order. An older stop/reconcile result
+        // must never overwrite the health port published by a newer manager invocation.
+        if (requestGeneration < 0L || requestGeneration != latestGeneration) return;
+
+        android.content.SharedPreferences.Editor editor = prefs.edit()
                 .putString("termux_last_command", commandId)
                 .putInt("termux_last_exit_code", exitCode)
                 .putString("termux_last_stdout", stdout)
                 .putString("termux_last_stderr", stderr)
                 .putString("termux_last_error", error)
-                .putLong("termux_last_result_at", System.currentTimeMillis())
-                .apply();
+                .putLong("termux_last_result_at", System.currentTimeMillis());
+
+        // The Termux-side manager resolves the actual loopback port from health.url_file.
+        // Persist only a bounded numeric port emitted by that hash-verified manager.
+        if ("reconcile".equals(commandId) || "status".equals(commandId) || "stop".equals(commandId)) {
+            java.util.regex.Matcher portMatch = java.util.regex.Pattern
+                    .compile("(?m)^BUDDY_DROIDMCP_PORT=([0-9]{1,5})\\s*$").matcher(stdout);
+            if (portMatch.find()) {
+                try {
+                    int port = Integer.parseInt(portMatch.group(1));
+                    if (port >= 0 && port <= 65535) editor.putInt("termux_droidmcp_port", port);
+                } catch (NumberFormatException ignored) { }
+            }
+        }
+        editor.apply();
 
         if ("install".equals(commandId) && exitCode == 0) {
             String expectedHash = prefs.getString("termux_manager_expected_hash", "");

@@ -20,6 +20,7 @@ final class TermuxRuntimeController {
     static final String PERMISSION = "com.termux.permission.RUN_COMMAND";
     static final String ACTION = "com.termux.RUN_COMMAND";
     static final String EXTRA_COMMAND_ID = "buddy_command_id";
+    static final String EXTRA_REQUEST_GENERATION = "buddy_request_generation";
     private static final String SERVICE = "com.termux.app.RunCommandService";
     private static final String TERMUX_HOME = "/data/data/com.termux/files/home";
     private static final String TERMUX_BASH = "/data/data/com.termux/files/usr/bin/bash";
@@ -103,7 +104,7 @@ final class TermuxRuntimeController {
         return out.toString();
     }
 
-    private static void dispatch(Context context, String commandId, String command) {
+    private static synchronized void dispatch(Context context, String commandId, String command) {
         if (!isInstalled(context)) {
             recordError(context, commandId, "Termux is not installed.");
             return;
@@ -113,13 +114,18 @@ final class TermuxRuntimeController {
             return;
         }
         try {
+            int requestId = REQUESTS.incrementAndGet();
+            long generation = context.getSharedPreferences("runtime", Context.MODE_PRIVATE)
+                    .getLong("termux_command_generation", 0L) + 1L;
+            context.getSharedPreferences("runtime", Context.MODE_PRIVATE).edit()
+                    .putLong("termux_command_generation", generation).apply();
             Intent callback = new Intent(context, TermuxCommandResultReceiver.class)
-                    .setAction("app.buddy.assistant.TERMUX_RESULT." + commandId + "." + REQUESTS.get());
+                    .setAction("app.buddy.assistant.TERMUX_RESULT." + commandId + "." + requestId);
             callback.putExtra(EXTRA_COMMAND_ID, commandId);
+            callback.putExtra(EXTRA_REQUEST_GENERATION, generation);
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
-            PendingIntent result = PendingIntent.getBroadcast(context, REQUESTS.incrementAndGet(),
-                    callback, flags);
+            PendingIntent result = PendingIntent.getBroadcast(context, requestId, callback, flags);
 
             Intent intent = new Intent(ACTION)
                     .setComponent(new ComponentName(PACKAGE, SERVICE))

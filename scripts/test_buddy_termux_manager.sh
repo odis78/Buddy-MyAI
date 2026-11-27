@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export BUDDY_HEALTH_ATTEMPTS=3 BUDDY_STOP_ATTEMPTS=3
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANAGER="$ROOT/app/src/main/assets/runtime/buddy-termux-tunnels.sh"
@@ -18,6 +19,7 @@ cleanup() {
   rm -rf "$TMP"
 }
 trap cleanup EXIT
+trap 'rc=$?; printf "TEST FAILURE line=%s command=%s exit=%s\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2; exit "$rc"' ERR
 
 mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
 mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
@@ -50,7 +52,7 @@ cat > "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yam
 control_plane:
   tunnel_id: "tunnel_6af1637e86788191aa429d5518d41938"
 health:
-  listen_addr: "127.0.0.1:41507"
+  listen_addr: "127.0.0.1:0"
   url_file: "$STATE/droidmcp.health.url"
 mcp:
   commands:
@@ -70,9 +72,11 @@ case "$url" in
     test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-013.health.url"
     exit $?
     ;;
-  *":41507/"*)
-    test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/droidmcp.health.url"
-    exit $?
+  *"/readyz")
+    port="${url#http://127.0.0.1:}"
+    port="${port%%/*}"
+    expected="$(cat "$BUDDY_TERMUX_HOME/.local/state/tunnels/droidmcp.health.url" 2>/dev/null || true)"
+    [[ "$expected" == "http://127.0.0.1:$port" ]] && exit 0
     ;;
 esac
 exit 22
@@ -94,7 +98,7 @@ done
 health_file="$(awk -F: '/^[[:space:]]*url_file:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/"/, "", $0); print $0; exit}' "$profile")"
 case "$profile" in
   *bridge-013.yaml) printf '%s\n' "http://127.0.0.1:18080" > "$health_file" ;;
-  *droidmcp-filesystem.yaml) printf '%s\n' "http://127.0.0.1:41507" > "$health_file" ;;
+  *droidmcp-filesystem.yaml) printf '%s\n' "http://127.0.0.1:${BUDDY_TEST_DROID_PORT:-46577}" > "$health_file" ;;
   *) exit 20 ;;
 esac
 child=""
@@ -130,12 +134,32 @@ test ! -e "$STATE/buddy-droidmcp.pid"
 mv "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly.backup" "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
 
 # A live health endpoint without a verifiable process must never be duplicated or killed.
-printf '%s\\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
+printf '%s\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
 if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
   echo "unowned live health endpoint should be treated as a conflict" >&2
   exit 1
 fi
 test ! -e "$STATE/buddy-bridge.pid"
+rm -f "$STATE/bridge-013.health.url"
+
+# A live matching tunnel without Buddy's PID ownership marker is external and must never be adopted or stopped.
+"$BIN" run --config "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" >> "$STATE/external-bridge.log" 2>&1 &
+CONFLICT_PID="$!"
+for attempt in $(seq 1 10); do
+  [[ -s "$STATE/bridge-013.health.url" ]] && break
+  sleep 0.1
+done
+external_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
+[[ "$external_output" == *"EXTERNAL_READY"* ]]
+test ! -e "$STATE/buddy-bridge.pid"
+if bash "$HOME_DIR/bin/buddy-tunnels" stop bridge >/dev/null 2>&1; then
+  echo "Buddy manager stopped an unowned external tunnel" >&2
+  exit 1
+fi
+kill -0 "$CONFLICT_PID"
+kill -TERM "$CONFLICT_PID"
+wait "$CONFLICT_PID" 2>/dev/null || true
+CONFLICT_PID=""
 rm -f "$STATE/bridge-013.health.url"
 
 # A Bridge profile failure must not prevent the independent DroidMCP channel from being attempted.
@@ -150,11 +174,22 @@ test ! -e "$STATE/buddy-droidmcp.pid"
 bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
 mv "$DROID_PROFILE_TEST.disabled" "$DROID_PROFILE_TEST"
 
-bash "$HOME_DIR/bin/buddy-tunnels" start all
+start_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start all)"
+[[ "$start_output" == *"BUDDY_DROIDMCP_PORT=46577"* ]]
 test -s "$STATE/buddy-bridge.pid"
 test -s "$STATE/buddy-droidmcp.pid"
-bash "$HOME_DIR/bin/buddy-tunnels" status
+status_output="$(bash "$HOME_DIR/bin/buddy-tunnels" status)"
+[[ "$status_output" == *"BUDDY_DROIDMCP_PORT=46577"* ]]
 bash "$HOME_DIR/bin/buddy-tunnels" start all
+
+# A port-0 profile must publish the actual ephemeral listener, not a hardcoded default.
+bash "$HOME_DIR/bin/buddy-tunnels" stop all
+export BUDDY_TEST_DROID_PORT=53219
+dynamic_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start droidmcp)"
+[[ "$dynamic_output" == *"BUDDY_DROIDMCP_PORT=53219"* ]]
+bash "$HOME_DIR/bin/buddy-tunnels" stop droidmcp
+unset BUDDY_TEST_DROID_PORT
+bash "$HOME_DIR/bin/buddy-tunnels" start bridge
 
 # An owned but unhealthy Bridge is stopped gracefully before a replacement is attempted.
 OLD_BRIDGE_PID="$(cat "$STATE/buddy-bridge.pid")"
