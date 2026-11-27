@@ -335,7 +335,6 @@ public final class BuddyRuntimeService extends Service {
             }
 
             if (!reaToggle) {
-                reaChannelConfigured = false;
                 setReaPersistentState("DISABLED", "REA channel disabled; no separate REA tunnel is created.");
             } else if (!hasApiKey) {
                 setReaPersistentState("NEEDS_SETUP", "Buddy API key is required to include the internal REA channel.");
