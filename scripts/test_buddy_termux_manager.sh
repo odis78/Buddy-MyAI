@@ -115,7 +115,10 @@ if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
   echo "unhealthy Bridge should report a failed replacement health check" >&2
   exit 1
 fi
-! kill -0 "$OLD_BRIDGE_PID" 2>/dev/null
+if kill -0 "$OLD_BRIDGE_PID" 2>/dev/null; then
+  old_state="$(awk '{print $3}' "/proc/$OLD_BRIDGE_PID/stat" 2>/dev/null || true)"
+  [[ "$old_state" == "Z" ]]
+fi
 test ! -e "$STATE/buddy-bridge.pid"
 unset BUDDY_TEST_FAIL_BRIDGE BUDDY_HEALTH_ATTEMPTS BUDDY_STOP_ATTEMPTS
 
