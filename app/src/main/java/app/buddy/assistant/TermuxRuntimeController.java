@@ -58,7 +58,7 @@ final class TermuxRuntimeController {
                     + "actual=\"$(sha256sum \"$target\" | awk '{print $1}')\"; "
                     + "if [ \"$actual\" = '" + expectedHash + "' ]; then rm -f \"$tmp\"; echo BUDDY_MANAGER_ALREADY_INSTALLED; "
                     + "elif [ -n '" + previousHash + "' ] && [ \"$actual\" = '" + previousHash + "' ]; then "
-                    + "backup=\"$target.backup.$(date +%s)\"; cp -p \"$target\" \"$backup\"; mv \"$tmp\" \"$target\"; "
+                    + "backup=\"$target.backup.$(date +%s).$\"; cp -p \"$target\" \"$backup\"; mv \"$tmp\" \"$target\"; "
                     + "echo BUDDY_MANAGER_UPDATED; echo BUDDY_MANAGER_BACKUP=$backup; "
                     + "else rm -f \"$tmp\"; echo BUDDY_MANAGER_CONFLICT; exit 3; fi; "
                     + "else mv \"$tmp\" \"$target\"; echo BUDDY_MANAGER_INSTALLED; fi";
