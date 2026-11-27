@@ -86,7 +86,8 @@ final class RuntimeConnectionManager {
                                                   boolean bridgeEnabled, boolean droidEnabled) {
         if (snapshot == null || !snapshot.managerInstalled || !snapshot.termuxInstalled
                 || !snapshot.permissionGranted) return;
-        boolean unavailable = (bridgeEnabled && !snapshot.bridgeTransport && !snapshot.bridgeConflict)
+        boolean unavailable = (bridgeEnabled && !snapshot.bridgeTransport
+                && !snapshot.bridgeConflict && !snapshot.bridgeLegacyOnly)
                 || (droidEnabled && !snapshot.droidTransport);
         if (!unavailable) {
             nextTermuxRecoveryAt = 0;
@@ -108,9 +109,9 @@ final class RuntimeConnectionManager {
         boolean bridgePrimary = bridgeEnabled && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_PRIMARY);
         boolean bridgeLegacy = bridgeEnabled && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_LEGACY);
         boolean bridgeConflict = bridgeEnabled && bridgePrimary && bridgeLegacy;
-        int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY
-                : bridgeLegacy ? TERMUX_BRIDGE_PORT_LEGACY : 0;
-        boolean bridgeTransport = !bridgeEnabled || (bridgePort > 0 && !bridgeConflict);
+        boolean bridgeLegacyOnly = bridgeEnabled && bridgeLegacy && !bridgePrimary;
+        int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY : 0;
+        boolean bridgeTransport = !bridgeEnabled || (bridgePrimary && !bridgeConflict);
         boolean droidTransport = !droidEnabled || RuntimeHealthProbe.isReadyAtPort(TERMUX_DROIDMCP_PORT);
         boolean bridgeMcp = !bridgeEnabled || (bridgeTransport
                 && RuntimeHealthProbe.isMcpDiscoveredAtPort(bridgePort, 6));
@@ -132,7 +133,7 @@ final class RuntimeConnectionManager {
                     prefs.getString("termux_last_stdout", ""));
         }
         return new TermuxSnapshot(installed, permission, manager,
-                bridgePrimary, bridgeLegacy, bridgeConflict, bridgePort,
+                bridgePrimary, bridgeLegacy, bridgeConflict, bridgeLegacyOnly, bridgePort,
                 bridgeTransport, bridgeMcp, bridgeRemote,
                 droidTransport, droidMcp, droidRemote, error);
     }
@@ -151,6 +152,7 @@ final class RuntimeConnectionManager {
         final boolean bridgePrimary;
         final boolean bridgeLegacy;
         final boolean bridgeConflict;
+        final boolean bridgeLegacyOnly;
         final int bridgePort;
         final boolean bridgeTransport;
         final boolean bridgeMcp;
@@ -161,8 +163,8 @@ final class RuntimeConnectionManager {
         final String managerError;
 
         TermuxSnapshot(boolean termuxInstalled, boolean permissionGranted, boolean managerInstalled,
-                       boolean bridgePrimary, boolean bridgeLegacy, boolean bridgeConflict, int bridgePort,
-                       boolean bridgeTransport, boolean bridgeMcp, boolean bridgeRemote,
+                       boolean bridgePrimary, boolean bridgeLegacy, boolean bridgeConflict, boolean bridgeLegacyOnly,
+                       int bridgePort, boolean bridgeTransport, boolean bridgeMcp, boolean bridgeRemote,
                        boolean droidTransport, boolean droidMcp, boolean droidRemote, String managerError) {
             this.termuxInstalled = termuxInstalled;
             this.permissionGranted = permissionGranted;
@@ -170,6 +172,7 @@ final class RuntimeConnectionManager {
             this.bridgePrimary = bridgePrimary;
             this.bridgeLegacy = bridgeLegacy;
             this.bridgeConflict = bridgeConflict;
+            this.bridgeLegacyOnly = bridgeLegacyOnly;
             this.bridgePort = bridgePort;
             this.bridgeTransport = bridgeTransport;
             this.bridgeMcp = bridgeMcp;
