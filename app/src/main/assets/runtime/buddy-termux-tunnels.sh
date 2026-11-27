@@ -187,7 +187,6 @@ start_one() {
     echo "bridge: LEGACY_READY (port 8080 already live; refusing to start a duplicate 18080 tunnel)"
     return 0
   fi
-  resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   mkdir -p "$STATE" || return 1
 
   if [[ -s "$PID_FILE" ]]; then
@@ -234,6 +233,7 @@ start_one() {
     return 1
   fi
 
+  resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   nohup "$BIN" run --config "$PROFILE" >> "$LOG_FILE" 2>&1 </dev/null &
   pid="$!"
   printf '%s\n' "$pid" > "$PID_FILE"
