@@ -2,10 +2,6 @@ package app.buddy.assistant;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Environment;
-import android.provider.Settings;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -35,7 +31,6 @@ public final class RuntimeSettingsActivity extends Screen {
     private TextView bridgeStatus;
     private TextView droidStatus;
     private TextView reaStatus;
-    private Button grantStorageAccess;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -128,10 +123,6 @@ public final class RuntimeSettingsActivity extends Screen {
         connectTermux.setOnClickListener(v -> connectTermux());
         body.addView(text(this, getString(R.string.runtime_termux_setup_info), 12, MUTED), topGap(6));
 
-        grantStorageAccess = button(this, getString(R.string.runtime_grant_file_access), true);
-        body.addView(grantStorageAccess, topGap(12));
-        grantStorageAccess.setOnClickListener(v -> openAllFilesAccessSettings());
-
         Button start = button(this, getString(R.string.runtime_start), true);
         body.addView(start, topGap(14));
         start.setOnClickListener(v -> {
@@ -214,21 +205,6 @@ public final class RuntimeSettingsActivity extends Screen {
         refreshStatus();
     }
 
-    private void openAllFilesAccessSettings() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
-        try {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        } catch (Exception ignored) {
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-            } catch (Exception e) {
-                Toast.makeText(this, R.string.runtime_file_access_settings_unavailable, Toast.LENGTH_LONG).show();
-            }
-        }
-    }
-
     private boolean saveSettings() {
         String key = apiKey.getText().toString().trim();
         String id = tunnelId.getText().toString().trim();
@@ -289,9 +265,5 @@ public final class RuntimeSettingsActivity extends Screen {
         String reaDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_detail", "");
         reaStatus.setText(getString(R.string.runtime_rea_status_detail,
                 reaDetail.isEmpty() ? reaState : reaState + " · " + reaDetail));
-        if (grantStorageAccess != null) {
-            boolean needsAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager();
-            grantStorageAccess.setVisibility(needsAccess ? View.VISIBLE : View.GONE);
-        }
     }
 }
