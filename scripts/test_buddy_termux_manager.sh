@@ -23,8 +23,9 @@ mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
 mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
 cat > "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" <<YAML
 control_plane:
-  tunnel_id: "tunnel_11111111111111111111111111111111"
+  tunnel_id: "tunnel_6ae28b8f01788191b42901f090964502"
 health:
+  listen_addr: "127.0.0.1:18080"
   url_file: "$STATE/bridge-013.health.url"
 mcp:
   commands:
@@ -33,8 +34,9 @@ mcp:
 YAML
 cat > "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml" <<YAML
 control_plane:
-  tunnel_id: "tunnel_22222222222222222222222222222222"
+  tunnel_id: "tunnel_6af1637e86788191aa429d5518d41938"
 health:
+  listen_addr: "127.0.0.1:41507"
   url_file: "$STATE/droidmcp.health.url"
 mcp:
   commands:
@@ -44,6 +46,10 @@ YAML
 
 cat > "$PREFIX/bin/curl" <<'SH'
 #!/usr/bin/env bash
+url="${@: -1}"
+if [[ "$url" == *":8080/"* ]]; then
+  [[ "${BUDDY_TEST_LEGACY_BRIDGE:-0}" == "1" ]] && exit 0 || exit 22
+fi
 exit 0
 SH
 chmod 700 "$PREFIX/bin/curl"
@@ -75,6 +81,13 @@ cp "$MANAGER" "$HOME_DIR/bin/buddy-tunnels"
 chmod 700 "$HOME_DIR/bin/buddy-tunnels"
 export BUDDY_TERMUX_HOME="$HOME_DIR"
 export BUDDY_TERMUX_PREFIX="$PREFIX"
+
+# A legacy Bridge on 8080 is accepted as already live; Buddy must not start a second tunnel on 18080.
+export BUDDY_TEST_LEGACY_BRIDGE=1
+legacy_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
+[[ "$legacy_output" == *"LEGACY_READY"* ]]
+test ! -e "$STATE/buddy-bridge.pid"
+unset BUDDY_TEST_LEGACY_BRIDGE
 
 bash "$HOME_DIR/bin/buddy-tunnels" start all
 test -s "$STATE/buddy-bridge.pid"
