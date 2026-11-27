@@ -21,7 +21,7 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
         int exitCode = result == null ? -1 : result.getInt("exitCode", -1);
         String stdout = result == null ? "" : result.getString("stdout", "");
         String stderr = result == null ? "" : result.getString("stderr", "");
-        String error = result == null ? "" : result.getString("errmsg", "");
+        String error = result == null ? "Termux did not return a command result bundle." : result.getString("errmsg", "");
         if (stdout.length() > 4000) stdout = stdout.substring(stdout.length() - 4000);
         if (stderr.length() > 2000) stderr = stderr.substring(stderr.length() - 2000);
         if (error.length() > 1000) error = error.substring(0, 1000);
