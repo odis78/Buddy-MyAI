@@ -19,7 +19,7 @@ cleanup() {
   rm -rf "$TMP"
 }
 trap cleanup EXIT
-trap 'rc=$?; printf "TEST FAILURE line=%s command=%s exit=%s\\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2; exit "$rc"' ERR
+trap 'rc=$?; printf "TEST FAILURE line=%s command=%s exit=%s\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2; exit "$rc"' ERR
 
 mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
 mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
@@ -134,7 +134,7 @@ test ! -e "$STATE/buddy-droidmcp.pid"
 mv "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly.backup" "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
 
 # A live health endpoint without a verifiable process must never be duplicated or killed.
-printf '%s\\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
+printf '%s\n' "http://127.0.0.1:18080" > "$STATE/bridge-013.health.url"
 if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
   echo "unowned live health endpoint should be treated as a conflict" >&2
   exit 1
