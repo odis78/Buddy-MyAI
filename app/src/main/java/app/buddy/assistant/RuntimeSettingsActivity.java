@@ -140,15 +140,6 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(openTermux, topGap(8));
         openTermux.setOnClickListener(v -> openTermux());
 
-        Button start = button(this, getString(R.string.runtime_start), true);
-        body.addView(start, topGap(14));
-        start.setOnClickListener(v -> {
-            if (!saveSettings()) return;
-            BuddyRuntimeService.start(this);
-            Toast.makeText(this, R.string.runtime_toast_started, Toast.LENGTH_SHORT).show();
-            refreshStatus();
-        });
-
         Button stop = button(this, getString(R.string.runtime_stop), false);
         body.addView(stop, topGap(8));
         stop.setOnClickListener(v -> {
@@ -223,11 +214,12 @@ public final class RuntimeSettingsActivity extends Screen {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != REQUEST_TERMUX_RUN_COMMAND) return;
         if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            BuddyRuntimeService.connectTermux(this);
             boolean setupPending = getSharedPreferences("runtime", MODE_PRIVATE)
                     .getBoolean("setup_all_after_permission", false);
-            getSharedPreferences("runtime", MODE_PRIVATE).edit().remove("setup_all_after_permission").apply();
-            if (setupPending) BuddyRuntimeService.start(this);
+            getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                    .remove("setup_all_after_permission")
+                    .putBoolean("setup_all_pending", setupPending).apply();
+            BuddyRuntimeService.connectTermux(this);
             Toast.makeText(this, setupPending ? R.string.runtime_setup_requested : R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, R.string.runtime_termux_permission_denied, Toast.LENGTH_LONG).show();
@@ -247,8 +239,9 @@ public final class RuntimeSettingsActivity extends Screen {
             requestPermissions(new String[]{TermuxRuntimeController.PERMISSION}, REQUEST_TERMUX_RUN_COMMAND);
             return;
         }
+        getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                .putBoolean("setup_all_pending", true).apply();
         BuddyRuntimeService.connectTermux(this);
-        BuddyRuntimeService.start(this);
         Toast.makeText(this, R.string.runtime_setup_requested, Toast.LENGTH_SHORT).show();
         refreshStatus();
     }
