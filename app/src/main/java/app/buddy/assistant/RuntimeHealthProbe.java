@@ -14,12 +14,14 @@ import java.net.URL;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
-/** Local-only Tunnel Client probes. Process readiness and MCP discovery are separate signals. */
+/** Local-only Tunnel Client probes. Process, MCP discovery and remote delivery are separate signals. */
 final class RuntimeHealthProbe {
     private static final int CONNECT_TIMEOUT_MS = 1200;
     private static final int READ_TIMEOUT_MS = 1200;
     private static final int MAX_HEALTH_BYTES = 1024 * 1024;
+    private static final long DELIVERY_FRESH_MS = 10L * 60L * 1000L;
 
     private RuntimeHealthProbe() { }
 
@@ -48,67 +50,118 @@ final class RuntimeHealthProbe {
         }
     }
 
-    /**
-     * Confirms same-child MCP initialize and complete tools/list evidence.
-     * expectedTools <= 0 accepts any non-empty complete tool catalog.
-     */
+    /** Confirms same-child MCP initialize/server-discover and complete tools/list evidence. */
     static boolean isMcpDiscovered(File urlFile, int expectedTools) {
         if (expectedTools < 0) return false;
+        try {
+            return isMcpComponent(getHealthJson(urlFile, "/health/mcp"), expectedTools);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Confirms recent successful control-plane polling and an actually accepted response upload,
+     * in addition to the complete MCP catalog. A live local process alone is not remote connectivity.
+     */
+    static boolean isRemoteConnected(File urlFile, int expectedTools) {
+        if (expectedTools < 0) return false;
+        try {
+            JSONObject root = getHealthJson(urlFile, "/health?details=true");
+            if (root.optInt("schema_version", -1) != 1
+                    || !root.optBoolean("live", false)
+                    || !root.optBoolean("ready", false)) return false;
+            JSONObject components = root.optJSONObject("components");
+            if (components == null) return false;
+            JSONObject mcp = components.optJSONObject("mcp");
+            JSONObject polling = components.optJSONObject("control-plane");
+            JSONObject delivery = components.optJSONObject("response-delivery");
+            if (mcp == null || polling == null || delivery == null
+                    || !isMcpComponent(mcp, expectedTools)) return false;
+
+            JSONObject pollDetails = polling.optJSONObject("details");
+            JSONObject deliveryDetails = delivery.optJSONObject("details");
+            if (pollDetails == null || deliveryDetails == null
+                    || !"ok".equals(polling.optString("status", ""))
+                    || !"ok".equals(delivery.optString("status", ""))
+                    || pollDetails.optLong("consecutive_failures", -1) != 0
+                    || deliveryDetails.optLong("accepted", 0) < 1) return false;
+
+            long pollAgeLimitSeconds = (long) Math.max(180,
+                    pollDetails.optDouble("configured_wait_seconds", 0)
+                            + pollDetails.optDouble("deadline_seconds", 0) + 60);
+            pollAgeLimitSeconds = Math.min(pollAgeLimitSeconds, 1800);
+            if (!isRecent(pollDetails.optString("last_success", ""), pollAgeLimitSeconds * 1000L)) return false;
+            return isRecent(deliveryDetails.optString("last_accepted", ""), DELIVERY_FRESH_MS);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isMcpComponent(JSONObject root, int expectedTools) {
+        JSONObject details = root.optJSONObject("details");
+        if (details == null) return false;
+        JSONObject initialize = details.optJSONObject("initialize");
+        JSONObject serverDiscover = details.optJSONObject("server_discover");
+        JSONObject tools = details.optJSONObject("tools_list");
+        if (tools == null) return false;
+        boolean legacyInitialized = initialize != null
+                && initialize.optBoolean("ok", false)
+                && initialize.optBoolean("identity_complete", false)
+                && !initialize.optBoolean("limited", true);
+        boolean modernDiscovered = serverDiscover != null
+                && serverDiscover.optBoolean("ok", false)
+                && !serverDiscover.optBoolean("limited", true);
+        JSONArray names = tools.optJSONArray("tool_names");
+        int retained = tools.optInt("retained_count", -1);
+
+        return root.optInt("schema_version", 1) == 1
+                && (!root.has("component") || "mcp".equals(root.optString("component", "")))
+                && "ok".equals(root.optString("status", ""))
+                && "discovered".equals(root.optString("state", ""))
+                && !root.optBoolean("limited", true)
+                && "stdio".equals(details.optString("transport", ""))
+                && "running".equals(details.optString("child_state", ""))
+                && "same_child".equals(details.optString("evidence", ""))
+                && !details.optString("child_generation", "").isEmpty()
+                && (legacyInitialized || modernDiscovered)
+                && tools.optBoolean("ok", false)
+                && tools.optBoolean("complete", false)
+                && !tools.optBoolean("partial", true)
+                && !tools.optBoolean("limited", true)
+                && retained > 0
+                && names != null
+                && names.length() == retained
+                && (expectedTools == 0 || retained == expectedTools);
+    }
+
+    private static JSONObject getHealthJson(File urlFile, String path) throws Exception {
         HttpURLConnection connection = null;
         try {
-            connection = openLoopback(urlFile, "/health/mcp");
-            if (connection.getResponseCode() != 200) return false;
-            String body;
+            connection = openLoopback(urlFile, path);
+            if (connection.getResponseCode() != 200) throw new IllegalStateException("Health endpoint is not available");
             try (InputStream input = connection.getInputStream();
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
-                    if (output.size() + count > MAX_HEALTH_BYTES) return false;
+                    if (output.size() + count > MAX_HEALTH_BYTES) throw new IllegalStateException("Health response exceeded the size limit");
                     output.write(buffer, 0, count);
                 }
-                body = new String(output.toByteArray(), StandardCharsets.UTF_8);
+                return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
             }
-
-            JSONObject root = new JSONObject(body);
-            JSONObject details = root.optJSONObject("details");
-            if (details == null) return false;
-            JSONObject initialize = details.optJSONObject("initialize");
-            JSONObject serverDiscover = details.optJSONObject("server_discover");
-            JSONObject tools = details.optJSONObject("tools_list");
-            if (tools == null) return false;
-            boolean legacyInitialized = initialize != null
-                    && initialize.optBoolean("ok", false)
-                    && initialize.optBoolean("identity_complete", false)
-                    && !initialize.optBoolean("limited", true);
-            boolean modernDiscovered = serverDiscover != null
-                    && serverDiscover.optBoolean("ok", false)
-                    && !serverDiscover.optBoolean("limited", true);
-            JSONArray names = tools.optJSONArray("tool_names");
-            int retained = tools.optInt("retained_count", -1);
-
-            return (legacyInitialized || modernDiscovered)
-                    && root.optInt("schema_version", -1) == 1
-                    && "mcp".equals(root.optString("component", ""))
-                    && "ok".equals(root.optString("status", ""))
-                    && "discovered".equals(root.optString("state", ""))
-                    && !root.optBoolean("limited", true)
-                    && "stdio".equals(details.optString("transport", ""))
-                    && "running".equals(details.optString("child_state", ""))
-                    && "same_child".equals(details.optString("evidence", ""))
-                    && !details.optString("child_generation", "").isEmpty()
-                    && tools.optBoolean("ok", false)
-                    && tools.optBoolean("complete", false)
-                    && !tools.optBoolean("partial", true)
-                    && !tools.optBoolean("limited", true)
-                    && retained > 0
-                    && names != null
-                    && names.length() == retained
-                    && (expectedTools == 0 || retained == expectedTools);
-        } catch (Exception ignored) {
-            return false;
         } finally {
             if (connection != null) connection.disconnect();
+        }
+    }
+
+    private static boolean isRecent(String timestamp, long maxAgeMs) {
+        if (timestamp == null || timestamp.trim().isEmpty()) return false;
+        try {
+            long age = System.currentTimeMillis() - Instant.parse(timestamp).toEpochMilli();
+            return age >= -30000 && age <= maxAgeMs;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
