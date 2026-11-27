@@ -230,6 +230,10 @@ public final class RuntimeSettingsActivity extends Screen {
     }
 
     private void setupAll() {
+        if (RuntimeHealthProbe.isLoopbackPortOpen(18767)) {
+            Toast.makeText(this, R.string.runtime_test223_active, Toast.LENGTH_LONG).show();
+            return;
+        }
         getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", true).apply();
         if (!saveSettings()) {
             getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", false).apply();
