@@ -106,6 +106,11 @@ public final class BuddyRuntimeService extends Service {
 
     private void attemptStart() {
         if (stopping || supervisor == null) return;
+        if (!Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
+            setPersistentState("NEEDS_SETUP", "API key required for the Buddy tunnel.");
+            updateNotification(getString(R.string.runtime_notification_setup));
+            return;
+        }
         try {
             boolean ready = supervisor.start();
             if (ready) {
@@ -124,8 +129,6 @@ public final class BuddyRuntimeService extends Service {
             setPersistentState("NEEDS_SETUP", message);
             updateNotification(getString(R.string.runtime_notification_setup));
             Log.w(TAG, "Runtime setup required: " + message);
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
         } catch (Exception e) {
             if (stopping) return;
             String message = safeMessage(e);
@@ -151,6 +154,10 @@ public final class BuddyRuntimeService extends Service {
         if (stopping || reaSupervisor == null || reaAttemptInProgress) return;
         reaAttemptInProgress = true;
         try {
+            if (!Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
+                setReaPersistentState("NEEDS_SETUP", "API key required for Buddy-local REA.");
+                return;
+            }
             if (!getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)) {
                 reaSupervisor.stop();
                 setReaPersistentState("DISABLED", "Buddy-local REA tunnel disabled by user.");
@@ -212,7 +219,9 @@ public final class BuddyRuntimeService extends Service {
             android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
             boolean monitorBridge = prefs.getBoolean("monitor_bridge", true);
             boolean monitorDroid = prefs.getBoolean("monitor_droidmcp", true);
-            boolean reaEnabled = prefs.getBoolean("rea_enabled", true);
+            boolean reaToggle = prefs.getBoolean("rea_enabled", true);
+            boolean hasApiKey = Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET);
+            boolean reaEnabled = reaToggle && hasApiKey;
             boolean bridgePrimary = monitorBridge && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_PRIMARY);
             boolean bridgeLegacy = monitorBridge && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_LEGACY);
             boolean bridgeConflict = monitorBridge && bridgePrimary && bridgeLegacy;
@@ -259,8 +268,10 @@ public final class BuddyRuntimeService extends Service {
                 setDroidPersistentState("TRANSPORT_READY", "Termux Tunnel Client /readyz confirmed on port 41507; waiting for MCP initialize/tools/list (5 expected)");
             }
 
-            if (!reaEnabled) {
+            if (!reaToggle) {
                 setReaPersistentState("DISABLED", "Buddy-local REA tunnel disabled by user.");
+            } else if (!hasApiKey) {
+                setReaPersistentState("NEEDS_SETUP", "API key required for Buddy-local REA.");
             } else if (!reaTransport) {
                 setReaPersistentState("DEGRADED", reaSupervisor == null ? "REA supervisor unavailable" : reaSupervisor.lastError());
             } else if (reaRemote) {
