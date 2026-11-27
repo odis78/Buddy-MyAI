@@ -2424,7 +2424,7 @@
     <string name="runtime_termux_status_label">Termux connection</string>
     <string name="runtime_termux_status_detail">Termux: %1$s</string>
     <string name="runtime_connect_termux">Connect Termux</string>
-    <string name="runtime_termux_setup_info">One-time setup: grant Buddy the RUN_COMMAND permission and enable allow-external-apps=true in ~/.termux/termux.properties. Buddy creates only its own ~/bin/buddy-tunnels script and leaves your existing manager and REA untouched.</string>
+    <string name="runtime_termux_setup_info">One-time setup: grant Buddy the RUN_COMMAND permission and enable allow-external-apps=true in ~/.termux/termux.properties. Buddy creates only its own ~/bin/buddy-tunnels script and leaves your existing manager and REA untouched. Run termux-setup-storage once in Termux for shared files, then restart Termux.</string>
     <string name="runtime_termux_not_installed">Termux is not installed.</string>
     <string name="runtime_termux_connect_requested">Termux connection requested.</string>
     <string name="runtime_termux_permission_denied">Buddy needs the Termux RUN_COMMAND permission to manage its tunnels.</string>
