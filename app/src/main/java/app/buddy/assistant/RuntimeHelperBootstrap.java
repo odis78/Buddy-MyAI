@@ -1,6 +1,6 @@
 package app.buddy.assistant;
 
-/** Starts each optional MCP helper independently after the shared runtime is ready. */
+/** Starts one Buddy-local MCP helper independently after the shared runtime is ready. */
 final class RuntimeHelperBootstrap {
     interface StateWriter {
         void write(String state, String detail);
