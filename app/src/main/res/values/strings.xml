@@ -2389,11 +2389,11 @@
     <string name="runtime_status_not_configured">Not configured</string>
     <string name="runtime_status_saved">Credentials saved</string>
     <string name="runtime_status_detail">Status: %1$s</string>
-    <string name="runtime_bridge_status_label">Bridge 0.1.3 tunnel</string>
+    <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (external)</string>
     <string name="runtime_bridge_status_detail">Bridge: %1$s</string>
-    <string name="runtime_droid_status_label">DroidMCP read-only tunnel</string>
+    <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_droid_status_detail">DroidMCP: %1$s</string>
-    <string name="runtime_rea_status_label">REA tools tunnel</string>
+    <string name="runtime_rea_status_label">Buddy-local REA tools tunnel</string>
     <string name="runtime_rea_status_detail">REA: %1$s</string>
     <string name="runtime_grant_file_access">Grant shared-storage access for read-only DroidMCP</string>
     <string name="runtime_file_access_settings_unavailable">Android storage access settings could not be opened.</string>
