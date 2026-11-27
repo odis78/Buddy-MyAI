@@ -74,12 +74,21 @@ final class RuntimeHealthProbe {
             JSONObject details = root.optJSONObject("details");
             if (details == null) return false;
             JSONObject initialize = details.optJSONObject("initialize");
+            JSONObject serverDiscover = details.optJSONObject("server_discover");
             JSONObject tools = details.optJSONObject("tools_list");
-            if (initialize == null || tools == null) return false;
+            if (tools == null) return false;
+            boolean legacyInitialized = initialize != null
+                    && initialize.optBoolean("ok", false)
+                    && initialize.optBoolean("identity_complete", false)
+                    && !initialize.optBoolean("limited", true);
+            boolean modernDiscovered = serverDiscover != null
+                    && serverDiscover.optBoolean("ok", false)
+                    && !serverDiscover.optBoolean("limited", true);
             JSONArray names = tools.optJSONArray("tool_names");
             int retained = tools.optInt("retained_count", -1);
 
-            return root.optInt("schema_version", -1) == 1
+            return (legacyInitialized || modernDiscovered)
+                    && root.optInt("schema_version", -1) == 1
                     && "mcp".equals(root.optString("component", ""))
                     && "ok".equals(root.optString("status", ""))
                     && "discovered".equals(root.optString("state", ""))
@@ -88,9 +97,6 @@ final class RuntimeHealthProbe {
                     && "running".equals(details.optString("child_state", ""))
                     && "same_child".equals(details.optString("evidence", ""))
                     && !details.optString("child_generation", "").isEmpty()
-                    && initialize.optBoolean("ok", false)
-                    && initialize.optBoolean("identity_complete", false)
-                    && !initialize.optBoolean("limited", true)
                     && tools.optBoolean("ok", false)
                     && tools.optBoolean("complete", false)
                     && !tools.optBoolean("partial", true)
