@@ -50,6 +50,7 @@ url="${@: -1}"
 if [[ "$url" == *":8080/"* ]]; then
   [[ "${BUDDY_TEST_LEGACY_BRIDGE:-0}" == "1" ]] && exit 0 || exit 22
 fi
+if [[ "$url" == *":18080/"* && "${BUDDY_TEST_FAIL_BRIDGE:-0}" == "1" ]]; then exit 22; fi
 exit 0
 SH
 chmod 700 "$PREFIX/bin/curl"
@@ -106,6 +107,18 @@ test -s "$STATE/buddy-bridge.pid"
 test -s "$STATE/buddy-droidmcp.pid"
 bash "$HOME_DIR/bin/buddy-tunnels" status
 bash "$HOME_DIR/bin/buddy-tunnels" start all
+
+# An owned but unhealthy Bridge is stopped gracefully before a replacement is attempted.
+OLD_BRIDGE_PID="$(cat "$STATE/buddy-bridge.pid")"
+export BUDDY_TEST_FAIL_BRIDGE=1 BUDDY_HEALTH_ATTEMPTS=1 BUDDY_STOP_ATTEMPTS=1
+if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
+  echo "unhealthy Bridge should report a failed replacement health check" >&2
+  exit 1
+fi
+! kill -0 "$OLD_BRIDGE_PID" 2>/dev/null
+test ! -e "$STATE/buddy-bridge.pid"
+unset BUDDY_TEST_FAIL_BRIDGE BUDDY_HEALTH_ATTEMPTS BUDDY_STOP_ATTEMPTS
+
 bash "$HOME_DIR/bin/buddy-tunnels" stop all
 test ! -e "$STATE/buddy-bridge.pid"
 test ! -e "$STATE/buddy-droidmcp.pid"
