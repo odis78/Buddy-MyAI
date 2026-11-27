@@ -2372,16 +2372,16 @@
     <string name="runtime_settings_title">Buddy runtime</string>
     <string name="runtime_settings_subtitle">Manage Buddy and Termux MCP connections</string>
     <string name="runtime_settings_info">Runs the pinned Tunnel Client from the Buddy app package. The ChatGPT to Buddy MCP endpoint is 127.0.0.1:%1$d/mcp. test222 starts with an empty main tunnel ID to avoid collision with active Test220. Enter a separately provisioned ID before starting the main tunnel. The original REA runs inside Buddy\'s existing Alpine runtime as a channel of this tunnel. Termux keeps its own credentials for Bridge and DroidMCP.</string>
-    <string name="runtime_termux_monitor_info">Buddy manages the existing Termux Bridge 0.1.3 and read-only DroidMCP 0.4.0 through Termux RUN_COMMAND. Connect Termux once, grant the permission, enable allow-external-apps=true in Termux, run termux-setup-storage once for shared files, and restart Termux after changing termux.properties. Ensure Node.js and curl are installed in Termux (pkg install nodejs-lts curl if needed). Buddy uses a separate manager script and does not replace your existing Termux manager.</string>
-    <string name="runtime_monitor_bridge">Manage Termux Bridge 0.1.3</string>
-    <string name="runtime_monitor_droidmcp">Manage Termux DroidMCP-Filesystem</string>
+    <string name="runtime_termux_monitor_info">Buddy uses Termux RUN_COMMAND once authorized and requires allow-external-apps=true. Node.js and curl are required for Bridge/DroidMCP. termux-setup-storage is only needed for shared-file access, not tunnel startup. Buddy updates only its own manager with a backup; existing managers and REA are untouched.</string>
+    <string name="runtime_monitor_bridge">Automatically maintain Termux Bridge 0.1.3</string>
+    <string name="runtime_monitor_droidmcp">Automatically maintain Termux DroidMCP-Filesystem</string>
     <string name="runtime_enable_local_rea">Expose original REA as a Buddy tunnel channel</string>
     <string name="runtime_helper_switch_info">Buddy manages Bridge and DroidMCP inside Termux with its own reversible script. Original REA 6.5.0 stays inside Buddy\'s existing Alpine/PRoot and shares the Buddy tunnel; no separate REA tunnel is started in Termux.</string>
     <string name="runtime_notification_waiting_termux">Waiting for Termux Bridge and DroidMCP to become ready.</string>
     <string name="runtime_notification_bridge_legacy">Legacy Termux Bridge profile on port 8080 detected. Stop the old tunnel with its existing Termux manager before Buddy starts Bridge 0.1.3 on port 18080. The same tunnel ID must not run twice.</string>
     <string name="runtime_notification_termux_conflict">Both Termux Bridge health ports are live. Resolve duplicate tunnel processes in Termux.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
-    <string name="runtime_api_key_hint">Paste API key (stored with Android Keystore)</string>
+    <string name="runtime_api_key_hint">Paste API key (encrypted with Android Keystore). Use the button below to copy the saved key.</string>
     <string name="runtime_api_key_saved">A key is saved. Leave blank to keep it.</string>
     <string name="runtime_tunnel_id_label">Tunnel ID</string>
     <string name="runtime_tunnel_id_hint">tunnel_ followed by 32 hexadecimal characters</string>
@@ -2424,8 +2424,16 @@
     <string name="runtime_termux_status_detail">Termux: %1$s</string>
     <string name="runtime_open_termux">Open Termux setup</string>
     <string name="runtime_connect_termux">Install / update Termux manager</string>
-    <string name="runtime_termux_setup_info">One-time setup: grant Buddy the RUN_COMMAND permission and enable allow-external-apps=true in ~/.termux/termux.properties. Buddy creates only its own ~/bin/buddy-tunnels script and leaves your existing manager and REA untouched. Run termux-setup-storage once in Termux for shared files, then restart Termux.</string>
+    <string name="runtime_termux_setup_info">One-time setup: grant RUN_COMMAND and enable allow-external-apps=true in ~/.termux/termux.properties. Node.js and curl are required. termux-setup-storage is only needed for shared files. Buddy updates only its own ~/bin/buddy-tunnels with a backup; existing managers and REA remain untouched.</string>
     <string name="runtime_termux_not_installed">Termux is not installed.</string>
     <string name="runtime_termux_connect_requested">Termux connection requested.</string>
     <string name="runtime_termux_permission_denied">Buddy needs the Termux RUN_COMMAND permission to manage its tunnels.</string>
+    <string name="runtime_copy_api_key">Copy saved API key</string>
+    <string name="runtime_copy_tunnel_id">Copy tunnel ID</string>
+    <string name="runtime_setup_all">One-tap setup and start</string>
+    <string name="runtime_setup_all_info">Saves settings, safely updates Buddy’s separate Termux manager with a backup, starts Bridge and read-only DroidMCP, and starts the main tunnel with REA. Existing Termux managers and the historical REA route are left untouched.</string>
+    <string name="runtime_setup_requested">Automatic setup and startup requested.</string>
+    <string name="runtime_api_key_not_saved">No API key is saved yet.</string>
+    <string name="runtime_api_key_copied">Saved API key copied to clipboard. Treat the clipboard as sensitive.</string>
+    <string name="runtime_tunnel_id_copied">Tunnel ID copied.</string>
 </resources>
