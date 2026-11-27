@@ -245,7 +245,7 @@ start_one() {
 }
 
 stop_one() {
-  local name="$1" pid attempt
+  local name="$1" pid attempt found
   component_paths "$name" || return 2
   if [[ ! -s "$PID_FILE" ]]; then
     found="$(find_matching_pid "$PROFILE")"
@@ -258,7 +258,7 @@ stop_one() {
     IFS= read -r pid < "$PID_FILE" || pid=""
   fi
   if ! pid_matches "$pid" "$PROFILE"; then
-    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    if pid_alive "$pid"; then
       echo "$name: CONFLICT (PID ownership could not be verified; live process left untouched)"
       return 1
     fi
@@ -283,7 +283,7 @@ stop_one() {
     return 1
   }
   for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! pid_alive "$pid"; then
       rm -f "$PID_FILE" "$HEALTH_FILE"
       echo "$name: STOPPED (graceful)"
       return 0
