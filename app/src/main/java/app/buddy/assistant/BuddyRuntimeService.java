@@ -306,7 +306,7 @@ public final class BuddyRuntimeService extends Service {
             } else if (!termux.managerError.isEmpty()) {
                 setTermuxPersistentState("ERROR", termux.managerError);
             } else {
-                setTermuxPersistentState("MANAGER_INSTALLED", "Buddy can manage Bridge 0.1.3 and DroidMCP 0.4.0; the legacy Termux REA tunnel is not started.");
+                setTermuxPersistentState("MANAGER_INSTALLED", "Buddy manages Bridge 0.1.3 and DroidMCP 0.4.0; the historical REA-Termux-Android route is left untouched and is not started by Buddy.");
             }
 
             if (!monitorBridge) {
