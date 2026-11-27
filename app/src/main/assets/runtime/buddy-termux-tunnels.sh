@@ -100,9 +100,16 @@ component_paths() {
     echo "$1: refusing profile with an unexpected tunnel ID or health port"
     return 2
   fi
-  if [[ "$1" == "droidmcp" ]] && ! grep -Fq "droidmcp-readonly" "$PROFILE"; then
-    echo "droidmcp: refusing a profile that does not use the verified read-only wrapper"
-    return 2
+  if [[ "$1" == "droidmcp" ]]; then
+    DROID_WRAPPER="$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
+    if ! grep -Fq "droidmcp-readonly" "$PROFILE" || [[ ! -x "$DROID_WRAPPER" ]] \
+        || ! grep -Fq 'export DROIDMCP_ROOT="$HOME/droidmcp-sandbox"' "$DROID_WRAPPER" \
+        || ! grep -Fq 'export DROIDMCP_TRANSPORT=stdio' "$DROID_WRAPPER" \
+        || ! grep -Fq 'export DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_file' "$DROID_WRAPPER" \
+        || ! grep -Fq 'exec "$HOME/droidmcp-stage-v0.4.0/droidmcp-filesystem"' "$DROID_WRAPPER"; then
+      echo "droidmcp: refusing a profile without the exact verified read-only wrapper"
+      return 2
+    fi
   fi
   HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
     echo "$1: profile has no health.url_file entry"
