@@ -21,6 +21,14 @@ trap cleanup EXIT
 
 mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
 mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
+cat > "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly" <<'SH'
+#!/usr/bin/env bash
+export DROIDMCP_ROOT="$HOME/droidmcp-sandbox"
+export DROIDMCP_TRANSPORT=stdio
+export DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_file
+exec "$HOME/droidmcp-stage-v0.4.0/droidmcp-filesystem"
+SH
+chmod 700 "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
 cat > "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" <<YAML
 control_plane:
   tunnel_id: "tunnel_6ae28b8f01788191b42901f090964502"
