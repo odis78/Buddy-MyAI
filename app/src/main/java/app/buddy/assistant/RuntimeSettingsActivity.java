@@ -31,6 +31,7 @@ public final class RuntimeSettingsActivity extends Screen {
     private Switch reaEnabled;
     private TextView savedKey;
     private TextView status;
+    private TextView termuxStatus;
     private TextView bridgeStatus;
     private TextView droidStatus;
     private TextView reaStatus;
@@ -108,6 +109,9 @@ public final class RuntimeSettingsActivity extends Screen {
         stateCard.addView(title(this, getString(R.string.runtime_status), 14));
         status = text(this, "", 13, MUTED);
         stateCard.addView(status, topGap(4));
+        stateCard.addView(sectionLabel(this, getString(R.string.runtime_termux_status_label)), topGap(12));
+        termuxStatus = text(this, "", 13, MUTED);
+        stateCard.addView(termuxStatus, topGap(4));
         stateCard.addView(sectionLabel(this, getString(R.string.runtime_bridge_status_label)), topGap(12));
         bridgeStatus = text(this, "", 13, MUTED);
         stateCard.addView(bridgeStatus, topGap(4));
@@ -118,6 +122,11 @@ public final class RuntimeSettingsActivity extends Screen {
         reaStatus = text(this, "", 13, MUTED);
         stateCard.addView(reaStatus, topGap(4));
         body.addView(stateCard, topGap(18));
+
+        Button connectTermux = button(this, getString(R.string.runtime_connect_termux), true);
+        body.addView(connectTermux, topGap(12));
+        connectTermux.setOnClickListener(v -> connectTermux());
+        body.addView(text(this, getString(R.string.runtime_termux_setup_info), 12, MUTED), topGap(6));
 
         grantStorageAccess = button(this, getString(R.string.runtime_grant_file_access), true);
         body.addView(grantStorageAccess, topGap(12));
@@ -177,6 +186,34 @@ public final class RuntimeSettingsActivity extends Screen {
         return edit;
     }
 
+    private static final int REQUEST_TERMUX_RUN_COMMAND = 8452;
+
+    private void connectTermux() {
+        if (!TermuxRuntimeController.isInstalled(this)) {
+            Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!TermuxRuntimeController.hasPermission(this)) {
+            requestPermissions(new String[]{TermuxRuntimeController.PERMISSION}, REQUEST_TERMUX_RUN_COMMAND);
+            return;
+        }
+        BuddyRuntimeService.connectTermux(this);
+        Toast.makeText(this, R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
+        refreshStatus();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_TERMUX_RUN_COMMAND) return;
+        if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            BuddyRuntimeService.connectTermux(this);
+            Toast.makeText(this, R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, R.string.runtime_termux_permission_denied, Toast.LENGTH_LONG).show();
+        }
+        refreshStatus();
+    }
+
     private void openAllFilesAccessSettings() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
         try {
@@ -232,6 +269,10 @@ public final class RuntimeSettingsActivity extends Screen {
         if (savedKey == null || status == null) return;
         savedKey.setText(Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)
                 ? getString(R.string.runtime_api_key_saved) : getString(R.string.runtime_status_not_configured));
+        String termuxState = getSharedPreferences("runtime", MODE_PRIVATE).getString("termux_state", "NOT_CONNECTED");
+        String termuxDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("termux_detail", "");
+        if (termuxStatus != null) termuxStatus.setText(getString(R.string.runtime_termux_status_detail,
+                termuxDetail.isEmpty() ? termuxState : termuxState + " · " + termuxDetail));
         String state = getSharedPreferences("runtime", MODE_PRIVATE).getString("state", "STOPPED");
         String detail = getSharedPreferences("runtime", MODE_PRIVATE).getString("detail", "");
         status.setText(getString(R.string.runtime_status_detail,
