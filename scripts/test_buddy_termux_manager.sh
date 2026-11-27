@@ -47,11 +47,21 @@ YAML
 cat > "$PREFIX/bin/curl" <<'SH'
 #!/usr/bin/env bash
 url="${@: -1}"
-if [[ "$url" == *":8080/"* ]]; then
-  [[ "${BUDDY_TEST_LEGACY_BRIDGE:-0}" == "1" ]] && exit 0 || exit 22
-fi
-if [[ "$url" == *":18080/"* && "${BUDDY_TEST_FAIL_BRIDGE:-0}" == "1" ]]; then exit 22; fi
-exit 0
+case "$url" in
+  *":8080/"*)
+    [[ "${BUDDY_TEST_LEGACY_BRIDGE:-0}" == "1" ]] && exit 0 || exit 22
+    ;;
+  *":18080/"*)
+    [[ "${BUDDY_TEST_FAIL_BRIDGE:-0}" != "1" ]] || exit 22
+    test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-013.health.url"
+    exit $?
+    ;;
+  *":41507/"*)
+    test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/droidmcp.health.url"
+    exit $?
+    ;;
+esac
+exit 22
 SH
 chmod 700 "$PREFIX/bin/curl"
 
