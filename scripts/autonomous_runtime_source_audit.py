@@ -23,8 +23,9 @@ runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocato
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
 rea_runtime_installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
 rea_profile_fixture = read("app/src/test/resources/rea-mcp-tunnel-profile.yaml")
-bridge_asset = read("app/src/main/assets/runtime/termux-bridge-0.1.3.mjs")
-droidmcp_asset = read("app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs")
+termux_manager = read("app/src/main/assets/runtime/buddy-termux-tunnels.sh")
+termux_controller = read("app/src/main/java/app/buddy/assistant/TermuxRuntimeController.java")
+termux_receiver = read("app/src/main/java/app/buddy/assistant/TermuxCommandResultReceiver.java")
 runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
 runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
 runtime_helper_bootstrap = read("app/src/main/java/app/buddy/assistant/RuntimeHelperBootstrap.java")
@@ -120,44 +121,54 @@ rea_runtime_ok = (
     and "openjdk21-jre-headless" in rea_runtime_installer
     and "android-tools" in rea_runtime_installer
     and "rea-agents-6.5.0.tgz" in rea_runtime_installer
-    and "termux-bridge-0.1.3.mjs" in rea_runtime_installer
-    and "droidmcp-filesystem-0.4.0.mjs" in rea_runtime_installer
     and "git clone --depth 1 --branch rea-agents-6.5.0" in rea_runtime_installer
     and "mcp doctor --format json" in rea_runtime_installer
     and "EXPECTED_TOOLS = 207" in rea_runtime_installer
-    and "REA_MCP_INPUT_SCHEMA_PROFILE" in rea_runtime_installer
-    and "startReaConfigured" in runtime_launcher
-    and "scheduleReaAttempt" in runtime_service
+    and "EXPECTED_PROMPTS = 6" in rea_runtime_installer
+    and "REA_MCP_INPUT_SCHEMA_PROFILE" not in rea_runtime_installer
+    and "Linux.commandAt(app, \"/root/rea-source\"" in runtime_launcher
+    and "channel: rea" in runtime_profile
 )
 add("rea_runtime_bootstrap", "PASS" if rea_runtime_ok else "FAIL",
-    "Buddy installs and validates the pinned REA 6.5.0 MCP runtime inside its own Alpine rootfs")
+    "Original REA 6.5.0 is installed only inside Buddy's existing Alpine/PRoot runtime and validated at 207 tools/6 prompts")
 
 rea_profile_ok = (
-    "renderReaProfile" in runtime_profile
-    and "REA_TUNNEL_ID" in runtime_launcher
-    and "command:" in rea_profile_fixture
-    and "REA_MCP_OUTPUT_SCHEMA_PROFILE=off" in rea_profile_fixture
+    "renderBuddyProfile(String tunnelId, File runtimeDir," in runtime_profile
+    and "channel: main" in runtime_profile
+    and "channel: rea" in runtime_profile
+    and "REA_TUNNEL_ID" not in runtime_launcher
+    and "startReaConfigured" not in runtime_launcher
 )
-add("rea_stdio_tunnel_profile", "PASS" if rea_profile_ok else "FAIL",
-    "REA runs as a supervised stdio MCP child with compact tool schemas on its own tunnel identity")
-bridge_asset_ok = (
-    "const VERSION = '0.1.3'" in bridge_asset
-    and "app.buddy.myai.gt" in bridge_asset
-    and "launch_android_app" in bridge_asset
-    and "confirmed" in bridge_asset
-)
-add("bridge_013_asset", "PASS" if bridge_asset_ok else "FAIL",
-    "Bundled Bridge 0.1.3 keeps its fixed-command approval gate and targets only Buddy GT")
+add("rea_internal_buddy_channel", "PASS" if rea_profile_ok else "FAIL",
+    "REA is a separate MCP channel under Buddy's existing tunnel identity, not an independent fourth tunnel")
 
-droidmcp_asset_ok = (
-    'const VERSION = "0.4.0"' in droidmcp_asset
-    and droidmcp_asset.count('tool("') == 5
-    and "write_file" not in droidmcp_asset
-    and "delete_file" not in droidmcp_asset
-    and "Symbolic links are not followed" in droidmcp_asset
+termux_manager_ok = (
+    "BRIDGE_PROFILE=" in termux_manager
+    and "DROID_PROFILE=" in termux_manager
+    and "start_one bridge" in termux_manager
+    and "start_one droidmcp" in termux_manager
+    and "kill -TERM" in termux_manager
+    and "SIGKILL" in termux_manager
+    and "rea-android" not in termux_manager
+    and "rea-all" not in termux_manager
 )
-add("droidmcp_readonly_asset", "PASS" if droidmcp_asset_ok else "FAIL",
-    "Bundled DroidMCP exposes five bounded read-only filesystem tools and blocks symlinks")
+add("termux_bridge_droidmcp_manager", "PASS" if termux_manager_ok else "FAIL",
+    "Buddy installs a separate Termux manager for Bridge and DroidMCP only, validates PID ownership and stops gracefully")
+
+three_channel_ok = (
+    "com.termux.RUN_COMMAND" in termux_controller
+    and "com.termux.permission.RUN_COMMAND" in termux_controller
+    and "PendingIntent.FLAG_MUTABLE" in termux_controller
+    and "runtime/buddy-termux-tunnels.sh" in termux_controller
+    and "termuxManagerReady" in termux_receiver
+    and "TermuxRuntimeController.reconcile" in runtime_service
+    and "com.termux.permission.RUN_COMMAND" in manifest
+    and 'android:name="com.termux"' in manifest
+    and "startBridgeConfigured" not in runtime_service
+    and "startDroidMcpConfigured" not in runtime_service
+)
+add("three_mcp_channel_connection_manager", "PASS" if three_channel_ok else "FAIL",
+    "Connection lifecycle is split between Buddy's main+REA channel and the two Termux-owned remote MCP tunnels")
 secret_files_ok = all(term in runtime_launcher for term in [
     "Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600", "O_NONBLOCK"
 ]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
@@ -179,9 +190,9 @@ fgs_ok = (
 )
 add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
     "User-visible special-use foreground service and opt-in boot restart are declared")
-settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
+settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings
 add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
-    "User can save the control-plane key through Android Keystore and control opt-in startup")
+    "User can save the control-plane key, configure opt-in startup, and explicitly connect Termux with a runtime permission gate")
 hardening_ok = (
     "PR_SET_DUMPABLE" in runtime_hardening
     and "hardenProcess" in runtime_hardening
@@ -216,16 +227,14 @@ add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
     "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
 
 lifecycle_gate = (
-    "RuntimeLifecycleGate" in runtime_service
-    and "RuntimeHelperBootstrap.startOne" in runtime_service
-    and "startIfActive" in runtime_helper_bootstrap
-    and "runIfActive" in runtime_helper_bootstrap
-    and "helperLifecycle.cleanup" in runtime_service
-    and (ROOT / "app/src/main/java/app/buddy/assistant/RuntimeLifecycleGate.java").is_file()
-    and (ROOT / "app/src/test/java/app/buddy/assistant/RuntimeLifecycleGateTest.java").is_file()
+    "RuntimeSupervisor" in runtime_service
+    and "scheduleReaInstall" in runtime_service
+    and "connectionMonitorTask" in runtime_service
+    and "TermuxRuntimeController.stop" in runtime_service
+    and "RuntimeStateMachine.State.READY" in runtime_service
 )
-add("helper_start_stop_serialization", "PASS" if lifecycle_gate else "FAIL",
-    "Helper starts are serialized against shutdown cleanup, with concurrent start/stop regression tests")
+add("connection_lifecycle_ownership", "PASS" if lifecycle_gate else "FAIL",
+    "Buddy owns its main Tunnel Client and REA child; Termux-owned Bridge/DroidMCP are managed through a separate serialized controller")
 
 helper_failure_isolation = (
     "startOne" in runtime_helper_bootstrap
