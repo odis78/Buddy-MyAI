@@ -130,7 +130,7 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void attemptStart() {
-        if (stopping || supervisor == null) return;
+        if (stopping || connections == null) return;
         if (!Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
             setPersistentState("NEEDS_SETUP", "API key required for the Buddy tunnel.");
             updateNotification(getString(R.string.runtime_notification_setup));
@@ -147,10 +147,10 @@ public final class BuddyRuntimeService extends Service {
         try {
             boolean reaEnabled = getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true);
             boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
-            if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) {
-                supervisor.stop();
+            if (connections.isBuddyReady() && desiredReaChannel != reaChannelConfigured) {
+                connections.stopBuddyTunnel();
             }
-            boolean ready = supervisor.start();
+            boolean ready = connections.startBuddyTunnel();
             if (ready) {
                 recovery.reset();
                 reaChannelConfigured = desiredReaChannel;
@@ -167,7 +167,7 @@ public final class BuddyRuntimeService extends Service {
                 reconcileTermuxConnections();
                 startMonitor();
             } else {
-                setPersistentState("WAITING", supervisor.lastError());
+                setPersistentState("WAITING", connections.buddyLastError());
                 long delay = recovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
@@ -211,8 +211,8 @@ public final class BuddyRuntimeService extends Service {
             if (installed && !stopping && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)
                     && executor != null) {
                 executor.execute(() -> {
-                    if (stopping || supervisor == null) return;
-                    supervisor.stop();
+                    if (stopping || connections == null) return;
+                    connections.stopBuddyTunnel();
                     scheduleAttempt(0);
                 });
             }
