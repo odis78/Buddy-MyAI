@@ -151,6 +151,7 @@ termux_manager_ok = (
     and "UNHEALTHY" in termux_manager
     and "pid_alive" in termux_manager
     and "health_endpoint_live" in termux_manager
+    and "command -v node" in termux_manager
     and "droidmcp-readonly" in termux_manager
     and "DROIDMCP_ROOT" in termux_manager
     and "droidmcp-sandbox" in termux_manager
