@@ -2266,7 +2266,7 @@
     <string name="runtime_termux_status_label">Связь с Termux</string>
     <string name="runtime_termux_status_detail">Termux: %1$s</string>
     <string name="runtime_open_termux">Открыть Termux для настройки</string>
-    <string name="runtime_connect_termux">Подключить Termux</string>
+    <string name="runtime_connect_termux">Установить / обновить менеджер Termux</string>
     <string name="runtime_termux_setup_info">Однократная настройка: выдай Buddy разрешение RUN_COMMAND и включи allow-external-apps=true в ~/.termux/termux.properties. Buddy создаёт только собственный скрипт ~/bin/buddy-tunnels, не меняя существующий менеджер и REA. Для файлов Termux один раз выполни termux-setup-storage, затем перезапусти Termux.</string>
     <string name="runtime_termux_not_installed">Termux не установлен.</string>
     <string name="runtime_termux_connect_requested">Подключение Termux запрошено.</string>
