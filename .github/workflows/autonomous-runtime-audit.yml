@@ -224,6 +224,8 @@ jobs:
               cp /work/scripts/rea_tools_list_probe.mjs /root/rea/scripts/
               cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
               node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
+              git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source
+              test "$(git -C /root/rea-source rev-parse HEAD)" = "3b79af28e80785afce9f5998d8f03289402a1847"
               node --version
               npm --version
               java -version
