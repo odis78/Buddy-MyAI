@@ -57,8 +57,8 @@ android {
     buildTypes {
         debug {
             // Keep this test build beside both the installed release and the previous test APK.
-            applicationIdSuffix = ".test220"
-            versionNameSuffix = "-test220"
+            applicationIdSuffix = ".test221"
+            versionNameSuffix = "-test221"
         }
         release {
             isMinifyEnabled = false
