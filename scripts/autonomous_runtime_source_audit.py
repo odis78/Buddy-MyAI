@@ -77,8 +77,17 @@ add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so"
     "Buddy has an app-private Alpine rootfs installer and PRoot command builder" if "ALPINE_SHA256" in linux and "libproot.so" in linux else "Required PRoot markers missing")
 add("child_process_launch", "PASS" if "Linux.builder(app, cmd).start()" in helper else "FAIL",
     "Existing Helper launches child processes inside Buddy Linux")
-add("local_mcp_server", "PASS" if "PORT = 8766" in mcp and "127.0.0.1" in mcp else "FAIL",
-    "Buddy local MCP endpoint source markers")
+profile_writer = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
+gradle = read("app/build.gradle.kts")
+local_mcp_ok = (
+    "PORT = BuildConfig.MCP_PORT" in mcp
+    and "127.0.0.1" in mcp
+    and 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
+    and 'buildConfigField("int", "MCP_PORT", "18766")' in gradle
+    and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile_writer
+)
+add("local_mcp_server", "PASS" if local_mcp_ok else "FAIL",
+    "Build-specific loopback MCP endpoint and profile URL")
 add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
     "Existing encrypted secret storage uses Android Keystore AES/GCM")
 add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "nativeLibraryDir", "MessageDigest"]) and "CLOUDFLARED" not in runtime_binary else "FAIL",
