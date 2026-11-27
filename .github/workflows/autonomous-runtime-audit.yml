@@ -147,7 +147,7 @@ jobs:
               t.Fatalf("standard runtime rejected Buddy+REA multi-channel profile: %v", err)
             }
           }
-          EOF     EOF
+          EOF
       - name: Run upstream runtime-focused Go tests
         run: |
           docker run --rm --cap-drop=SYS_PTRACE \
