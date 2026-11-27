@@ -149,6 +149,18 @@ legacy_bridge_health_live() {
     "http://127.0.0.1:8080/readyz" >/dev/null 2>&1
 }
 
+health_endpoint_live() {
+  local name="$1" port
+  case "$name" in
+    bridge) port=18080 ;;
+    droidmcp) port=41507 ;;
+    *) return 2 ;;
+  esac
+  [[ -x "$PREFIX/bin/curl" ]] || return 1
+  "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 \
+    "http://127.0.0.1:$port/readyz" >/dev/null 2>&1
+}
+
 health_ok() {
   local url
   [[ -s "$HEALTH_FILE" && -x "$PREFIX/bin/curl" ]] || return 1
@@ -251,7 +263,14 @@ stop_one() {
     found="$(find_matching_pid "$PROFILE")"
     case "$?" in
       0) pid="$found"; printf '%s\n' "$pid" > "$PID_FILE" ;;
-      1) echo "$name: STOPPED (no matching process)"; return 0 ;;
+      1)
+        if health_endpoint_live "$name"; then
+          echo "$name: CONFLICT (health endpoint is live without a verified PID; left untouched)"
+          return 1
+        fi
+        echo "$name: STOPPED (no matching process)"
+        return 0
+        ;;
       2) return 1 ;;
     esac
   else
@@ -270,7 +289,7 @@ stop_one() {
         ;;
       2) return 1 ;;
     esac
-    if health_ok; then
+    if health_ok || health_endpoint_live "$name"; then
       echo "$name: CONFLICT (health endpoint is live without a verified PID; left untouched)"
       return 1
     fi
@@ -311,7 +330,7 @@ status_one() {
     0) echo "$name: RUNNING_UNTRACKED (PID $found)"; return 1 ;;
     2) return 1 ;;
   esac
-  if health_ok; then echo "$name: HEALTH_ENDPOINT_UNOWNED"; return 1; fi
+  if health_ok || health_endpoint_live "$name"; then echo "$name: HEALTH_ENDPOINT_UNOWNED"; return 1; fi
   echo "$name: STOPPED"
   return 0
 }
