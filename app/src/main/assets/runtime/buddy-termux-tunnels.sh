@@ -206,6 +206,14 @@ case "${1:-status}" in
       *) echo "Usage: buddy-tunnels stop [bridge|droidmcp|all]"; exit 2 ;;
     esac
     ;;
+  reconcile)
+    [[ "${2:-}" == on || "${2:-}" == off ]] || { echo "Usage: buddy-tunnels reconcile <on|off> <on|off>"; exit 2; }
+    [[ "${3:-}" == on || "${3:-}" == off ]] || { echo "Usage: buddy-tunnels reconcile <on|off> <on|off>"; exit 2; }
+    if [[ "${3:-}" == off ]]; then stop_one droidmcp || exit $?; fi
+    if [[ "${2:-}" == off ]]; then stop_one bridge || exit $?; fi
+    if [[ "${2:-}" == on ]]; then start_one bridge || exit $?; fi
+    if [[ "${3:-}" == on ]]; then start_one droidmcp || exit $?; fi
+    ;;
   status)
     bridge_status=0
     droid_status=0
