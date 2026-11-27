@@ -195,45 +195,54 @@ public final class BuddyRuntimeService extends Service {
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
 
-            boolean bridgeTransport = bridgeSupervisor != null && bridgeSupervisor.isReady();
-            boolean droidTransport = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
+            // These are the real Termux-owned Tunnel Client health ports. Never spawn
+            // another client here: the historical profiles share the same remote tunnel ID.
+            boolean bridgePrimary = RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_PRIMARY);
+            boolean bridgeLegacy = RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_LEGACY);
+            boolean bridgeConflict = bridgePrimary && bridgeLegacy;
+            int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY
+                    : bridgeLegacy ? TERMUX_BRIDGE_PORT_LEGACY : 0;
+            boolean bridgeTransport = bridgePort > 0 && !bridgeConflict;
+            boolean droidTransport = RuntimeHealthProbe.isReadyAtPort(DROIDMCP_PORT);
             boolean reaTransport = reaSupervisor != null && reaSupervisor.isReady();
 
-            boolean bridgeMcp = bridgeTransport && bridgeSupervisor.isMcpDiscovered(6);
-            boolean droidMcp = droidTransport && droidMcpSupervisor.isMcpDiscovered(5);
+            boolean bridgeMcp = bridgeTransport && RuntimeHealthProbe.isMcpDiscoveredAtPort(bridgePort, 6);
+            boolean droidMcp = droidTransport && RuntimeHealthProbe.isMcpDiscoveredAtPort(DROIDMCP_PORT, 5);
             boolean reaMcp = reaTransport && reaSupervisor.isMcpDiscovered(207);
-            boolean bridgeRemote = bridgeMcp && bridgeSupervisor.isRemoteConnected(6);
-            boolean droidRemote = droidMcp && droidMcpSupervisor.isRemoteConnected(5);
+            boolean bridgeRemote = bridgeMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(bridgePort, 6);
+            boolean droidRemote = droidMcp && RuntimeHealthProbe.isRemoteConnectedAtPort(DROIDMCP_PORT, 5);
             boolean reaRemote = reaMcp && reaSupervisor.isRemoteConnected(207);
 
-            if (!bridgeTransport) {
-                setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "Supervisor unavailable" : bridgeSupervisor.lastError());
+            if (bridgeConflict) {
+                setBridgePersistentState("CONFLICT", "Both Termux Bridge health ports 18080 and 8080 are live. Buddy will not choose between processes sharing one remote tunnel ID.");
+            } else if (!bridgeTransport) {
+                setBridgePersistentState("EXTERNAL_UNAVAILABLE", "Existing Termux Bridge not reachable on 127.0.0.1:18080 or :8080. Buddy monitors it but does not launch Termux.");
             } else if (bridgeRemote) {
-                setBridgePersistentState("REMOTE_CONNECTED", "MCP 6/6; recent control-plane poll and accepted response confirmed");
+                setBridgePersistentState("REMOTE_CONNECTED", "Termux Bridge MCP 6/6; recent control-plane poll and accepted response confirmed on port " + bridgePort);
             } else if (bridgeMcp) {
-                setBridgePersistentState("MCP_DISCOVERED", "MCP 6/6 confirmed; waiting for recent remote poll and accepted response");
+                setBridgePersistentState("MCP_DISCOVERED", "Termux Bridge MCP 6/6 confirmed on port " + bridgePort + "; waiting for recent remote poll and accepted response");
             } else {
-                setBridgePersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (6 expected)");
+                setBridgePersistentState("TRANSPORT_READY", "Termux Tunnel Client /readyz confirmed on port " + bridgePort + "; waiting for MCP initialize/tools/list (6 expected)");
             }
 
             if (!droidTransport) {
-                setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "Supervisor unavailable" : droidMcpSupervisor.lastError());
+                setDroidPersistentState("EXTERNAL_UNAVAILABLE", "Existing Termux DroidMCP not reachable on 127.0.0.1:41507. Buddy does not spawn a duplicate tunnel.");
             } else if (droidRemote) {
-                setDroidPersistentState("REMOTE_CONNECTED", "MCP 5/5; recent control-plane poll and accepted response confirmed");
+                setDroidPersistentState("REMOTE_CONNECTED", "DroidMCP MCP 5/5; recent control-plane poll and accepted response confirmed");
             } else if (droidMcp) {
-                setDroidPersistentState("MCP_DISCOVERED", "MCP 5/5 confirmed; waiting for recent remote poll and accepted response");
+                setDroidPersistentState("MCP_DISCOVERED", "DroidMCP MCP 5/5 confirmed; waiting for recent remote poll and accepted response");
             } else {
-                setDroidPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (5 expected)");
+                setDroidPersistentState("TRANSPORT_READY", "Termux Tunnel Client /readyz confirmed on port 41507; waiting for MCP initialize/tools/list (5 expected)");
             }
 
             if (!reaTransport) {
-                setReaPersistentState("DEGRADED", reaSupervisor == null ? "Supervisor unavailable" : reaSupervisor.lastError());
+                setReaPersistentState("DEGRADED", reaSupervisor == null ? "REA supervisor unavailable" : reaSupervisor.lastError());
             } else if (reaRemote) {
-                setReaPersistentState("REMOTE_CONNECTED", "MCP 207/207; recent control-plane poll and accepted response confirmed; 6/6 prompts prevalidated");
+                setReaPersistentState("REMOTE_CONNECTED", "Buddy-local REA MCP 207/207; recent control-plane poll and accepted response confirmed; 6/6 prompts prevalidated");
             } else if (reaMcp) {
-                setReaPersistentState("MCP_DISCOVERED", "MCP 207/207 confirmed; waiting for recent remote poll and accepted response; 6/6 prompts prevalidated");
+                setReaPersistentState("MCP_DISCOVERED", "Buddy-local REA MCP 207/207 confirmed; waiting for recent remote poll and accepted response; 6/6 prompts prevalidated");
             } else {
-                setReaPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (207 expected; 6 prompts prevalidated)");
+                setReaPersistentState("TRANSPORT_READY", "Buddy-local REA process and /readyz confirmed; waiting for MCP initialize/tools/list (207 expected; 6 prompts prevalidated)");
             }
 
             if (bridgeRemote && droidRemote && reaRemote
@@ -243,17 +252,24 @@ public final class BuddyRuntimeService extends Service {
                 return;
             }
 
-            boolean transportFailure = !bridgeTransport || !droidTransport || !reaTransport;
-            if (transportFailure) {
+            if (!reaTransport) {
                 long delay = reaRecovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_rea_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
                 scheduleReaAttempt(delay);
-            } else if (bridgeMcp && droidMcp && reaMcp) {
-                reaRecovery.reset();
-                updateNotification(getString(R.string.runtime_notification_waiting_remote));
             } else {
-                updateNotification(getString(R.string.runtime_notification_waiting_mcp));
+                reaRecovery.reset();
+                boolean mainMcp = supervisor != null && supervisor.isMcpDiscovered(0);
+                boolean mainRemote = supervisor != null && supervisor.isRemoteConnected(0);
+                if (bridgeConflict) {
+                    updateNotification(getString(R.string.runtime_notification_termux_conflict));
+                } else if (!bridgeTransport || !droidTransport) {
+                    updateNotification(getString(R.string.runtime_notification_waiting_termux));
+                } else if (!bridgeMcp || !droidMcp || !reaMcp || !mainMcp) {
+                    updateNotification(getString(R.string.runtime_notification_waiting_mcp));
+                } else if (!bridgeRemote || !droidRemote || !reaRemote || !mainRemote) {
+                    updateNotification(getString(R.string.runtime_notification_waiting_remote));
+                }
             }
         }, 0, 15, TimeUnit.SECONDS);
     }
