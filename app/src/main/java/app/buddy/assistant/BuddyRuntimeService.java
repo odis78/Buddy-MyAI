@@ -218,32 +218,42 @@ public final class BuddyRuntimeService extends Service {
             boolean bridgeMcp = bridgeTransport && bridgeSupervisor.isMcpDiscovered(6);
             boolean droidMcp = droidTransport && droidMcpSupervisor.isMcpDiscovered(5);
             boolean reaMcp = reaTransport && reaSupervisor.isMcpDiscovered(207);
+            boolean bridgeRemote = bridgeMcp && bridgeSupervisor.isRemoteConnected(6);
+            boolean droidRemote = droidMcp && droidMcpSupervisor.isRemoteConnected(5);
+            boolean reaRemote = reaMcp && reaSupervisor.isRemoteConnected(207);
 
             if (!bridgeTransport) {
                 setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "Supervisor unavailable" : bridgeSupervisor.lastError());
+            } else if (bridgeRemote) {
+                setBridgePersistentState("REMOTE_CONNECTED", "MCP 6/6; recent control-plane poll and accepted response confirmed");
             } else if (bridgeMcp) {
-                setBridgePersistentState("READY", "MCP initialize and complete tools/list confirmed (6/6)");
+                setBridgePersistentState("MCP_DISCOVERED", "MCP 6/6 confirmed; waiting for recent remote poll and accepted response");
             } else {
                 setBridgePersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (6 expected)");
             }
 
             if (!droidTransport) {
                 setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "Supervisor unavailable" : droidMcpSupervisor.lastError());
+            } else if (droidRemote) {
+                setDroidPersistentState("REMOTE_CONNECTED", "MCP 5/5; recent control-plane poll and accepted response confirmed");
             } else if (droidMcp) {
-                setDroidPersistentState("READY", "MCP initialize and complete tools/list confirmed (5/5)");
+                setDroidPersistentState("MCP_DISCOVERED", "MCP 5/5 confirmed; waiting for recent remote poll and accepted response");
             } else {
                 setDroidPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (5 expected)");
             }
 
             if (!reaTransport) {
                 setReaPersistentState("DEGRADED", reaSupervisor == null ? "Supervisor unavailable" : reaSupervisor.lastError());
+            } else if (reaRemote) {
+                setReaPersistentState("REMOTE_CONNECTED", "MCP 207/207; recent control-plane poll and accepted response confirmed; 6/6 prompts prevalidated");
             } else if (reaMcp) {
-                setReaPersistentState("READY", "MCP initialize and complete tools/list confirmed (207/207); installer validated 6/6 prompts");
+                setReaPersistentState("MCP_DISCOVERED", "MCP 207/207 confirmed; waiting for recent remote poll and accepted response; 6/6 prompts prevalidated");
             } else {
                 setReaPersistentState("TRANSPORT_READY", "Process and /readyz confirmed; waiting for MCP initialize/tools/list (207 expected; 6 prompts prevalidated)");
             }
 
-            if (bridgeMcp && droidMcp && reaMcp) {
+            if (bridgeRemote && droidRemote && reaRemote
+                    && supervisor != null && supervisor.isRemoteConnected(0)) {
                 reaRecovery.reset();
                 updateNotification(getString(R.string.runtime_notification_ready_with_rea));
                 return;
@@ -255,17 +265,22 @@ public final class BuddyRuntimeService extends Service {
                 updateNotification(getString(R.string.runtime_notification_rea_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
                 scheduleReaAttempt(delay);
-            } else {
+            } else if (bridgeMcp && droidMcp && reaMcp) {
                 reaRecovery.reset();
+                updateNotification(getString(R.string.runtime_notification_waiting_remote));
+            } else {
                 updateNotification(getString(R.string.runtime_notification_waiting_mcp));
             }
         }, 0, 15, TimeUnit.SECONDS);
     }
 
     private void updateMainMcpState() {
-        if (supervisor != null && supervisor.isMcpDiscovered(0)) {
-            setPersistentState("READY", "MCP initialize and complete tools/list confirmed");
+        if (supervisor != null && supervisor.isRemoteConnected(0)) {
+            setPersistentState("REMOTE_CONNECTED", "MCP catalog discovered; recent control-plane poll and accepted response confirmed");
             updateNotification(getString(R.string.runtime_notification_ready));
+        } else if (supervisor != null && supervisor.isMcpDiscovered(0)) {
+            setPersistentState("MCP_DISCOVERED", "MCP initialize and complete tools/list confirmed; waiting for recent remote poll and accepted response");
+            updateNotification(getString(R.string.runtime_notification_waiting_remote));
         } else {
             setPersistentState("TRANSPORT_READY", "Tunnel Client process and /readyz confirmed; waiting for MCP initialize/tools/list");
             updateNotification(getString(R.string.runtime_notification_waiting_mcp));
