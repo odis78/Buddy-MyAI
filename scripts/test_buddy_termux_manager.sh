@@ -265,7 +265,10 @@ grep -q 'kill -TERM' "$MANAGER"
 bash "$HOME_DIR/bin/buddy-tunnels" stop all >/dev/null 2>&1 || true
 sed -i '/url_file:/d' "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
 export BUDDY_TEST_BRIDGE_FIXED=1
-fixed_bridge_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
+if ! fixed_bridge_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge 2>&1)"; then
+  printf 'fixed Bridge start failed:\n%s\n' "$fixed_bridge_output" >&2
+  exit 1
+fi
 [[ "$fixed_bridge_output" == *"bridge: READY"* ]]
 bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
 unset BUDDY_TEST_BRIDGE_FIXED
