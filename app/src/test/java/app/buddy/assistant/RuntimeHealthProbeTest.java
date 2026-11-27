@@ -124,8 +124,8 @@ public class RuntimeHealthProbeTest {
                 socket.getInputStream().read(request);
                 byte[] payload = body.getBytes(StandardCharsets.UTF_8);
                 OutputStream out = socket.getOutputStream();
-                out.write(("HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nContent-Length: "
-                        + payload.length + "\\r\\nConnection: close\\r\\n\\r\\n")
+                out.write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+                        + payload.length + "\r\nConnection: close\r\n\r\n")
                         .getBytes(StandardCharsets.US_ASCII));
                 out.write(payload);
                 out.flush();
