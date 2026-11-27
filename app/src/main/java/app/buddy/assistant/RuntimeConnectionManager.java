@@ -109,7 +109,13 @@ final class RuntimeConnectionManager {
         boolean bridgePrimary = bridgeEnabled && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_PRIMARY);
         boolean bridgeLegacy = bridgeEnabled && RuntimeHealthProbe.isReadyAtPort(TERMUX_BRIDGE_PORT_LEGACY);
         boolean bridgeConflict = bridgeEnabled && bridgePrimary && bridgeLegacy;
-        boolean bridgeLegacyOnly = bridgeEnabled && bridgeLegacy && !bridgePrimary;
+        long resultAt = prefs.getLong("termux_last_result_at", 0L);
+        String lastCommand = prefs.getString("termux_last_command", "");
+        String lastOutput = prefs.getString("termux_last_stdout", "");
+        boolean legacyProcessReported = "reconcile".equals(lastCommand)
+                && lastOutput.contains("LEGACY_READY")
+                && System.currentTimeMillis() - resultAt < 60000L;
+        boolean bridgeLegacyOnly = bridgeEnabled && !bridgePrimary && (bridgeLegacy || legacyProcessReported);
         int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY : 0;
         boolean bridgeTransport = !bridgeEnabled || (bridgePrimary && !bridgeConflict);
         boolean droidTransport = !droidEnabled || RuntimeHealthProbe.isReadyAtPort(TERMUX_DROIDMCP_PORT);
