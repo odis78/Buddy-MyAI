@@ -2221,7 +2221,7 @@
     <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (внешний)</string>
     <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
-    <string name="runtime_termux_monitor_info">Buddy управляет существующими Termux Bridge 0.1.3 и read-only DroidMCP 0.4.0 через Termux RUN_COMMAND. Подключи Termux один раз, выдай разрешение, включи allow-external-apps=true в ~/.termux/termux.properties, выполни termux-setup-storage для общего хранилища и перезапусти Termux. Buddy установит отдельный управляющий скрипт и не заменит существующий менеджер.</string>
+    <string name="runtime_termux_monitor_info">Buddy управляет существующими Termux Bridge 0.1.3 и read-only DroidMCP 0.4.0 через Termux RUN_COMMAND. Подключи Termux один раз, выдай разрешение, включи allow-external-apps=true в ~/.termux/termux.properties, выполни termux-setup-storage для общего хранилища и перезапусти Termux. Убедись, что в Termux установлен curl (при необходимости: pkg install curl). Buddy установит отдельный управляющий скрипт и не заменит существующий менеджер.</string>
     <string name="runtime_monitor_bridge">Управлять Termux Bridge 0.1.3</string>
     <string name="runtime_monitor_droidmcp">Управлять Termux DroidMCP-Filesystem</string>
     <string name="runtime_enable_local_rea">Подключить оригинальный REA как канал Buddy</string>
