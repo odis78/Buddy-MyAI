@@ -51,6 +51,7 @@ public final class RuntimeSettingsActivity extends Screen {
         LinearLayout body = column(this);
         body.setPaddingRelative(dp(this, 20), dp(this, 8), dp(this, 20), dp(this, 28));
         body.addView(text(this, getString(R.string.runtime_settings_info), 14, MUTED), topGap(8));
+        body.addView(text(this, getString(R.string.runtime_termux_monitor_info), 12, MUTED), topGap(6));
 
         body.addView(sectionLabel(this, getString(R.string.runtime_api_key_label)), topGap(8));
         apiKey = field(getString(R.string.runtime_api_key_hint), true);
