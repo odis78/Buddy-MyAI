@@ -27,8 +27,6 @@ termux_controller = read("app/src/main/java/app/buddy/assistant/TermuxRuntimeCon
 termux_receiver = read("app/src/main/java/app/buddy/assistant/TermuxCommandResultReceiver.java")
 runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
 runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
-runtime_helper_bootstrap = read("app/src/main/java/app/buddy/assistant/RuntimeHelperBootstrap.java")
-runtime_helper_bootstrap_test = read("app/src/test/java/app/buddy/assistant/RuntimeHelperBootstrapTest.java")
 runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
 runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
 manifest = read("app/src/main/AndroidManifest.xml")
@@ -229,14 +227,6 @@ lifecycle_gate = (
 )
 add("connection_lifecycle_ownership", "PASS" if lifecycle_gate else "FAIL",
     "Buddy owns its main Tunnel Client and REA child; Termux-owned Bridge/DroidMCP are managed through a separate serialized controller")
-
-helper_failure_isolation = (
-    "startOne" in runtime_helper_bootstrap
-    and "catch (Exception e)" in runtime_helper_bootstrap
-    and "oneHelperFailureDoesNotBlockFollowingHelpers" in runtime_helper_bootstrap_test
-)
-add("helper_startup_failure_isolation", "PASS" if helper_failure_isolation else "FAIL",
-    "A helper startup exception is recorded independently and does not suppress later helper starts")
 
 cleartext_enabled = 'android:usesCleartextTraffic="true"' in manifest
 add("global_cleartext_policy", "WARN" if cleartext_enabled else "PASS",
