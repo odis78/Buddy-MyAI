@@ -79,7 +79,7 @@ local_mcp_ok = (
     "PORT = BuildConfig.MCP_PORT" in mcp
     and "127.0.0.1" in mcp
     and 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
-    and 'buildConfigField("int", "MCP_PORT", "18767"' in gradle
+    and 'buildConfigField("int", "MCP_PORT", "18767")' in gradle
     and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile_writer
 )
 add("local_mcp_server", "PASS" if local_mcp_ok else "FAIL",
