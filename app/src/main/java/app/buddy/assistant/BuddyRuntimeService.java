@@ -39,6 +39,7 @@ public final class BuddyRuntimeService extends Service {
     private volatile boolean stopping;
     private boolean retryScheduled;
     private volatile boolean reaChannelConfigured;
+    private volatile boolean reaInstallInProgress;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -144,10 +145,26 @@ public final class BuddyRuntimeService extends Service {
             return;
         }
         try {
+            boolean reaEnabled = getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true);
+            boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
+            if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) {
+                supervisor.stop();
+            }
             boolean ready = supervisor.start();
             if (ready) {
                 recovery.reset();
+                reaChannelConfigured = desiredReaChannel;
+                if (reaChannelConfigured) {
+                    setReaPersistentState("CHANNEL_CONFIGURED",
+                            "REA 6.5.0 is a second MCP channel under Buddy's existing tunnel; local doctor passed 207/207 tools and 6/6 prompts.");
+                } else if (!reaEnabled) {
+                    setReaPersistentState("DISABLED", "REA channel disabled; no separate REA tunnel is created.");
+                } else {
+                    setReaPersistentState("INSTALL_REQUIRED", "Installing original REA 6.5.0 inside Buddy's existing Alpine/PRoot runtime.");
+                    scheduleReaInstall();
+                }
                 updateMainMcpState();
+                reconcileTermuxConnections();
                 startMonitor();
             } else {
                 setPersistentState("WAITING", supervisor.lastError());
@@ -171,6 +188,35 @@ public final class BuddyRuntimeService extends Service {
                     Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
             scheduleAttempt(delay);
         }
+    }
+
+    private void scheduleReaInstall() {
+        if (stopping || helperExecutor == null || reaInstallInProgress
+                || !getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)) return;
+        reaInstallInProgress = true;
+        helperExecutor.execute(() -> {
+            boolean installed = false;
+            try {
+                ReaRuntimeInstaller.ensureReady(getApplicationContext(), message -> {
+                    if (!stopping) updateNotification(getString(R.string.runtime_notification_rea_installing, message));
+                });
+                installed = ReaRuntimeInstaller.isReady(this);
+                if (!installed) setReaPersistentState("ERROR", "REA installer finished without a valid readiness marker.");
+            } catch (Exception e) {
+                setReaPersistentState("ERROR", safeMessage(e));
+                Log.w(TAG, "Buddy-local REA installation failed: " + safeMessage(e));
+            } finally {
+                reaInstallInProgress = false;
+            }
+            if (installed && !stopping && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)
+                    && executor != null) {
+                executor.execute(() -> {
+                    if (stopping || supervisor == null) return;
+                    supervisor.stop();
+                    scheduleAttempt(0);
+                });
+            }
+        });
     }
 
     private void reconcileTermuxConnections() {
@@ -266,7 +312,7 @@ public final class BuddyRuntimeService extends Service {
                 setReaPersistentState("CHANNEL_CONFIGURED", "REA 6.5.0 runs inside Buddy's existing Alpine/PRoot and is exposed as channel 'rea' under the Buddy tunnel. Local doctor: 207/207 tools, 6/6 prompts.");
             } else if (!reaInstalled) {
                 setReaPersistentState("INSTALL_REQUIRED", "Buddy-local REA 6.5.0 is not ready yet; the main Buddy tunnel remains independent.");
-                if (!retryScheduled) scheduleAttempt(60000);
+                if (!reaInstallInProgress) scheduleReaInstall();
             } else {
                 setReaPersistentState("CHANNEL_PENDING", "REA is installed; Buddy tunnel must restart to attach its MCP channel.");
                 if (!retryScheduled) scheduleAttempt(1000);
@@ -324,13 +370,16 @@ public final class BuddyRuntimeService extends Service {
 
     private void requestStop() {
         stopping = true;
-        helperLifecycle.markStopping();
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
-        if (reaMonitorTask != null) reaMonitorTask.cancel(true);
-        if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (helperExecutor != null) helperExecutor.shutdownNow();
+        if (TermuxRuntimeController.isInstalled(this)
+                && TermuxRuntimeController.hasPermission(this)
+                && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("termux_manager_installed", false)) {
+            TermuxRuntimeController.stop(this);
+        }
         if (executor == null) {
+            if (supervisor != null) supervisor.stop();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
             return;
@@ -339,14 +388,11 @@ public final class BuddyRuntimeService extends Service {
             if (monitorTask != null) monitorTask.cancel(true);
             if (retryTask != null) retryTask.cancel(true);
             if (supervisor != null) supervisor.stop();
-            // The external Termux-owned Bridge and DroidMCP processes are not stopped by Buddy.
-            helperLifecycle.cleanup(() -> {
-                if (reaSupervisor != null) reaSupervisor.stop();
-            });
-            setPersistentState("STOPPED", "");
-            setBridgePersistentState("NOT_MONITORED", "Buddy monitor stopped; external Termux process is not affected.");
-            setDroidPersistentState("NOT_MONITORED", "Buddy monitor stopped; external Termux process is not affected.");
-            setReaPersistentState("STOPPED", "");
+            setPersistentState("STOPPED", "Buddy tunnel stopped.");
+            setBridgePersistentState("STOP_REQUESTED", "Graceful stop requested through Termux RUN_COMMAND.");
+            setDroidPersistentState("STOP_REQUESTED", "Graceful stop requested through Termux RUN_COMMAND.");
+            setReaPersistentState("STOPPED", "REA remains installed inside Buddy's Alpine runtime; its channel is stopped with Buddy's tunnel.");
+            setTermuxPersistentState("STOP_REQUESTED", "Buddy requested graceful shutdown of its Bridge and DroidMCP processes.");
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
         });
@@ -398,6 +444,14 @@ public final class BuddyRuntimeService extends Service {
         }
     }
 
+    private void setTermuxPersistentState(String state, String detail) {
+        getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                .putString("termux_state", state)
+                .putString("termux_detail", detail == null ? "" : detail)
+                .putLong("termux_state_updated_at", System.currentTimeMillis())
+                .apply();
+    }
+
     private void setBridgePersistentState(String state, String detail) {
         getSharedPreferences("runtime", MODE_PRIVATE).edit()
                 .putString("bridge_state", state)
@@ -438,16 +492,9 @@ public final class BuddyRuntimeService extends Service {
 
     @Override public void onDestroy() {
         stopping = true;
-        helperLifecycle.markStopping();
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
-        if (reaMonitorTask != null) reaMonitorTask.cancel(true);
-        if (reaRetryTask != null) reaRetryTask.cancel(true);
         if (supervisor != null) supervisor.stop();
-        // Termux owns the external Bridge and DroidMCP processes; Buddy never kills them.
-        helperLifecycle.cleanup(() -> {
-            if (reaSupervisor != null) reaSupervisor.stop();
-        });
         if (executor != null) executor.shutdownNow();
         if (helperExecutor != null) helperExecutor.shutdownNow();
         super.onDestroy();
