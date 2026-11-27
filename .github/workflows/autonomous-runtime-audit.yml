@@ -307,7 +307,7 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signature-verification.txt
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test222'"
-          printf '%s\n' "$BADGING" | grep -F "versionCode='221'"
+          printf '%s\n' "$BADGING" | grep -F "versionCode='222'"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libtunnel-client.so'
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/rea-agents-6.5.0.tgz'
           REA_SHA="$(unzip -p "$APK" assets/runtime/rea-agents-6.5.0.tgz | sha256sum | cut -d ' ' -f1)"
