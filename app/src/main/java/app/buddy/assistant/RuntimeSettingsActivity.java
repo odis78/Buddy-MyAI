@@ -121,6 +121,9 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(connectTermux, topGap(12));
         connectTermux.setOnClickListener(v -> connectTermux());
         body.addView(text(this, getString(R.string.runtime_termux_setup_info), 12, MUTED), topGap(6));
+        Button openTermux = button(this, getString(R.string.runtime_open_termux), false);
+        body.addView(openTermux, topGap(8));
+        openTermux.setOnClickListener(v -> openTermux());
 
         Button start = button(this, getString(R.string.runtime_start), true);
         body.addView(start, topGap(14));
@@ -177,6 +180,15 @@ public final class RuntimeSettingsActivity extends Screen {
     }
 
     private static final int REQUEST_TERMUX_RUN_COMMAND = 8452;
+
+    private void openTermux() {
+        Intent launch = getPackageManager().getLaunchIntentForPackage("com.termux");
+        if (launch == null) {
+            Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        startActivity(launch);
+    }
 
     private void connectTermux() {
         if (!TermuxRuntimeController.isInstalled(this)) {
