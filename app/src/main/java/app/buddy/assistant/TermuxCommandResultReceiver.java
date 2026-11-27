@@ -43,7 +43,7 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
 
         // The Termux-side manager resolves the actual loopback port from health.url_file.
         // Persist only a bounded numeric port emitted by that hash-verified manager.
-        if ("reconcile".equals(commandId) || "status".equals(commandId) || "stop".equals(commandId)) {
+        if ("start".equals(commandId) || "reconcile".equals(commandId) || "status".equals(commandId) || "stop".equals(commandId)) {
             java.util.regex.Matcher portMatch = java.util.regex.Pattern
                     .compile("(?m)^BUDDY_DROIDMCP_PORT=([0-9]{1,5})\\s*$").matcher(stdout);
             if (portMatch.find()) {
