@@ -61,7 +61,7 @@ android {
             applicationIdSuffix = ".test223"
             versionNameSuffix = "-test223"
             // Isolate test223 from Test220 and Test222 MCP listeners.
-            buildConfigField("int", "MCP_PORT", "18767"
+            buildConfigField("int", "MCP_PORT", "18767")
         }
         release {
             isMinifyEnabled = false
