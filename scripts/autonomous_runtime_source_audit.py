@@ -152,6 +152,8 @@ termux_manager_ok = (
     and "health_endpoint_live" in termux_manager
     and "droidmcp-readonly" in termux_manager
     and "DROIDMCP_ROOT" in termux_manager
+    and "droidmcp-sandbox" in termux_manager
+    and "droidmcp-filesystem" in termux_manager
     and "DROIDMCP_TRANSPORT=stdio" in termux_manager
     and "DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_file" in termux_manager
     and "start_one droidmcp" in termux_manager
