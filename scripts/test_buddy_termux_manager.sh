@@ -78,6 +78,11 @@ esac
 exit 22
 SH
 chmod 700 "$PREFIX/bin/curl"
+cat > "$PREFIX/bin/node" <<'SH'
+#!/usr/bin/env bash
+echo "v24.18.0"
+SH
+chmod 700 "$PREFIX/bin/node"
 
 cat > "$BIN" <<'SH'
 #!/usr/bin/env bash
