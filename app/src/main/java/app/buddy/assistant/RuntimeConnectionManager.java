@@ -68,6 +68,8 @@ final class RuntimeConnectionManager {
 
     synchronized boolean reconcileTermux(boolean bridgeEnabled, boolean droidEnabled) {
         if (!isTermuxInstalled() || !hasTermuxPermission() || !isTermuxManagerInstalled()) return false;
+        if (app.getSharedPreferences("runtime", Context.MODE_PRIVATE)
+                .getBoolean("termux_manager_update_in_progress", false)) return false;
         TermuxRuntimeController.reconcile(app, bridgeEnabled, droidEnabled);
         nextTermuxRecoveryAt = System.currentTimeMillis() + termuxRecovery.nextDelayMillis();
         return true;
@@ -85,6 +87,8 @@ final class RuntimeConnectionManager {
                                                   boolean bridgeEnabled, boolean droidEnabled) {
         if (snapshot == null || !snapshot.managerInstalled || !snapshot.termuxInstalled
                 || !snapshot.permissionGranted) return;
+        if (app.getSharedPreferences("runtime", Context.MODE_PRIVATE)
+                .getBoolean("termux_manager_update_in_progress", false)) return;
         boolean unavailable = (bridgeEnabled && !snapshot.bridgeTransport
                 && !snapshot.bridgeConflict && !snapshot.bridgeLegacyOnly)
                 || (droidEnabled && !snapshot.droidTransport);
