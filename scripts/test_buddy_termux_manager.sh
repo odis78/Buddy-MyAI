@@ -41,7 +41,7 @@ health:
 mcp:
   commands:
     - channel: droidmcp
-      command: "node droidmcp-filesystem"
+      command: "~/droidmcp-stage-v0.4.0/droidmcp-readonly"
 YAML
 
 cat > "$PREFIX/bin/curl" <<'SH'
