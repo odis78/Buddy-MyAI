@@ -86,6 +86,7 @@ final class RuntimeProcessLauncher {
         Context app = context.getApplicationContext();
         Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
         guestEnvironment.put("TERMUX_BRIDGE_REA_ROOT", "/root/rea-source");
+        guestEnvironment.put("BUDDY_ANDROID_PACKAGE", app.getPackageName());
         java.util.List<String> command = Linux.commandAtWithSystem(app, "/root/rea-source", guestEnvironment,
                 "/usr/bin/node", "/root/bridge/server/index.mjs");
         return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, command);
