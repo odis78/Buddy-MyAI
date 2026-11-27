@@ -100,6 +100,10 @@ component_paths() {
     echo "$1: refusing profile with an unexpected tunnel ID or health port"
     return 2
   fi
+  if [[ "$1" == "droidmcp" ]] && ! grep -Fq "droidmcp-readonly" "$PROFILE"; then
+    echo "droidmcp: refusing a profile that does not use the verified read-only wrapper"
+    return 2
+  fi
   HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
     echo "$1: profile has no health.url_file entry"
     return 2
