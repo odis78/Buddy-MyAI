@@ -156,6 +156,22 @@ find_matching_pid() {
   printf '%s\n' "$found"
 }
 
+legacy_bridge_process_live() {
+  local file pid cmdline legacy_profile
+  legacy_profile="$HOME_DIR/.config/tunnel-client/termux-bridge.yaml"
+  for file in /proc/[0-9]*/cmdline; do
+    [[ -r "$file" ]] || continue
+    pid="\${file#/proc/}"
+    pid="\${pid%/cmdline}"
+    cmdline="$(tr '\000' ' ' < "$file" 2>/dev/null || true)"
+    if [[ "$cmdline" == *"tunnel-client"* && "$cmdline" == *"$legacy_profile"* ]]; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+  done
+  return 1
+}
+
 legacy_bridge_health_live() {
   [[ -x "$PREFIX/bin/curl" ]] || return 1
   "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 \
@@ -196,8 +212,8 @@ start_one() {
   component_paths "$name" || return 2
   [[ -s "$PROFILE" ]] || { echo "$name: profile missing"; return 1; }
   [[ -x "$PREFIX/bin/curl" ]] || { echo "$name: curl is required for safe health checks"; return 1; }
-  if [[ "$name" == "bridge" ]] && legacy_bridge_health_live; then
-    echo "bridge: LEGACY_READY (port 8080 already live; refusing to start a duplicate 18080 tunnel)"
+  if [[ "$name" == "bridge" ]] && { legacy_bridge_health_live || legacy_bridge_process_live >/dev/null; }; then
+    echo "bridge: LEGACY_READY (legacy profile process or port 8080 detected; refusing to start a duplicate 18080 tunnel)"
     return 0
   fi
   command -v node >/dev/null 2>&1 || { echo "$name: Node.js is required for the MCP server command"; return 1; }
