@@ -249,7 +249,8 @@ public final class BuddyRuntimeService extends Service {
     private void reconcileTermuxConnections() {
         if (stopping || helperExecutor == null || connections == null) return;
         android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
-        if (!prefs.getBoolean("termux_manager_installed", false)) return;
+        if (!prefs.getBoolean("termux_manager_installed", false)
+                || prefs.getBoolean("termux_manager_update_in_progress", false)) return;
         if (!connections.isTermuxInstalled()) {
             setTermuxPersistentState("NOT_INSTALLED", "Termux is not installed.");
             return;
