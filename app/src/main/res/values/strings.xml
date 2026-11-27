@@ -2399,6 +2399,8 @@
     <string name="runtime_notification_channel_description">Keeps Buddy\'s authenticated ChatGPT tunnel available.</string>
     <string name="runtime_notification_starting">Starting authenticated connection…</string>
     <string name="runtime_notification_ready">ChatGPT connection active</string>
+    <string name="runtime_notification_waiting_mcp">Tunnel process ready; waiting for MCP initialize and tools/list.</string>
+    <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP and REA MCP tools verified</string>
     <string name="runtime_notification_rea_installing">Buddy connected. %1$s</string>
     <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP and REA tools active</string>
     <string name="runtime_notification_rea_retry">Buddy is active. REA tools retry in %1$d s.</string>
