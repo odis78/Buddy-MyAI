@@ -103,6 +103,8 @@ component_paths() {
   if [[ "$1" == "droidmcp" ]]; then
     DROID_WRAPPER="$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly"
     if ! grep -Fq "droidmcp-readonly" "$PROFILE" || [[ ! -x "$DROID_WRAPPER" ]] \
+        || [[ ! -d "$HOME_DIR/droidmcp-sandbox" ]] \
+        || [[ ! -x "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-filesystem" ]] \
         || ! grep -Fq 'export DROIDMCP_ROOT="$HOME/droidmcp-sandbox"' "$DROID_WRAPPER" \
         || ! grep -Fq 'export DROIDMCP_TRANSPORT=stdio' "$DROID_WRAPPER" \
         || ! grep -Fq 'export DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_file' "$DROID_WRAPPER" \
