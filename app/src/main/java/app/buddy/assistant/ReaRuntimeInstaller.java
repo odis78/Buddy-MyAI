@@ -87,7 +87,7 @@ final class ReaRuntimeInstaller {
                     || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)
                     || !value.contains(HELPER_PROBE_SHA256)) return false;
             String output = Linux.exec(context,
-                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -d /storage/emulated/0",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -f /root/rea/scripts/helper_mcp_catalog_probe.mjs && node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("/root/rea/.buddy-helper-mcp-probe.json","utf8")); if(r.bridge?.version!=="0.1.3" || r.bridge?.tools!==6 || !r.bridge?.sampleOk || r.droidmcp?.version!=="0.4.0" || r.droidmcp?.tools!==5 || !r.droidmcp?.sampleOk) process.exit(2);' && test -d /storage/emulated/0",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
@@ -146,9 +146,11 @@ final class ReaRuntimeInstaller {
                 + "test \"$(git -C \"$stage/new/rea-source\" rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
                 + "cp /tmp/termux-bridge-0.1.3.mjs \"$stage/new/bridge/server/index.mjs\"; "
                 + "cp /tmp/droidmcp-filesystem-0.4.0.mjs \"$stage/new/droidmcp/server/index.mjs\"; "
+                + "cp /tmp/helper_mcp_catalog_probe.mjs \"$stage/new/rea/scripts/helper_mcp_catalog_probe.mjs\"; "
                 + "node --check \"$stage/new/bridge/server/index.mjs\"; "
                 + "node --check \"$stage/new/droidmcp/server/index.mjs\"; "
-                + "printf '%s\\n' 'HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0'; "
+                + "node \"$stage/new/rea/scripts/helper_mcp_catalog_probe.mjs\" \"$stage/new/bridge/server/index.mjs\" \"$stage/new/droidmcp/server/index.mjs\" > .buddy-helper-mcp-probe.json; "
+                + "node -e 'const fs=require(\"fs\"); const r=JSON.parse(fs.readFileSync(\".buddy-helper-mcp-probe.json\",\"utf8\")); if(r.bridge?.version!==\"0.1.3\" || r.bridge?.tools!==6 || !r.bridge?.sampleOk || r.droidmcp?.version!==\"0.4.0\" || r.droidmcp?.tools!==5 || !r.droidmcp?.sampleOk) process.exit(3); console.log(\"HELPER_MCP_READY=6/6;5/5\");'; "
                 + "node --version; npm --version; java -version; adb version; "
                 + "mkdir -p \"$backup\"; "
                 + "for name in rea rea-source bridge droidmcp; do "
