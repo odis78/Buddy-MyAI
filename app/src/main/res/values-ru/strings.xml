@@ -2216,17 +2216,17 @@
 
     <!-- Автономный Tunnel Client внутри Buddy. -->
     <string name="runtime_settings_title">Автономная Buddy</string>
-    <string name="runtime_settings_subtitle">Поддерживать связь с ChatGPT без Termux</string>
-    <string name="runtime_settings_info">Tunnel Client запускается из собственного пакета Buddy. Адрес MCP для ChatGPT: 127.0.0.1:%1$d/mcp. В test221 основной tunnel ID пустой, чтобы не конфликтовать с активным Test220; перед запуском основного туннеля укажи отдельно созданный ID. Для Buddy и локального REA нужен API-ключ; настройки наблюдения за Termux можно сохранить без него.</string>
+    <string name="runtime_settings_subtitle">Управление MCP-соединениями Buddy и Termux</string>
+    <string name="runtime_settings_info">Tunnel Client запускается из пакета Buddy. Адрес MCP для ChatGPT: 127.0.0.1:%1$d/mcp. В test222 основной tunnel ID пустой, чтобы не конфликтовать с активным Test220. Перед запуском укажи отдельно созданный ID. Оригинальный REA работает внутри существующего Alpine Buddy как канал этого туннеля. Для Bridge и DroidMCP используются собственные учётные данные Termux.</string>
     <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (внешний)</string>
     <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
-    <string name="runtime_termux_monitor_info">Buddy наблюдает за уже запущенными в Termux туннелями Bridge (порты 18080/8080) и read-only DroidMCP (41507). Buddy не запускает и не останавливает процессы Termux, чтобы не создавать дубликаты tunnel ID.</string>
-    <string name="runtime_monitor_bridge">Наблюдать за существующим Termux Bridge</string>
-    <string name="runtime_monitor_droidmcp">Наблюдать за существующим Termux DroidMCP</string>
-    <string name="runtime_enable_local_rea">Запускать REA внутри Buddy</string>
-    <string name="runtime_helper_switch_info">Переключатели Bridge и DroidMCP управляют только наблюдением: процессы принадлежат Termux. Переключатель REA запускает и останавливает собственный туннель Buddy.</string>
-    <string name="runtime_notification_waiting_termux">Ожидаю уже запущенные в Termux процессы Bridge и DroidMCP.</string>
+    <string name="runtime_termux_monitor_info">Buddy управляет Termux Bridge 0.1.3 и read-only DroidMCP 0.4.0 через Termux RUN_COMMAND. Подключи Termux один раз, выдай разрешение и включи allow-external-apps=true в Termux. Buddy установит отдельный управляющий скрипт и не заменит существующий менеджер Termux.</string>
+    <string name="runtime_monitor_bridge">Управлять Termux Bridge 0.1.3</string>
+    <string name="runtime_monitor_droidmcp">Управлять Termux DroidMCP-Filesystem</string>
+    <string name="runtime_enable_local_rea">Подключить оригинальный REA как канал Buddy</string>
+    <string name="runtime_helper_switch_info">Buddy управляет Bridge и DroidMCP внутри Termux отдельным обратимым скриптом. Оригинальный REA 6.5.0 остаётся в существующем Alpine/PRoot Buddy и работает каналом основного туннеля. Отдельный REA-туннель в Termux не запускается.</string>
+    <string name="runtime_notification_waiting_termux">Ожидаю готовности Termux Bridge и DroidMCP.</string>
     <string name="runtime_notification_termux_conflict">Оба порта Termux Bridge отвечают. Нужно устранить дублирующие процессы в Termux.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
     <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится через Android Keystore.</string>
@@ -2249,17 +2249,24 @@
     <string name="runtime_notification_ready">Соединение с ChatGPT активно</string>
     <string name="runtime_notification_waiting_mcp">Туннель запущен; ожидаю MCP initialize и tools/list.</string>
     <string name="runtime_notification_waiting_remote">Инструменты MCP обнаружены; ожидаю успешный опрос и подтверждённую доставку ответа.</string>
-    <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP и REA: MCP-инструменты проверены</string>
+    <string name="runtime_notification_ready_with_rea">Buddy, Termux Bridge и DroidMCP подключены; канал REA настроен</string>
     <string name="runtime_notification_rea_installing">Buddy подключён. %1$s</string>
     <string name="runtime_notification_rea_retry">Buddy активен. Повтор запуска помощников через %1$d с.</string>
     <string name="runtime_notification_retry">Соединение не готово. Повтор через %1$d с.</string>
     <string name="runtime_notification_setup">Откройте настройки Buddy, чтобы указать API-ключ и отдельный tunnel ID.</string>
-    <string name="runtime_unique_tunnel_id_required">Для test221 нужен новый уникальный tunnel ID. Не используй ID активной сборки Test220.</string>
-    <string name="runtime_test220_tunnel_id_reserved">Этот tunnel ID закреплён за активной сборкой Test220. Для test221 используй новый ID.</string>
+    <string name="runtime_unique_tunnel_id_required">Для test222 нужен новый уникальный tunnel ID. Не используй ID активной сборки Test220.</string>
+    <string name="runtime_test220_tunnel_id_reserved">Этот tunnel ID закреплён за активной сборкой Test220. Для test222 используй новый ID.</string>
     <string name="runtime_notification_stop">Остановить</string>
     <string name="runtime_toast_saved">Настройки runtime сохранены.</string>
     <string name="runtime_toast_started">Запрос на запуск runtime отправлен.</string>
     <string name="runtime_toast_stopped">Запрос на остановку runtime отправлен.</string>
     <string name="runtime_invalid_tunnel_id">Введите корректный идентификатор туннеля.</string>
     <string name="runtime_missing_api_key">Сначала введите API-ключ управляющего сервера.</string>
+    <string name="runtime_termux_status_label">Связь с Termux</string>
+    <string name="runtime_termux_status_detail">Termux: %1$s</string>
+    <string name="runtime_connect_termux">Подключить Termux</string>
+    <string name="runtime_termux_setup_info">Однократная настройка: выдай Buddy разрешение RUN_COMMAND и включи allow-external-apps=true в ~/.termux/termux.properties. Buddy создаёт только собственный скрипт ~/bin/buddy-tunnels, не меняя существующий менеджер и REA.</string>
+    <string name="runtime_termux_not_installed">Termux не установлен.</string>
+    <string name="runtime_termux_connect_requested">Подключение Termux запрошено.</string>
+    <string name="runtime_termux_permission_denied">Для управления туннелями Buddy нужно разрешение Termux RUN_COMMAND.</string>
 </resources>
