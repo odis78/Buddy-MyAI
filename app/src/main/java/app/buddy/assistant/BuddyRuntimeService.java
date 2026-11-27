@@ -111,6 +111,13 @@ public final class BuddyRuntimeService extends Service {
             updateNotification(getString(R.string.runtime_notification_setup));
             return;
         }
+        String configuredTunnelId = getSharedPreferences("runtime", MODE_PRIVATE)
+                .getString("tunnel_id", RuntimeProcessLauncher.DEFAULT_TUNNEL_ID);
+        if (configuredTunnelId == null || !configuredTunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
+            setPersistentState("NEEDS_SETUP", getString(R.string.runtime_unique_tunnel_id_required));
+            updateNotification(getString(R.string.runtime_notification_setup));
+            return;
+        }
         try {
             boolean ready = supervisor.start();
             if (ready) {
