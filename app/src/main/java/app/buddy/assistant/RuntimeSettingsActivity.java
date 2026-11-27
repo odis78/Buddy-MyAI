@@ -200,14 +200,12 @@ public final class RuntimeSettingsActivity extends Screen {
             tunnelId.requestFocus();
             return false;
         }
-        if (key.isEmpty() && !Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
-            apiKey.setError(getString(R.string.runtime_missing_api_key));
-            apiKey.requestFocus();
-            return false;
-        }
         try {
+            android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
+            String currentState = prefs.getString("state", "STOPPED");
+            boolean runtimeWasActive = !"STOPPED".equals(currentState);
             if (!key.isEmpty()) Secrets.put(this, RuntimeProcessLauncher.API_KEY_SECRET, key);
-            getSharedPreferences("runtime", MODE_PRIVATE).edit()
+            prefs.edit()
                     .putString("tunnel_id", id)
                     .putBoolean("auto_start", autoStart.isChecked())
                     .putBoolean("monitor_bridge", monitorBridge.isChecked())
@@ -217,6 +215,7 @@ public final class RuntimeSettingsActivity extends Screen {
             apiKey.setText("");
             refreshStatus();
             Toast.makeText(this, R.string.runtime_toast_saved, Toast.LENGTH_SHORT).show();
+            if (runtimeWasActive) BuddyRuntimeService.start(this);
             return true;
         } catch (Exception e) {
             Toast.makeText(this, e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
