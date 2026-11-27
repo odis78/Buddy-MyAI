@@ -196,6 +196,7 @@ start_one() {
   component_paths "$name" || return 2
   [[ -s "$PROFILE" ]] || { echo "$name: profile missing"; return 1; }
   [[ -x "$PREFIX/bin/curl" ]] || { echo "$name: curl is required for safe health checks"; return 1; }
+  command -v node >/dev/null 2>&1 || { echo "$name: Node.js is required for the MCP server command"; return 1; }
   if [[ "$name" == "bridge" ]] && legacy_bridge_health_live; then
     echo "bridge: LEGACY_READY (port 8080 already live; refusing to start a duplicate 18080 tunnel)"
     return 0
