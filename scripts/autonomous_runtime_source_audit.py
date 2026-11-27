@@ -216,7 +216,8 @@ add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
 settings_ok = ("Secrets.put" in runtime_settings and "Secrets.get" in runtime_settings
     and "ClipboardManager" in runtime_settings and "copySavedApiKey" in runtime_settings
     and "copyTunnelId" in runtime_settings and "setupAll" in runtime_settings
-    and "setup_all_pending" in runtime_settings and "auto_start" in runtime_settings
+    and "setup_all_pending" in runtime_settings and "isLoopbackPortOpen(18767)" in runtime_settings
+    and "auto_start" in runtime_settings
     and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
     and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings)
 add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
