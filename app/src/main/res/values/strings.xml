@@ -2410,7 +2410,6 @@
     <string name="runtime_notification_waiting_remote">MCP tools discovered; waiting for a recent successful remote poll and accepted response.</string>
     <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP and REA MCP tools verified</string>
     <string name="runtime_notification_rea_installing">Buddy connected. %1$s</string>
-    <string name="runtime_notification_ready_with_rea">ChatGPT, Bridge, DroidMCP and REA tools active</string>
     <string name="runtime_notification_rea_retry">Buddy is active. REA tools retry in %1$d s.</string>
     <string name="runtime_notification_retry">Connection not ready. Retrying in %1$d s.</string>
     <string name="runtime_notification_setup">Open Buddy settings to configure the tunnel API key.</string>
