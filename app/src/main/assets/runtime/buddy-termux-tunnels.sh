@@ -211,7 +211,7 @@ start_one() {
         ;;
       2) return 1 ;;
     esac
-    if health_ok; then
+    if health_ok || health_endpoint_live "$name"; then
       echo "$name: CONFLICT (stale PID file but health endpoint is live; left untouched)"
       return 1
     fi
@@ -229,7 +229,7 @@ start_one() {
     2) return 1 ;;
   esac
 
-  if health_ok; then
+  if health_ok || health_endpoint_live "$name"; then
     echo "$name: CONFLICT (health endpoint is live but no owned PID was found)"
     return 1
   fi
