@@ -59,8 +59,8 @@ android {
         debug {
             // Keep this test build beside both the installed release and the previous test APK.
             applicationIdSuffix = ".test223"
-            versionNameSuffix = "-test223"
-            // Isolate test223 from Test220 and Test222 MCP listeners.
+            versionNameSuffix = "-test224"
+            // Upgrade Test223 in place to preserve its encrypted API key and preferences.
             buildConfigField("int", "MCP_PORT", "18767")
         }
         release {
