@@ -28,8 +28,9 @@ public final class BuddyRuntimeService extends Service {
     private ScheduledExecutorService executor;
     private ScheduledExecutorService helperExecutor;
     private RuntimeSupervisor supervisor;
-    private RuntimeSupervisor bridgeSupervisor;
-    private RuntimeSupervisor droidMcpSupervisor;
+    private static final int TERMUX_BRIDGE_PORT_PRIMARY = 18080;
+    private static final int TERMUX_BRIDGE_PORT_LEGACY = 8080;
+    private static final int DROIDMCP_PORT = 41507;
     private RuntimeSupervisor reaSupervisor;
     private RuntimeRecoveryPolicy recovery;
     private ScheduledFuture<?> monitorTask;
@@ -63,13 +64,9 @@ public final class BuddyRuntimeService extends Service {
         });
         Context app = getApplicationContext();
         supervisor = new RuntimeSupervisor(app);
-        bridgeSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/bridge-tunnel"),
-                () -> RuntimeProcessLauncher.startBridgeConfigured(app), false);
-        droidMcpSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/droidmcp-tunnel"),
-                () -> RuntimeProcessLauncher.startDroidMcpConfigured(app), false);
         reaSupervisor = new RuntimeSupervisor(app, new java.io.File(app.getFilesDir(), "runtime/rea-tunnel"),
                 () -> RuntimeProcessLauncher.startReaConfigured(app), false);
-        helperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        helperExecutor = Executors.newScheduledThreadPool(2, r -> {
             Thread thread = new Thread(r, "buddy-rea-supervisor");
             thread.setDaemon(true);
             return thread;
@@ -93,6 +90,7 @@ public final class BuddyRuntimeService extends Service {
         promoteToForeground(getString(R.string.runtime_notification_starting));
         scheduleAttempt(0);
         scheduleReaAttempt(0);
+        startReaMonitor();
         return START_STICKY;
     }
 
@@ -159,22 +157,9 @@ public final class BuddyRuntimeService extends Service {
                     });
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
-            // Helpers are independent after the shared Alpine/Node bootstrap. A permission or
-            // startup failure in one helper must not suppress the remaining MCP servers.
-            boolean bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
-                    () -> bridgeSupervisor.start(),
-                    (state, detail) -> setBridgePersistentState(state, detail),
-                    "Transport ready; awaiting MCP discovery (6 tools expected)",
-                    () -> bridgeSupervisor.lastError());
-            if (stopping || Thread.currentThread().isInterrupted()) return;
-
-            boolean droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
-                    () -> droidMcpSupervisor.start(),
-                    (state, detail) -> setDroidPersistentState(state, detail),
-                    "Transport ready; awaiting MCP discovery (5 tools expected)",
-                    () -> droidMcpSupervisor.lastError());
-            if (stopping || Thread.currentThread().isInterrupted()) return;
-
+            // The real Termux Bridge and DroidMCP are already managed by Termux.
+            // Buddy only observes their loopback health endpoints and never starts a duplicate
+            // Tunnel Client with the same remote tunnel IDs.
             boolean reaReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                     () -> reaSupervisor.start(),
                     (state, detail) -> setReaPersistentState(state, detail),
@@ -182,8 +167,7 @@ public final class BuddyRuntimeService extends Service {
                     () -> reaSupervisor.lastError());
             if (stopping || Thread.currentThread().isInterrupted()) return;
 
-            startReaMonitor();
-            if (bridgeReady && droidReady && reaReady) {
+            if (reaReady) {
                 reaRecovery.reset();
             } else {
                 long delay = reaRecovery.nextDelayMillis();
