@@ -2414,6 +2414,7 @@
     <string name="runtime_notification_retry">Connection not ready. Retrying in %1$d s.</string>
     <string name="runtime_notification_setup">Open Buddy settings to configure the tunnel API key.</string>
     <string name="runtime_unique_tunnel_id_required">A new unique tunnel ID is required for test221. Do not reuse the active Test220 tunnel ID.</string>
+    <string name="runtime_test220_tunnel_id_reserved">This tunnel ID belongs to the active Test220 build. Use a new tunnel ID for test221.</string>
     <string name="runtime_notification_stop">Stop</string>
     <string name="runtime_toast_saved">Runtime settings saved.</string>
     <string name="runtime_toast_started">Runtime start requested.</string>
