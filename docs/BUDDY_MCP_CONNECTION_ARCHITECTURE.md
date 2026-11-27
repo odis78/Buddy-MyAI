@@ -70,6 +70,15 @@ The development workflow validates:
 - Termux manager shell syntax and isolated lifecycle tests: start, status, idempotency, graceful stop, stale PID recovery, foreign PID protection, legacy Bridge avoidance, independent channel starts, and unhealthy-process recovery.
 - APK package isolation, version code, embedded runtime payloads, and signature verification.
 
+## Safe migration order
+
+1. Install the isolated test222 APK alongside Test220; never update or uninstall Test220.
+2. Enter the new Buddy tunnel ID and API key in test222.
+3. Complete the one-time Termux permission, `allow-external-apps`, Node.js/curl, and shared-storage setup.
+4. If the legacy Bridge on port 8080 is still active, stop it with the existing Termux manager. Buddy will then start the already-validated 0.1.3 profile on port 18080.
+5. Verify Buddy main, internal REA channel, Bridge 0.1.3, and read-only DroidMCP end-to-end.
+6. Only after the internal REA channel is proven on-device may the separate historical `REA-Termux-Android` route be retired. That retirement is a separate, explicit handoff and is not performed by the Buddy manager.
+
 ## Physical-device acceptance still required
 
 CI and source tests do not prove live end-to-end operation on the Infinix device. Final acceptance requires the user to configure the new Buddy tunnel ID/API key and complete the one-time Termux permission/property setup. The acceptance run must verify all three remote tunnel identities, REA channel discovery under Buddy, a read-only DroidMCP file operation, Android control through Buddy, and recovery after process restart/reboot.
