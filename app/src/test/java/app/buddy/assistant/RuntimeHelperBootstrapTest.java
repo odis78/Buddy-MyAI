@@ -28,7 +28,7 @@ public class RuntimeHelperBootstrapTest {
         assertEquals(1, secondStarts.get());
         assertEquals(2, states.size());
         assertEquals("ERROR:storage permission missing", states.get(0));
-        assertEquals("READY:second ready", states.get(1));
+        assertEquals("TRANSPORT_READY:second ready", states.get(1));
     }
 
     @Test public void falseReadinessRetainsTheSpecificSupervisorDiagnostic() {
