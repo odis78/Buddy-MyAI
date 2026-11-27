@@ -27,6 +27,7 @@ termux_controller = read("app/src/main/java/app/buddy/assistant/TermuxRuntimeCon
 termux_receiver = read("app/src/main/java/app/buddy/assistant/TermuxCommandResultReceiver.java")
 runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
 runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
+runtime_connection_manager = read("app/src/main/java/app/buddy/assistant/RuntimeConnectionManager.java")
 runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
 runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
 manifest = read("app/src/main/AndroidManifest.xml")
@@ -153,7 +154,10 @@ three_channel_ok = (
     and "PendingIntent.FLAG_MUTABLE" in termux_controller
     and "runtime/buddy-termux-tunnels.sh" in termux_controller
     and "termuxManagerReady" in termux_receiver
-    and "TermuxRuntimeController.reconcile" in runtime_service
+    and "RuntimeConnectionManager" in runtime_service
+    and "TermuxRuntimeController.reconcile" in runtime_connection_manager
+    and "RuntimeSupervisor" in runtime_connection_manager
+    and "recoverTermuxIfUnavailable" in runtime_connection_manager
     and "com.termux.permission.RUN_COMMAND" in manifest
     and 'android:name="com.termux"' in manifest
     and "startBridgeConfigured" not in runtime_service
@@ -219,11 +223,12 @@ add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
     "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
 
 lifecycle_gate = (
-    "RuntimeSupervisor" in runtime_service
+    "RuntimeConnectionManager" in runtime_service
     and "scheduleReaInstall" in runtime_service
     and "connectionMonitorTask" in runtime_service
-    and "TermuxRuntimeController.stop" in runtime_service
+    and "connections.stopTermux()" in runtime_service
     and "RuntimeStateMachine.State.READY" in runtime_service
+    and "startBuddyTunnel" in runtime_connection_manager
 )
 add("connection_lifecycle_ownership", "PASS" if lifecycle_gate else "FAIL",
     "Buddy owns its main Tunnel Client and REA child; Termux-owned Bridge/DroidMCP are managed through a separate serialized controller")
