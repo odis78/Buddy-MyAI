@@ -222,14 +222,21 @@ public final class RuntimeSettingsActivity extends Screen {
             BuddyRuntimeService.connectTermux(this);
             Toast.makeText(this, setupPending ? R.string.runtime_setup_requested : R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
         } else {
+            getSharedPreferences("runtime", MODE_PRIVATE).edit()
+                    .putBoolean("setup_all_pending", false).putBoolean("setup_all_after_permission", false).apply();
             Toast.makeText(this, R.string.runtime_termux_permission_denied, Toast.LENGTH_LONG).show();
         }
         refreshStatus();
     }
 
     private void setupAll() {
-        if (!saveSettings()) return;
+        getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", true).apply();
+        if (!saveSettings()) {
+            getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", false).apply();
+            return;
+        }
         if (!TermuxRuntimeController.isInstalled(this)) {
+            getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", false).apply();
             Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
             return;
         }
@@ -303,7 +310,7 @@ public final class RuntimeSettingsActivity extends Screen {
             apiKey.setText("");
             refreshStatus();
             Toast.makeText(this, R.string.runtime_toast_saved, Toast.LENGTH_SHORT).show();
-            if (runtimeWasActive) BuddyRuntimeService.start(this);
+            if (runtimeWasActive && !prefs.getBoolean("setup_all_pending", false)) BuddyRuntimeService.start(this);
             return true;
         } catch (Exception e) {
             Toast.makeText(this, e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
