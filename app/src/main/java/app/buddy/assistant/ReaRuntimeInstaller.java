@@ -22,6 +22,8 @@ final class ReaRuntimeInstaller {
     static final String BRIDGE_SHA256 = "2b7add212d42e5b22502c4c56ded4423ae5de5de3d847c4970e2e845c7ae5da4";
     static final String DROIDMCP_ASSET = "runtime/droidmcp-filesystem-0.4.0.mjs";
     static final String DROIDMCP_SHA256 = "75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265";
+    static final String HELPER_PROBE_ASSET = "runtime/helper_mcp_catalog_probe.mjs";
+    static final String HELPER_PROBE_SHA256 = "4b2cbe541523eea21f4d60371e8aa4e97fee248dbc94ac0deb881a799e3e7805";
     static final String REA_SOURCE_COMMIT = "3b79af28e80785afce9f5998d8f03289402a1847";
 
     interface ProgressListener {
@@ -45,28 +47,32 @@ final class ReaRuntimeInstaller {
         File packageFile = new File(root, "tmp/rea-agents-6.5.0.tgz");
         File bridgeFile = new File(root, "tmp/termux-bridge-0.1.3.mjs");
         File droidFile = new File(root, "tmp/droidmcp-filesystem-0.4.0.mjs");
+        File probeFile = new File(root, "tmp/helper_mcp_catalog_probe.mjs");
         copyVerifiedAsset(app.getAssets(), PACKAGE_ASSET, packageFile, PACKAGE_SHA256);
         copyVerifiedAsset(app.getAssets(), BRIDGE_ASSET, bridgeFile, BRIDGE_SHA256);
         copyVerifiedAsset(app.getAssets(), DROIDMCP_ASSET, droidFile, DROIDMCP_SHA256);
+        copyVerifiedAsset(app.getAssets(), HELPER_PROBE_ASSET, probeFile, HELPER_PROBE_SHA256);
 
         if (progress != null) progress.onProgress("Installing REA, Bridge and DroidMCP helper runtimes");
         String command = buildInstallCommand();
         String output = Linux.exec(app, command, 600);
         if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")
-                || !output.contains("HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0")) {
+                || !output.contains("HELPER_MCP_READY=6/6;5/5")) {
             throw new IOException("REA bootstrap failed: " + tail(output));
         }
 
         File marker = new File(root, "root/.buddy-rea-runtime-version");
         try (FileOutputStream out = new FileOutputStream(marker, false)) {
             out.write((VERSION + "\n" + NODE_VERSION + "\n" + PACKAGE_SHA256 + "\n"
-                    + BRIDGE_SHA256 + "\n" + DROIDMCP_SHA256 + "\n" + REA_SOURCE_COMMIT + "\n")
+                    + BRIDGE_SHA256 + "\n" + DROIDMCP_SHA256 + "\n" + REA_SOURCE_COMMIT + "\n"
+                    + HELPER_PROBE_SHA256 + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             out.getFD().sync();
         }
         packageFile.delete();
         bridgeFile.delete();
         droidFile.delete();
+        probeFile.delete();
     }
 
     static boolean isReady(Context context) {
@@ -78,7 +84,8 @@ final class ReaRuntimeInstaller {
                     java.nio.charset.StandardCharsets.UTF_8);
             if (!value.contains(VERSION) || !value.contains(NODE_VERSION)
                     || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
-                    || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
+                    || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)
+                    || !value.contains(HELPER_PROBE_SHA256)) return false;
             String output = Linux.exec(context,
                     "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -d /storage/emulated/0",
                     30);
