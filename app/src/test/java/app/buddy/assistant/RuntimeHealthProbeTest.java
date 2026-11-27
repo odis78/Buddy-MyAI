@@ -122,13 +122,13 @@ public class RuntimeHealthProbeTest {
     @Test public void requiresRecentPollAndAcceptedRemoteResponse() throws Exception {
         File dir = Files.createTempDirectory("buddy-remote-health-test").toFile();
         String now = Instant.now().toString();
-        String body = "{\""schema_version\"":1,\""live\"":true,\""ready\"":true,\""components\"":{"
-                + "\""mcp\"":{\""status\"":\""ok\"",\""state\"":\""discovered\"",\""limited\"":false,\""details\"":{"
-                + "\""transport\"":\""stdio\"",\""child_state\"":\""running\"",\""child_generation\"":\""child-1\"",\""evidence\"":\""same_child\"","
-                + "\""initialize\"":{\""ok\"":true,\""identity_complete\"":true,\""limited\"":false},"
-                + "\""tools_list\"":{\""ok\"":true,\""complete\"":true,\""partial\"":false,\""limited\"":false,\""retained_count\"":2,\""tool_names\"":[\""alpha\"",\""beta\""]}}},"
-                + "\""control-plane\"":{\""status\"":\""ok\"",\""state\"":\""idle\"",\""details\"":{\""consecutive_failures\"":0,\""configured_wait_seconds\"":30,\""deadline_seconds\"":60,\""last_success\"":\""" + now + "\""}},"
-                + "\""response-delivery\"":{\""status\"":\""ok\"",\""state\"":\""accepted\"",\""details\"":{\""accepted\"":1,\""last_accepted\"":\""" + now + "\""}}}}";
+        String body = "{\"schema_version\":1,\"live\":true,\"ready\":true,\"components\":{"
+                + "\"mcp\":{\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,\"details\":{"
+                + "\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
+                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}},"
+                + "\"control-plane\":{\"status\":\"ok\",\"state\":\"idle\",\"details\":{\"consecutive_failures\":0,\"configured_wait_seconds\":30,\"deadline_seconds\":60,\"last_success\":\"" + now + "\"}},"
+                + "\"response-delivery\":{\"status\":\"ok\",\"state\":\"accepted\",\"details\":{\"accepted\":1,\"last_accepted\":\"" + now + "\"}}}}";
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             Thread responder = respondOnce(server, body);
             File url = new File(dir, "health.url");
@@ -145,13 +145,13 @@ public class RuntimeHealthProbeTest {
         File dir = Files.createTempDirectory("buddy-remote-health-test").toFile();
         String now = Instant.now().toString();
         String stale = Instant.now().minusSeconds(7200).toString();
-        String body = "{\""schema_version\"":1,\""live\"":true,\""ready\"":true,\""components\"":{"
-                + "\""mcp\"":{\""status\"":\""ok\"",\""state\"":\""discovered\"",\""limited\"":false,\""details\"":{"
-                + "\""transport\"":\""stdio\"",\""child_state\"":\""running\"",\""child_generation\"":\""child-1\"",\""evidence\"":\""same_child\"","
-                + "\""initialize\"":{\""ok\"":true,\""identity_complete\"":true,\""limited\"":false},"
-                + "\""tools_list\"":{\""ok\"":true,\""complete\"":true,\""partial\"":false,\""limited\"":false,\""retained_count\"":2,\""tool_names\"":[\""alpha\"",\""beta\""]}}},"
-                + "\""control-plane\"":{\""status\"":\""ok\"",\""state\"":\""idle\"",\""details\"":{\""consecutive_failures\"":0,\""configured_wait_seconds\"":30,\""deadline_seconds\"":60,\""last_success\"":\""" + now + "\""}},"
-                + "\""response-delivery\"":{\""status\"":\""ok\"",\""state\"":\""accepted\"",\""details\"":{\""accepted\"":1,\""last_accepted\"":\""" + stale + "\""}}}}";
+        String body = "{\"schema_version\":1,\"live\":true,\"ready\":true,\"components\":{"
+                + "\"mcp\":{\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,\"details\":{"
+                + "\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
+                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}},"
+                + "\"control-plane\":{\"status\":\"ok\",\"state\":\"idle\",\"details\":{\"consecutive_failures\":0,\"configured_wait_seconds\":30,\"deadline_seconds\":60,\"last_success\":\"" + now + "\"}},"
+                + "\"response-delivery\":{\"status\":\"ok\",\"state\":\"accepted\",\"details\":{\"accepted\":1,\"last_accepted\":\"" + stale + "\"}}}}";
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             Thread responder = respondOnce(server, body);
             File url = new File(dir, "health.url");
