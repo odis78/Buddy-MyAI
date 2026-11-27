@@ -43,7 +43,7 @@ discover_profile() {
   for directory in "$HOME_DIR/.config" "$HOME_DIR/droidmcp-stage-v0.4.0"; do
     [[ -d "$directory" ]] || continue
     while IFS= read -r -d '' file; do
-      if grep -Fq "$expected_id" "$file" && grep -q 'listen_addr:' "$file" && grep -q 'url_file:' "$file"; then
+      if grep -Fq "$expected_id" "$file" && grep -q 'listen_addr:' "$file" && { [[ "$name" == bridge ]] || grep -q 'url_file:' "$file"; }; then
         local listener
         listener="$(awk -F: '/^[[:space:]]*listen_addr:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/["[:space:]]/, "", $0); print $0; exit}' "$file")"
         if [[ "$listener" =~ ^127\.0\.0\.1:([0-9]{1,5})$ ]]; then
@@ -123,10 +123,14 @@ component_paths() {
       return 2
     fi
   fi
-  HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
-    echo "$1: profile has no health.url_file entry"
-    return 2
-  }
+  if [[ "$1" == bridge ]]; then
+    HEALTH_FILE="$(profile_health_file "$PROFILE" 2>/dev/null || true)"
+  else
+    HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
+      echo "$1: profile has no health.url_file entry"
+      return 2
+    }
+  fi
 }
 
 pid_alive() {
@@ -189,14 +193,24 @@ legacy_bridge_health_live() {
 }
 
 health_url_port() {
-  local url port
-  [[ -s "$HEALTH_FILE" ]] || return 1
-  IFS= read -r url < "$HEALTH_FILE" || return 1
+  local url port listener
+  if [[ -n "${HEALTH_FILE:-}" && -s "$HEALTH_FILE" ]]; then
+    IFS= read -r url < "$HEALTH_FILE" || [[ -n "$url" ]] || return 1
+  else
+    listener="$(awk -F: '/^[[:space:]]*listen_addr:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/["[:space:]]/, "", $0); print $0; exit}' "$PROFILE")"
+    [[ "$listener" =~ ^127\.0\.0\.1:[0-9]{1,5}$ ]] || return 1
+    url="http://$listener"
+  fi
   [[ "$url" =~ ^http://127\.0\.0\.1:([0-9]{1,5})/?$ ]] || return 1
   port="${url##*:}"
   port="${port%/}"
   (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
   printf '%s\n' "$((10#$port))"
+}
+
+cleanup_manager_state() {
+  rm -f "$PID_FILE"
+  if [[ -n "${HEALTH_FILE:-}" ]]; then rm -f "$HEALTH_FILE"; fi
 }
 
 health_endpoint_live() {
@@ -260,7 +274,7 @@ start_one() {
       echo "$name: CONFLICT (stale PID file but health endpoint is live; left untouched)"
       return 1
     fi
-    rm -f "$PID_FILE" "$HEALTH_FILE"
+    cleanup_manager_state
   fi
 
   found="$(find_matching_pid "$PROFILE")"
@@ -281,6 +295,14 @@ start_one() {
     return 1
   fi
 
+  if [[ "$name" == bridge ]]; then
+    local env_file="$HOME_DIR/.config/termux-bridge/runtime.env"
+    [[ -r "$env_file" ]] || { echo "bridge: runtime.env missing or unreadable"; return 1; }
+    set -a
+    . "$env_file" || { set +a; echo "bridge: failed to load runtime.env"; return 1; }
+    set +a
+    [[ -n "${CONTROL_PLANE_API_KEY:-}" ]] || { echo "bridge: CONTROL_PLANE_API_KEY is empty or unavailable"; return 1; }
+  fi
   resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   nohup "$BIN" run --config "$PROFILE" >> "$LOG_FILE" 2>&1 </dev/null &
   pid="$!"
@@ -291,16 +313,15 @@ start_one() {
   fi
 
   if pid_matches "$pid" "$PROFILE"; then
-    kill -TERM "$pid" 2>/dev/null || true
-    for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
-      pid_alive "$pid" || break
-      sleep 1
-    done
-    if ! pid_alive "$pid"; then
-      rm -f "$PID_FILE" "$HEALTH_FILE"
-    fi
+    echo "$name: RUNNING (PID $pid), health not ready; process left running; see $LOG_FILE"
+    return 1
   fi
-  echo "$name: START_FAILED (health did not become ready; see $LOG_FILE)"
+  if pid_alive "$pid"; then
+    echo "$name: CONFLICT (PID $pid is alive but ownership is not verified; left untouched)"
+    return 1
+  fi
+  cleanup_manager_state
+  echo "$name: START_FAILED (process exited before health became ready; see $LOG_FILE)"
   return 1
 }
 
@@ -344,7 +365,7 @@ stop_one() {
       echo "$name: CONFLICT (health endpoint is live without a verified PID; left untouched)"
       return 1
     fi
-    rm -f "$PID_FILE" "$HEALTH_FILE"
+    cleanup_manager_state
     echo "$name: STOPPED (stale manager state cleared; no live process found)"
     return 0
   fi
@@ -354,7 +375,7 @@ stop_one() {
   }
   for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
     if ! pid_alive "$pid"; then
-      rm -f "$PID_FILE" "$HEALTH_FILE"
+      cleanup_manager_state
       echo "$name: STOPPED (graceful)"
       return 0
     fi
