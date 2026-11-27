@@ -144,6 +144,10 @@ termux_manager_ok = (
     and "SIGKILL" in termux_manager
     and "rea-android" not in termux_manager
     and "rea-all" not in termux_manager
+    and "tunnel_6ae28b8f01788191b42901f090964502" in termux_manager
+    and "tunnel_6af1637e86788191aa429d5518d41938" in termux_manager
+    and "LEGACY_READY" in termux_manager
+    and "start_one droidmcp" in termux_manager
 )
 add("termux_bridge_droidmcp_manager", "PASS" if termux_manager_ok else "FAIL",
     "Buddy installs a separate Termux manager for Bridge and DroidMCP only, validates PID ownership and stops gracefully")
@@ -153,6 +157,9 @@ three_channel_ok = (
     and "com.termux.permission.RUN_COMMAND" in termux_controller
     and "PendingIntent.FLAG_MUTABLE" in termux_controller
     and "runtime/buddy-termux-tunnels.sh" in termux_controller
+    and "dispatchVerifiedManager" in termux_controller
+    and "sha256sum" in termux_controller
+    and "termux_manager_installed_hash" in termux_receiver
     and "termuxManagerReady" in termux_receiver
     and "RuntimeConnectionManager" in runtime_service
     and "TermuxRuntimeController.reconcile" in runtime_connection_manager
@@ -189,6 +196,12 @@ add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
 settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings
 add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
     "User can save the control-plane key, configure opt-in startup, and explicitly connect Termux with a runtime permission gate")
+rea_backoff_ok = "reaRecovery.nextDelayMillis()" in runtime_service and "reaInstallRetryTask" in runtime_service
+add("rea_install_backoff", "PASS" if rea_backoff_ok else "FAIL",
+    "REA bootstrap retries use bounded exponential backoff rather than a fixed 15-second loop")
+storage_minimized = "MANAGE_EXTERNAL_STORAGE" not in manifest and "grantStorageAccess" not in runtime_settings
+add("storage_permission_minimization", "PASS" if storage_minimized else "FAIL",
+    "Buddy no longer requests broad all-files access for Termux-owned DroidMCP filesystem operations")
 hardening_ok = (
     "PR_SET_DUMPABLE" in runtime_hardening
     and "hardenProcess" in runtime_hardening
