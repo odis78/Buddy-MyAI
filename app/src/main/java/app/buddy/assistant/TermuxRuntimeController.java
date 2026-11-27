@@ -46,12 +46,20 @@ final class TermuxRuntimeController {
             byte[] script = readAsset(context, "runtime/buddy-termux-tunnels.sh");
             String encoded = Base64.encodeToString(script, Base64.NO_WRAP);
             String expectedHash = hex(MessageDigest.getInstance("SHA-256").digest(script));
+            String previousHash = context.getSharedPreferences("runtime", Context.MODE_PRIVATE)
+                    .getString("termux_manager_installed_hash", "");
+            context.getSharedPreferences("runtime", Context.MODE_PRIVATE).edit()
+                    .putString("termux_manager_expected_hash", expectedHash).apply();
             String command = "set -eu; mkdir -p \"$HOME/bin\"; "
                     + "target=\"$HOME/bin/buddy-tunnels\"; tmp=\"$target.installing\"; "
                     + "printf '%s' '" + encoded + "' | base64 -d > \"$tmp\"; "
                     + "printf '%s  %s\\n' '" + expectedHash + "' \"$tmp\" | sha256sum -c - >/dev/null; chmod 700 \"$tmp\"; "
                     + "if [ -e \"$target\" ]; then "
-                    + "if cmp -s \"$tmp\" \"$target\"; then rm -f \"$tmp\"; echo BUDDY_MANAGER_ALREADY_INSTALLED; "
+                    + "actual=\"$(sha256sum \"$target\" | awk '{print $1}')\"; "
+                    + "if [ \"$actual\" = '" + expectedHash + "' ]; then rm -f \"$tmp\"; echo BUDDY_MANAGER_ALREADY_INSTALLED; "
+                    + "elif [ -n '" + previousHash + "' ] && [ \"$actual\" = '" + previousHash + "' ]; then "
+                    + "backup=\"$target.backup.$(date +%s)\"; cp -p \"$target\" \"$backup\"; mv \"$tmp\" \"$target\"; "
+                    + "echo BUDDY_MANAGER_UPDATED; echo BUDDY_MANAGER_BACKUP=$backup; "
                     + "else rm -f \"$tmp\"; echo BUDDY_MANAGER_CONFLICT; exit 3; fi; "
                     + "else mv \"$tmp\" \"$target\"; echo BUDDY_MANAGER_INSTALLED; fi";
             dispatch(context, "install", command);
