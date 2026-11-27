@@ -8,6 +8,8 @@ STATE="$HOME_DIR/.local/state/tunnels"
 BRIDGE_PROFILE="${BUDDY_BRIDGE_PROFILE:-$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml}"
 DROID_PROFILE="${BUDDY_DROIDMCP_PROFILE:-}"
 BIN="${BUDDY_TUNNEL_CLIENT_BIN:-}"
+HEALTH_ATTEMPTS="${BUDDY_HEALTH_ATTEMPTS:-30}"
+STOP_ATTEMPTS="${BUDDY_STOP_ATTEMPTS:-15}"
 PATH="$PREFIX/bin:$HOME_DIR/bin:$HOME_DIR/.local/bin:$PATH"
 export PATH
 
@@ -146,7 +148,7 @@ health_ok() {
 
 wait_health() {
   local attempt
-  for attempt in $(seq 1 30); do
+  for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
     health_ok && return 0
     sleep 1
   done
@@ -219,7 +221,7 @@ start_one() {
 
   if pid_matches "$pid" "$PROFILE"; then
     kill -TERM "$pid" 2>/dev/null || true
-    for attempt in $(seq 1 15); do
+    for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
       kill -0 "$pid" 2>/dev/null || break
       sleep 1
     done
@@ -269,7 +271,7 @@ stop_one() {
     echo "$name: STOP_FAILED (TERM was not accepted)"
     return 1
   }
-  for attempt in $(seq 1 15); do
+  for attempt in $(seq 1 "$STOP_ATTEMPTS"); do
     if ! kill -0 "$pid" 2>/dev/null; then
       rm -f "$PID_FILE" "$HEALTH_FILE"
       echo "$name: STOPPED (graceful)"
