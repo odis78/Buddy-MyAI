@@ -26,6 +26,9 @@ public final class RuntimeSettingsActivity extends Screen {
     private EditText apiKey;
     private EditText tunnelId;
     private Switch autoStart;
+    private Switch monitorBridge;
+    private Switch monitorDroidMcp;
+    private Switch reaEnabled;
     private TextView savedKey;
     private TextView status;
     private TextView bridgeStatus;
@@ -72,6 +75,28 @@ public final class RuntimeSettingsActivity extends Screen {
         autoStart.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("auto_start", false));
         body.addView(autoStart, topGap(18));
         body.addView(text(this, getString(R.string.runtime_auto_start_info), 12, MUTED), topGap(4));
+
+        monitorBridge = new Switch(this);
+        monitorBridge.setText(getString(R.string.runtime_monitor_bridge));
+        monitorBridge.setTextColor(TEXT);
+        monitorBridge.setTextSize(15);
+        monitorBridge.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("monitor_bridge", true));
+        body.addView(monitorBridge, topGap(16));
+
+        monitorDroidMcp = new Switch(this);
+        monitorDroidMcp.setText(getString(R.string.runtime_monitor_droidmcp));
+        monitorDroidMcp.setTextColor(TEXT);
+        monitorDroidMcp.setTextSize(15);
+        monitorDroidMcp.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("monitor_droidmcp", true));
+        body.addView(monitorDroidMcp, topGap(10));
+
+        reaEnabled = new Switch(this);
+        reaEnabled.setText(getString(R.string.runtime_enable_local_rea));
+        reaEnabled.setTextColor(TEXT);
+        reaEnabled.setTextSize(15);
+        reaEnabled.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true));
+        body.addView(reaEnabled, topGap(10));
+        body.addView(text(this, getString(R.string.runtime_helper_switch_info), 12, MUTED), topGap(4));
 
         Button save = button(this, getString(R.string.runtime_save), true);
         body.addView(save, topGap(18));
@@ -185,6 +210,9 @@ public final class RuntimeSettingsActivity extends Screen {
             getSharedPreferences("runtime", MODE_PRIVATE).edit()
                     .putString("tunnel_id", id)
                     .putBoolean("auto_start", autoStart.isChecked())
+                    .putBoolean("monitor_bridge", monitorBridge.isChecked())
+                    .putBoolean("monitor_droidmcp", monitorDroidMcp.isChecked())
+                    .putBoolean("rea_enabled", reaEnabled.isChecked())
                     .apply();
             apiKey.setText("");
             refreshStatus();
