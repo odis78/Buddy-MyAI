@@ -330,7 +330,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK='dist/buddy-runtimefix-debug.apk'
+          APK='dist/buddy-runtimefix-test224-debug.apk'
           test -s "$APK"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner"
@@ -342,7 +342,7 @@ jobs:
         with:
           name: buddy-runtimefix-test224-debug
           path: |
-            dist/buddy-runtimefix-debug.apk
+            dist/buddy-runtimefix-test224-debug.apk
             dist/apk-signature-verification.txt
             dist/apk-signing-identity.txt
             dist/apk-sha256.txt
