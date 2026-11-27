@@ -2222,6 +2222,10 @@
     <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
     <string name="runtime_termux_monitor_info">Buddy наблюдает за уже запущенными в Termux туннелями Bridge (порты 18080/8080) и read-only DroidMCP (41507). Buddy не запускает и не останавливает процессы Termux, чтобы не создавать дубликаты tunnel ID.</string>
+    <string name="runtime_monitor_bridge">Наблюдать за существующим Termux Bridge</string>
+    <string name="runtime_monitor_droidmcp">Наблюдать за существующим Termux DroidMCP</string>
+    <string name="runtime_enable_local_rea">Запускать REA внутри Buddy</string>
+    <string name="runtime_helper_switch_info">Переключатели Bridge и DroidMCP управляют только наблюдением: процессы принадлежат Termux. Переключатель REA запускает и останавливает собственный туннель Buddy.</string>
     <string name="runtime_notification_waiting_termux">Ожидаю уже запущенные в Termux процессы Bridge и DroidMCP.</string>
     <string name="runtime_notification_termux_conflict">Оба порта Termux Bridge отвечают. Нужно устранить дублирующие процессы в Termux.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
