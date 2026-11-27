@@ -30,46 +30,46 @@ final class RuntimeProfileWriter {
             throw new IllegalArgumentException("Absolute runtime directory is required");
         }
         String dir = runtimeDir.getAbsolutePath();
-        if (dir.indexOf('\\n') >= 0 || dir.indexOf('\\r') >= 0) {
+        if (dir.indexOf('\n') >= 0 || dir.indexOf('\r') >= 0) {
             throw new IllegalArgumentException("Invalid runtime directory");
         }
         StringBuilder yaml = new StringBuilder()
-                .append("config_version: 1\\n")
-                .append("control_plane:\\n")
-                .append("  base_url: \\"https://api.openai.com\\"\\n")
-                .append("  tunnel_id: \\"").append(tunnelId).append("\\"\\n")
-                .append("  api_key: \\"file:").append(yamlQuote(dir + "/control-plane-api-key")).append("\\"\\n")
-                .append("health:\\n")
-                .append("  listen_addr: \\"127.0.0.1:0\\"\\n")
-                .append("  url_file: \\"").append(yamlQuote(dir + "/health.url")).append("\\"\\n")
-                .append("process:\\n")
-                .append("  pid_file: \\"").append(yamlQuote(dir + "/tunnel-client.pid")).append("\\"\\n")
-                .append("log:\\n")
-                .append("  level: info\\n")
-                .append("  format: json\\n")
-                .append("  file: \\"").append(yamlQuote(dir + "/tunnel-client.log")).append("\\"\\n")
-                .append("mcp:\\n")
-                .append("  server_urls:\\n")
-                .append("    - channel: main\\n")
-                .append("      url: \\"").append(MCP_URL).append("\\"\\n");
+                .append("config_version: 1\n")
+                .append("control_plane:\n")
+                .append("  base_url: \"https://api.openai.com\"\n")
+                .append("  tunnel_id: \"").append(tunnelId).append("\"\n")
+                .append("  api_key: \"file:").append(yamlQuote(dir + "/control-plane-api-key")).append("\"\n")
+                .append("health:\n")
+                .append("  listen_addr: \"127.0.0.1:0\"\n")
+                .append("  url_file: \"").append(yamlQuote(dir + "/health.url")).append("\"\n")
+                .append("process:\n")
+                .append("  pid_file: \"").append(yamlQuote(dir + "/tunnel-client.pid")).append("\"\n")
+                .append("log:\n")
+                .append("  level: info\n")
+                .append("  format: json\n")
+                .append("  file: \"").append(yamlQuote(dir + "/tunnel-client.log")).append("\"\n")
+                .append("mcp:\n")
+                .append("  server_urls:\n")
+                .append("    - channel: main\n")
+                .append("      url: \"").append(MCP_URL).append("\"\n");
         if (reaCommand != null && !reaCommand.isEmpty()) {
             StringBuilder command = new StringBuilder();
             for (String part : reaCommand) {
                 if (part == null || part.trim().isEmpty()
-                        || part.indexOf('\\n') >= 0 || part.indexOf('\\r') >= 0) {
+                        || part.indexOf('\n') >= 0 || part.indexOf('\r') >= 0) {
                     throw new IllegalArgumentException("Invalid REA MCP command argument");
                 }
                 if (command.length() > 0) command.append(' ');
                 command.append(part);
             }
-            yaml.append("  commands:\\n")
-                    .append("    - channel: rea\\n")
-                    .append("      command: \\"").append(yamlQuote(command.toString())).append("\\"\\n");
+            yaml.append("  commands:\n")
+                    .append("    - channel: rea\n")
+                    .append("      command: \"").append(yamlQuote(command.toString())).append("\"\n");
         }
-        yaml.append("  extra_headers:\\n")
-                .append("    Authorization: \\"file:").append(yamlQuote(dir + "/buddy-auth-header")).append("\\"\\n")
-                .append("  discovery_extra_headers:\\n")
-                .append("    Authorization: \\"file:").append(yamlQuote(dir + "/buddy-discovery-auth-header")).append("\\"\\n");
+        yaml.append("  extra_headers:\n")
+                .append("    Authorization: \"file:").append(yamlQuote(dir + "/buddy-auth-header")).append("\"\n")
+                .append("  discovery_extra_headers:\n")
+                .append("    Authorization: \"file:").append(yamlQuote(dir + "/buddy-discovery-auth-header")).append("\"\n");
         return yaml.toString();
     }
 
