@@ -19,7 +19,7 @@ The app's `RuntimeConnectionManager` owns the Buddy `RuntimeSupervisor` and coor
 Buddy does not overwrite the user's existing Termux manager or profiles.
 
 - On the explicit **Connect Termux** action, Buddy installs its own `~/bin/buddy-tunnels` script.
-- The script reuses the known Bridge and DroidMCP profile IDs. It refuses profiles with unexpected tunnel IDs or health ports.
+- The script prefers the known ARM64 Tunnel Client 0.0.19 binary at `~/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64` and reuses the known Bridge and DroidMCP profile IDs. It refuses profiles with unexpected tunnel IDs or health ports.
 - If the exact DroidMCP profile cannot be uniquely discovered, the script refuses to start it rather than guessing.
 - The script verifies process command lines against the exact profile before signalling a process.
 - It uses SIGTERM and bounded graceful waits only. It never uses SIGKILL.
