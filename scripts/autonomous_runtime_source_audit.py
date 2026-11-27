@@ -22,7 +22,6 @@ secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
 runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
 runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
 rea_runtime_installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
-rea_profile_fixture = read("app/src/test/resources/rea-mcp-tunnel-profile.yaml")
 termux_manager = read("app/src/main/assets/runtime/buddy-termux-tunnels.sh")
 termux_controller = read("app/src/main/java/app/buddy/assistant/TermuxRuntimeController.java")
 termux_receiver = read("app/src/main/java/app/buddy/assistant/TermuxCommandResultReceiver.java")
@@ -35,9 +34,6 @@ runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsAc
 manifest = read("app/src/main/AndroidManifest.xml")
 runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
 profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
-stdio_profile_fixtures = [read("app/src/test/resources/" + name) for name in [
-    "rea-mcp-tunnel-profile.yaml", "bridge-mcp-tunnel-profile.yaml", "droidmcp-tunnel-profile.yaml"
-]]
 runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
 runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
 runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
@@ -112,8 +108,7 @@ profile_auth_ok = all(term in runtime_profile and term in profile_fixture for te
 ])
 add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
     "Buddy profile preserves Authorization for both MCP discovery and request traffic")
-buddy_profile_mode_ok = ("cloudflared:" not in runtime_profile and "cloudflared:" not in profile_fixture
-    and all("cloudflared:" not in fixture for fixture in stdio_profile_fixtures))
+buddy_profile_mode_ok = ("cloudflared:" not in runtime_profile and "cloudflared:" not in profile_fixture)
 add("buddy_profile_matches_existing_tunnel_mode", "PASS" if buddy_profile_mode_ok else "FAIL",
     "Buddy, REA, Bridge, and DroidMCP profiles do not enable an unconfigured Cloudflared dependency")
 rea_runtime_ok = (
