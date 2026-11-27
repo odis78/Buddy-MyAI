@@ -12,7 +12,7 @@ CONFLICT_PID=""
 
 cleanup() {
   if [[ -x "$HOME_DIR/bin/buddy-tunnels" ]]; then
-    BUDDY_TERMUX_HOME="$HOME_DIR" BUDDY_TERMUX_PREFIX="$PREFIX" "$HOME_DIR/bin/buddy-tunnels" stop all >/dev/null 2>&1 || true
+    BUDDY_TERMUX_HOME="$HOME_DIR" BUDDY_TERMUX_PREFIX="$PREFIX" bash "$HOME_DIR/bin/buddy-tunnels" stop all >/dev/null 2>&1 || true
   fi
   if [[ -n "$CONFLICT_PID" ]]; then kill "$CONFLICT_PID" 2>/dev/null || true; fi
   rm -rf "$TMP"
@@ -76,26 +76,26 @@ chmod 700 "$HOME_DIR/bin/buddy-tunnels"
 export BUDDY_TERMUX_HOME="$HOME_DIR"
 export BUDDY_TERMUX_PREFIX="$PREFIX"
 
-"$HOME_DIR/bin/buddy-tunnels" start all
+bash "$HOME_DIR/bin/buddy-tunnels" start all
 test -s "$STATE/buddy-bridge.pid"
 test -s "$STATE/buddy-droidmcp.pid"
-"$HOME_DIR/bin/buddy-tunnels" status
-"$HOME_DIR/bin/buddy-tunnels" start all
-"$HOME_DIR/bin/buddy-tunnels" stop all
+bash "$HOME_DIR/bin/buddy-tunnels" status
+bash "$HOME_DIR/bin/buddy-tunnels" start all
+bash "$HOME_DIR/bin/buddy-tunnels" stop all
 test ! -e "$STATE/buddy-bridge.pid"
 test ! -e "$STATE/buddy-droidmcp.pid"
 
 # A dead PID is safe to recover because no matching process or health endpoint remains.
 printf '99999999\n' > "$STATE/buddy-bridge.pid"
-"$HOME_DIR/bin/buddy-tunnels" start bridge
+bash "$HOME_DIR/bin/buddy-tunnels" start bridge
 test -s "$STATE/buddy-bridge.pid"
-"$HOME_DIR/bin/buddy-tunnels" stop bridge
+bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
 
 # A live PID owned by another process must never be adopted, signalled, or overwritten.
 sleep 60 &
 CONFLICT_PID="$!"
 printf '%s\n' "$CONFLICT_PID" > "$STATE/buddy-bridge.pid"
-if "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
+if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
   echo "unsafe start accepted a foreign live PID" >&2
   exit 1
 fi
