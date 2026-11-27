@@ -31,13 +31,16 @@ public final class BuddyRuntimeService extends Service {
     private ScheduledExecutorService helperExecutor;
     private RuntimeConnectionManager connections;
     private RuntimeRecoveryPolicy recovery;
+    private RuntimeRecoveryPolicy reaRecovery;
     private ScheduledFuture<?> monitorTask;
     private ScheduledFuture<?> connectionMonitorTask;
     private ScheduledFuture<?> retryTask;
+    private ScheduledFuture<?> reaInstallRetryTask;
     private volatile boolean stopping;
     private boolean retryScheduled;
     private volatile boolean reaChannelConfigured;
     private volatile boolean reaInstallInProgress;
+    private volatile boolean reaRetryScheduled;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -66,6 +69,7 @@ public final class BuddyRuntimeService extends Service {
             return thread;
         });
         recovery = new RuntimeRecoveryPolicy(1000, 60000);
+        reaRecovery = new RuntimeRecoveryPolicy(30000, 300000);
     }
 
     static void connectTermux(Context context) {
@@ -191,30 +195,53 @@ public final class BuddyRuntimeService extends Service {
     }
 
     private void scheduleReaInstall() {
-        if (stopping || helperExecutor == null || reaInstallInProgress
+        if (stopping || helperExecutor == null || reaInstallInProgress || reaRetryScheduled
                 || !getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)) return;
         reaInstallInProgress = true;
         helperExecutor.execute(() -> {
             boolean installed = false;
+            String failure = "";
             try {
                 ReaRuntimeInstaller.ensureReady(getApplicationContext(), message -> {
                     if (!stopping) updateNotification(getString(R.string.runtime_notification_rea_installing, message));
                 });
                 installed = ReaRuntimeInstaller.isReady(this);
-                if (!installed) setReaPersistentState("ERROR", "REA installer finished without a valid readiness marker.");
+                if (!installed) failure = "REA installer finished without a valid readiness marker.";
             } catch (Exception e) {
-                setReaPersistentState("ERROR", safeMessage(e));
-                Log.w(TAG, "Buddy-local REA installation failed: " + safeMessage(e));
+                failure = safeMessage(e);
+                Log.w(TAG, "Buddy-local REA installation failed: " + failure);
             } finally {
                 reaInstallInProgress = false;
             }
-            if (installed && !stopping && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)
-                    && executor != null) {
-                executor.execute(() -> {
-                    if (stopping || connections == null) return;
-                    connections.stopBuddyTunnel();
-                    scheduleAttempt(0);
-                });
+            if (installed) {
+                if (reaRecovery != null) reaRecovery.reset();
+                if (!stopping && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)
+                        && executor != null) {
+                    executor.execute(() -> {
+                        if (stopping || connections == null) return;
+                        connections.stopBuddyTunnel();
+                        scheduleAttempt(0);
+                    });
+                }
+                return;
+            }
+            if (failure.isEmpty()) failure = "REA 6.5.0 is not ready yet.";
+            setReaPersistentState("ERROR", failure);
+            if (!stopping && helperExecutor != null
+                    && getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true)
+                    && reaRecovery != null) {
+                long delay = reaRecovery.nextDelayMillis();
+                reaRetryScheduled = true;
+                try {
+                    reaInstallRetryTask = helperExecutor.schedule(() -> {
+                        reaRetryScheduled = false;
+                        scheduleReaInstall();
+                    }, delay, TimeUnit.MILLISECONDS);
+                    setReaPersistentState("RETRY_WAIT", failure + " Next attempt in "
+                            + Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay)) + " seconds.");
+                } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                    reaRetryScheduled = false;
+                }
             }
         });
     }
@@ -379,6 +406,7 @@ public final class BuddyRuntimeService extends Service {
         if (monitorTask != null) monitorTask.cancel(true);
         if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
+        if (reaInstallRetryTask != null) reaInstallRetryTask.cancel(true);
         if (helperExecutor != null) helperExecutor.shutdownNow();
         if (connections != null) connections.stopTermux();
         if (executor == null) {
@@ -499,6 +527,7 @@ public final class BuddyRuntimeService extends Service {
         if (monitorTask != null) monitorTask.cancel(true);
         if (connectionMonitorTask != null) connectionMonitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
+        if (reaInstallRetryTask != null) reaInstallRetryTask.cancel(true);
         if (connections != null) connections.stopBuddyTunnel();
         if (executor != null) executor.shutdownNow();
         if (helperExecutor != null) helperExecutor.shutdownNow();
