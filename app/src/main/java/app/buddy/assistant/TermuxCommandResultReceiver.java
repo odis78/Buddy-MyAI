@@ -10,7 +10,13 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String commandId = intent.getStringExtra(TermuxRuntimeController.EXTRA_COMMAND_ID);
-        if (commandId == null || !commandId.matches("[a-z_]{1,32}")) commandId = "unknown";
+        if (commandId == null || !commandId.matches("[a-z_]{1,32}")) {
+            String action = intent.getAction();
+            commandId = action != null && action.contains(".install.") ? "install"
+                    : action != null && action.contains(".reconcile.") ? "reconcile"
+                    : action != null && action.contains(".status.") ? "status"
+                    : action != null && action.contains(".stop.") ? "stop" : "unknown";
+        }
         Bundle result = intent.getBundleExtra("result");
         int exitCode = result == null ? -1 : result.getInt("exitCode", -1);
         String stdout = result == null ? "" : result.getString("stdout", "");
@@ -33,7 +39,7 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
         if ("install".equals(commandId) && exitCode == 0) {
             prefs.edit().putBoolean("termux_manager_installed", true).apply();
             BuddyRuntimeService.termuxManagerReady(context);
-        } else if (exitCode != 0) {
+        } else if ("install".equals(commandId) && exitCode != 0) {
             prefs.edit().putBoolean("termux_manager_installed", false).apply();
         }
     }
