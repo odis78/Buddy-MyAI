@@ -10,7 +10,6 @@ import android.content.SharedPreferences;
 final class RuntimeConnectionManager {
     private static final int TERMUX_BRIDGE_PORT_PRIMARY = 18080;
     private static final int TERMUX_BRIDGE_PORT_LEGACY = 8080;
-    private static final int TERMUX_DROIDMCP_PORT = 41507;
 
     private final Context app;
     private final RuntimeSupervisor buddySupervisor;
@@ -118,15 +117,19 @@ final class RuntimeConnectionManager {
         boolean bridgeLegacyOnly = bridgeEnabled && !bridgePrimary && (bridgeLegacy || legacyProcessReported);
         int bridgePort = bridgePrimary ? TERMUX_BRIDGE_PORT_PRIMARY : 0;
         boolean bridgeTransport = !bridgeEnabled || (bridgePrimary && !bridgeConflict);
-        boolean droidTransport = !droidEnabled || RuntimeHealthProbe.isReadyAtPort(TERMUX_DROIDMCP_PORT);
+        // DroidMCP may bind an ephemeral loopback port (127.0.0.1:0). The Termux
+        // manager reports the actual health URL port after startup; never guess a port.
+        int droidPort = prefs.getInt("termux_droidmcp_port", 0);
+        boolean droidTransport = !droidEnabled || (droidPort > 0
+                && RuntimeHealthProbe.isReadyAtPort(droidPort));
         boolean bridgeMcp = !bridgeEnabled || (bridgeTransport
                 && RuntimeHealthProbe.isMcpDiscoveredAtPort(bridgePort, 6));
         boolean droidMcp = !droidEnabled || (droidTransport
-                && RuntimeHealthProbe.isMcpDiscoveredAtPort(TERMUX_DROIDMCP_PORT, 5));
+                && RuntimeHealthProbe.isMcpDiscoveredAtPort(droidPort, 5));
         boolean bridgeRemote = !bridgeEnabled || (bridgeMcp
                 && RuntimeHealthProbe.isRemoteConnectedAtPort(bridgePort, 6));
         boolean droidRemote = !droidEnabled || (droidMcp
-                && RuntimeHealthProbe.isRemoteConnectedAtPort(TERMUX_DROIDMCP_PORT, 5));
+                && RuntimeHealthProbe.isRemoteConnectedAtPort(droidPort, 5));
 
         String command = prefs.getString("termux_last_command", "");
         int exitCode = prefs.getInt("termux_last_exit_code", -1);
