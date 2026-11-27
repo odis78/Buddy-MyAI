@@ -16,15 +16,15 @@ export PATH
 resolve_binary() {
   local candidate found
   if [[ -n "$BIN" && -x "$BIN" ]]; then return 0; fi
-  found="$(command -v tunnel-client 2>/dev/null || true)"
-  if [[ -n "$found" && -x "$found" ]]; then BIN="$found"; return 0; fi
   for candidate in \
+    "$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64" \
     "$HOME_DIR/.local/bin/tunnel-client" \
     "$HOME_DIR/bin/tunnel-client" \
-    "$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64" \
     "$PREFIX/bin/tunnel-client"; do
     if [[ -x "$candidate" ]]; then BIN="$candidate"; return 0; fi
   done
+  found="$(command -v tunnel-client 2>/dev/null || true)"
+  if [[ -n "$found" && -x "$found" ]]; then BIN="$found"; return 0; fi
   return 1
 }
 
