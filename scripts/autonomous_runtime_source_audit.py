@@ -151,6 +151,10 @@ termux_manager_ok = (
     and "UNHEALTHY" in termux_manager
     and "pid_alive" in termux_manager
     and "health_endpoint_live" in termux_manager
+    and "runtime.env" in termux_manager
+    and "CONTROL_PLANE_API_KEY" in termux_manager
+    and '[[ -n "$url" ]]' in termux_manager
+    and "process left running" in termux_manager
     and "command -v node" in termux_manager
     and "droidmcp-readonly" in termux_manager
     and "DROIDMCP_ROOT" in termux_manager
@@ -171,6 +175,9 @@ three_channel_ok = (
     and "dispatchVerifiedManager" in termux_controller
     and "sha256sum" in termux_controller
     and "termux_manager_installed_hash" in termux_receiver
+    and "setup_all_pending" in termux_receiver
+    and "termux_droidmcp_port" in termux_receiver
+    and "termux_manager_update_in_progress" in termux_controller
     and "termuxManagerReady" in termux_receiver
     and "RuntimeConnectionManager" in runtime_service
     and "TermuxRuntimeController.reconcile" in runtime_connection_manager
@@ -206,7 +213,12 @@ fgs_ok = (
 )
 add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
     "User-visible special-use foreground service and opt-in boot restart are declared")
-settings_ok = "Secrets.put" in runtime_settings and "auto_start" in runtime_settings and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings
+settings_ok = ("Secrets.put" in runtime_settings and "Secrets.get" in runtime_settings
+    and "ClipboardManager" in runtime_settings and "copySavedApiKey" in runtime_settings
+    and "copyTunnelId" in runtime_settings and "setupAll" in runtime_settings
+    and "setup_all_pending" in runtime_settings and "auto_start" in runtime_settings
+    and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
+    and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings)
 add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
     "User can save the control-plane key, configure opt-in startup, and explicitly connect Termux with a runtime permission gate")
 rea_backoff_ok = "reaRecovery.nextDelayMillis()" in runtime_service and "reaInstallRetryTask" in runtime_service
