@@ -170,9 +170,9 @@ health_ok() {
 }
 
 wait_health() {
-  local attempt
+  local name="$1" attempt
   for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
-    health_ok && return 0
+    (health_ok || health_endpoint_live "$name") && return 0
     sleep 1
   done
   return 1
@@ -192,7 +192,7 @@ start_one() {
   if [[ -s "$PID_FILE" ]]; then
     IFS= read -r pid < "$PID_FILE" || pid=""
     if pid_matches "$pid" "$PROFILE"; then
-      if wait_health; then echo "$name: READY (existing PID $pid)"; return 0; fi
+      if wait_health "$name"; then echo "$name: READY (existing PID $pid)"; return 0; fi
       echo "$name: UNHEALTHY (PID $pid); requesting graceful restart"
       stop_one "$name" || return 1
     fi
@@ -204,7 +204,7 @@ start_one() {
     case "$?" in
       0)
         printf '%s\n' "$found" > "$PID_FILE"
-        if wait_health; then echo "$name: READY (recovered PID $found)"; return 0; fi
+        if wait_health "$name"; then echo "$name: READY (recovered PID $found)"; return 0; fi
         echo "$name: UNHEALTHY (recovered PID $found); requesting graceful restart"
         stop_one "$name" || return 1
         ;;
@@ -221,7 +221,7 @@ start_one() {
   case "$?" in
     0)
       printf '%s\n' "$found" > "$PID_FILE"
-      if wait_health; then echo "$name: READY (adopted PID $found)"; return 0; fi
+      if wait_health "$name"; then echo "$name: READY (adopted PID $found)"; return 0; fi
       echo "$name: UNHEALTHY (adopted PID $found); requesting graceful restart"
       stop_one "$name" || return 1
       ;;
@@ -237,7 +237,7 @@ start_one() {
   nohup "$BIN" run --config "$PROFILE" >> "$LOG_FILE" 2>&1 </dev/null &
   pid="$!"
   printf '%s\n' "$pid" > "$PID_FILE"
-  if wait_health; then
+  if wait_health "$name"; then
     echo "$name: READY (PID $pid)"
     return 0
   fi
@@ -319,7 +319,7 @@ status_one() {
   if [[ -s "$PID_FILE" ]]; then
     IFS= read -r pid < "$PID_FILE" || pid=""
     if pid_matches "$pid" "$PROFILE"; then
-      if health_ok; then echo "$name: READY (PID $pid)"; else echo "$name: RUNNING (PID $pid), health not ready"; fi
+      if health_ok || health_endpoint_live "$name"; then echo "$name: READY (PID $pid)"; else echo "$name: RUNNING (PID $pid), health not ready"; fi
       return 0
     fi
     echo "$name: CONFLICT (PID ownership not verified)"
