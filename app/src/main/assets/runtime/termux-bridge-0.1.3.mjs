@@ -6,6 +6,8 @@ import { spawn } from 'node:child_process';
 
 const VERSION = '0.1.3';
 const ROOT = path.resolve(process.env.TERMUX_BRIDGE_REA_ROOT || path.join(os.homedir(), 'rea'));
+const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$/.test(process.env.BUDDY_ANDROID_PACKAGE || '')
+  ? process.env.BUDDY_ANDROID_PACKAGE : 'app.buddy.myai.gt';
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_OUTPUT = 16 * 1024;
 
@@ -58,7 +60,7 @@ function launchMyAi() {
       'start',
       '-a', 'android.intent.action.MAIN',
       '-c', 'android.intent.category.LAUNCHER',
-      '-p', 'app.buddy.myai.gt'
+      '-p', ANDROID_PACKAGE
     ];
     let stdout = '', stderr = '', finished = false;
     let child;
@@ -97,7 +99,7 @@ function launchMyAi() {
         resolve({
           ok: code === 0,
           exitCode: code,
-          package: 'app.buddy.myai.gt',
+          package: ANDROID_PACKAGE,
           stdout,
           stderr,
           note: code === 0
