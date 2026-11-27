@@ -169,13 +169,13 @@ wait_health() {
 start_one() {
   local name="$1" pid found
   component_paths "$name" || return 2
-  resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   [[ -s "$PROFILE" ]] || { echo "$name: profile missing"; return 1; }
   [[ -x "$PREFIX/bin/curl" ]] || { echo "$name: curl is required for safe health checks"; return 1; }
   if [[ "$name" == "bridge" ]] && legacy_bridge_health_live; then
     echo "bridge: LEGACY_READY (port 8080 already live; refusing to start a duplicate 18080 tunnel)"
     return 0
   fi
+  resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   mkdir -p "$STATE" || return 1
 
   if [[ -s "$PID_FILE" ]]; then
