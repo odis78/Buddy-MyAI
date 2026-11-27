@@ -82,6 +82,7 @@ final class RuntimeProcessLauncher {
         return startStdioConfigured(app, "rea-tunnel", REA_TUNNEL_ID, command);
     }
 
+    /** Legacy Buddy-Alpine adapter. Do not start it alongside the Termux-owned Bridge tunnel with the same ID. */
     static Process startBridgeConfigured(Context context) throws Exception {
         Context app = context.getApplicationContext();
         Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
@@ -92,6 +93,7 @@ final class RuntimeProcessLauncher {
         return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, command);
     }
 
+    /** Legacy Buddy-Alpine adapter. The live read-only DroidMCP tunnel is owned by Termux. */
     static Process startDroidMcpConfigured(Context context) throws Exception {
         Context app = context.getApplicationContext();
         Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
