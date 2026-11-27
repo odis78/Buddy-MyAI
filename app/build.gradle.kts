@@ -23,6 +23,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("int", "MCP_PORT", "8766")
     }
 
     // Release signing comes from environment variables (set as GitHub Actions secrets).
@@ -59,6 +60,8 @@ android {
             // Keep this test build beside both the installed release and the previous test APK.
             applicationIdSuffix = ".test221"
             versionNameSuffix = "-test221"
+            // Isolate test221 from the active Test220 MCP listener on port 8766.
+            buildConfigField("int", "MCP_PORT", "18766")
         }
         release {
             isMinifyEnabled = false
@@ -73,7 +76,7 @@ android {
     }
 
     buildFeatures {
-        buildConfig = false
+        buildConfig = true
     }
 }
 
