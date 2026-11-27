@@ -136,7 +136,7 @@ final class RuntimeConnectionManager {
         long resultAt = prefs.getLong("termux_last_result_at", 0);
         String error = "";
         if (exitCode != 0 && System.currentTimeMillis() - resultAt < 180000L
-                && ("install".equals(command) || "reconcile".equals(command) || "stop".equals(command))) {
+                && ("install".equals(command) || "reconcile".equals(command) || "status".equals(command) || "start".equals(command) || "stop".equals(command))) {
             error = firstNonEmpty(prefs.getString("termux_last_stderr", ""),
                     prefs.getString("termux_last_error", ""),
                     prefs.getString("termux_last_stdout", ""));
