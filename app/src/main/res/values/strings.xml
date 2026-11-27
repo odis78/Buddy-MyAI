@@ -2371,7 +2371,7 @@
     <!-- Buddy-owned autonomous Tunnel Client runtime. -->
     <string name="runtime_settings_title">Buddy runtime</string>
     <string name="runtime_settings_subtitle">Maintain the ChatGPT connection without Termux</string>
-    <string name="runtime_settings_info">Runs the pinned Tunnel Client from Buddy's own app package. Your ChatGPT ↔ Buddy MCP endpoint remains 127.0.0.1:8766. A control-plane API key is required for Buddy and Buddy-local REA; Termux monitoring settings can be saved without it.</string>
+    <string name="runtime_settings_info">Runs the pinned Tunnel Client from Buddy's own app package. Your ChatGPT ↔ Buddy MCP endpoint remains 127.0.0.1:8766. test221 starts with no main tunnel ID to avoid colliding with active Test220; enter a separately provisioned ID before starting the main tunnel. A control-plane API key is required for Buddy and Buddy-local REA; Termux monitoring settings can be saved without it.</string>
     <string name="runtime_termux_monitor_info">Buddy monitors the existing Termux Bridge (ports 18080/8080) and read-only DroidMCP (41507). It does not launch or stop Termux processes, avoiding duplicate tunnel IDs.</string>
     <string name="runtime_monitor_bridge">Monitor existing Termux Bridge</string>
     <string name="runtime_monitor_droidmcp">Monitor existing Termux DroidMCP</string>
