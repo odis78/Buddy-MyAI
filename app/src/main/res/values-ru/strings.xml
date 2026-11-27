@@ -2217,7 +2217,7 @@
     <!-- Автономный Tunnel Client внутри Buddy. -->
     <string name="runtime_settings_title">Автономная Buddy</string>
     <string name="runtime_settings_subtitle">Поддерживать связь с ChatGPT без Termux</string>
-    <string name="runtime_settings_info">Tunnel Client запускается из собственного пакета Buddy. Адрес MCP для ChatGPT остаётся прежним: 127.0.0.1:8766. В test221 основной tunnel ID пустой, чтобы не конфликтовать с активным Test220; перед запуском основного туннеля укажи отдельно созданный ID. Для Buddy и локального REA нужен API-ключ; настройки наблюдения за Termux можно сохранить без него.</string>
+    <string name="runtime_settings_info">Tunnel Client запускается из собственного пакета Buddy. Адрес MCP для ChatGPT: 127.0.0.1:%1$d/mcp. В test221 основной tunnel ID пустой, чтобы не конфликтовать с активным Test220; перед запуском основного туннеля укажи отдельно созданный ID. Для Buddy и локального REA нужен API-ключ; настройки наблюдения за Termux можно сохранить без него.</string>
     <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (внешний)</string>
     <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
