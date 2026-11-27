@@ -11,6 +11,7 @@ import android.util.Base64;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Narrow, fixed-command adapter for Termux's documented RUN_COMMAND service. */
@@ -44,9 +45,11 @@ final class TermuxRuntimeController {
         try {
             byte[] script = readAsset(context, "runtime/buddy-termux-tunnels.sh");
             String encoded = Base64.encodeToString(script, Base64.NO_WRAP);
+            String expectedHash = hex(MessageDigest.getInstance("SHA-256").digest(script));
             String command = "set -eu; mkdir -p \"$HOME/bin\"; "
                     + "target=\"$HOME/bin/buddy-tunnels\"; tmp=\"$target.installing\"; "
-                    + "printf '%s' '" + encoded + "' | base64 -d > \"$tmp\"; chmod 700 \"$tmp\"; "
+                    + "printf '%s' '" + encoded + "' | base64 -d > \"$tmp\"; "
+                    + "printf '%s  %s\\n' '" + expectedHash + "' \"$tmp\" | sha256sum -c - >/dev/null; chmod 700 \"$tmp\"; "
                     + "if [ -e \"$target\" ]; then "
                     + "if cmp -s \"$tmp\" \"$target\"; then rm -f \"$tmp\"; echo BUDDY_MANAGER_ALREADY_INSTALLED; "
                     + "else rm -f \"$tmp\"; echo BUDDY_MANAGER_CONFLICT; exit 3; fi; "
@@ -60,15 +63,36 @@ final class TermuxRuntimeController {
     static void reconcile(Context context, boolean bridgeEnabled, boolean droidEnabled) {
         String bridge = bridgeEnabled ? "on" : "off";
         String droid = droidEnabled ? "on" : "off";
-        dispatch(context, "reconcile", "exec \"$HOME/bin/buddy-tunnels\" reconcile " + bridge + " " + droid);
+        dispatchVerifiedManager(context, "reconcile", "reconcile " + bridge + " " + droid);
     }
 
     static void stop(Context context) {
-        dispatch(context, "stop", "exec \"$HOME/bin/buddy-tunnels\" stop all");
+        dispatchVerifiedManager(context, "stop", "stop all");
     }
 
     static void status(Context context) {
-        dispatch(context, "status", "exec \"$HOME/bin/buddy-tunnels\" status");
+        dispatchVerifiedManager(context, "status", "status");
+    }
+
+    private static void dispatchVerifiedManager(Context context, String commandId, String arguments) {
+        try {
+            byte[] script = readAsset(context, "runtime/buddy-termux-tunnels.sh");
+            String expectedHash = hex(MessageDigest.getInstance("SHA-256").digest(script));
+            String command = "set -eu; manager=\"$HOME/bin/buddy-tunnels\"; "
+                    + "test -x \"$manager\" || { echo BUDDY_MANAGER_MISSING; exit 4; }; "
+                    + "actual=\"$(sha256sum \"$manager\" | awk '{print $1}')\"; "
+                    + "test \"$actual\" = '" + expectedHash + "' || { echo BUDDY_MANAGER_INTEGRITY_MISMATCH; exit 5; }; "
+                    + "exec \"$manager\" " + arguments;
+            dispatch(context, commandId, command);
+        } catch (Exception e) {
+            recordDispatchError(context, commandId, e);
+        }
+    }
+
+    private static String hex(byte[] bytes) {
+        StringBuilder out = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) out.append(String.format(java.util.Locale.US, "%02x", value & 0xff));
+        return out.toString();
     }
 
     private static void dispatch(Context context, String commandId, String command) {
