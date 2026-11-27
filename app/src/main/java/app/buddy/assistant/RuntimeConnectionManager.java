@@ -86,7 +86,7 @@ final class RuntimeConnectionManager {
                                                   boolean bridgeEnabled, boolean droidEnabled) {
         if (snapshot == null || !snapshot.managerInstalled || !snapshot.termuxInstalled
                 || !snapshot.permissionGranted) return;
-        boolean unavailable = (bridgeEnabled && !snapshot.bridgeTransport)
+        boolean unavailable = (bridgeEnabled && !snapshot.bridgeTransport && !snapshot.bridgeConflict)
                 || (droidEnabled && !snapshot.droidTransport);
         if (!unavailable) {
             nextTermuxRecoveryAt = 0;
