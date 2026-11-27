@@ -50,6 +50,18 @@ final class RuntimeHealthProbe {
         }
     }
 
+    static boolean isReadyAtPort(int port) {
+        HttpURLConnection connection = null;
+        try {
+            connection = openLoopback(port, "/readyz");
+            return connection.getResponseCode() == 200;
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
     /** Confirms same-child MCP initialize/server-discover and complete tools/list evidence. */
     static boolean isMcpDiscovered(File urlFile, int expectedTools) {
         if (expectedTools < 0) return false;
@@ -60,14 +72,38 @@ final class RuntimeHealthProbe {
         }
     }
 
+    static boolean isMcpDiscoveredAtPort(int port, int expectedTools) {
+        if (expectedTools < 0) return false;
+        try {
+            return isMcpComponent(getHealthJson(port, "/health/mcp"), expectedTools);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     /**
      * Confirms recent successful control-plane polling and an actually accepted response upload,
      * in addition to the complete MCP catalog. A live local process alone is not remote connectivity.
      */
+    static boolean isRemoteConnectedAtPort(int port, int expectedTools) {
+        if (expectedTools < 0) return false;
+        try {
+            return isRemoteSnapshotConnected(getHealthJson(port, "/health?details=true"), expectedTools);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     static boolean isRemoteConnected(File urlFile, int expectedTools) {
         if (expectedTools < 0) return false;
         try {
-            JSONObject root = getHealthJson(urlFile, "/health?details=true");
+            return isRemoteSnapshotConnected(getHealthJson(urlFile, "/health?details=true"), expectedTools);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isRemoteSnapshotConnected(JSONObject root, int expectedTools) {
             if (root.optInt("schema_version", -1) != 1
                     || !root.optBoolean("live", false)
                     || !root.optBoolean("ready", false)) return false;
@@ -93,9 +129,6 @@ final class RuntimeHealthProbe {
             pollAgeLimitSeconds = Math.min(pollAgeLimitSeconds, 1800);
             if (!isRecent(pollDetails.optString("last_success", ""), pollAgeLimitSeconds * 1000L)) return false;
             return isRecent(deliveryDetails.optString("last_accepted", ""), DELIVERY_FRESH_MS);
-        } catch (Exception ignored) {
-            return false;
-        }
     }
 
     private static boolean isMcpComponent(JSONObject root, int expectedTools) {
@@ -182,7 +215,32 @@ final class RuntimeHealthProbe {
                 || base.getFragment() != null) {
             throw new IllegalArgumentException("Health URL must be a plain loopback HTTP address");
         }
-        URL endpoint = new URL("http://127.0.0.1:" + base.getPort() + path);
+        return openLoopback(base.getPort(), path);
+    }
+
+    private static JSONObject getHealthJson(int port, String path) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            connection = openLoopback(port, path);
+            if (connection.getResponseCode() != 200) throw new IllegalStateException("Health endpoint is not available");
+            try (InputStream input = connection.getInputStream();
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    if (output.size() + count > MAX_HEALTH_BYTES) throw new IllegalStateException("Health response exceeded the size limit");
+                    output.write(buffer, 0, count);
+                }
+                return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+            }
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private static HttpURLConnection openLoopback(int port, String path) throws Exception {
+        if (port < 1 || port > 65535) throw new IllegalArgumentException("Invalid health port");
+        URL endpoint = new URL("http://127.0.0.1:" + port + path);
         HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
         connection.setRequestMethod("GET");
         connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
