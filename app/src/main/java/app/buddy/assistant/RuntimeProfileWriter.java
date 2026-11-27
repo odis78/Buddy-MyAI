@@ -12,7 +12,7 @@ import java.nio.file.StandardCopyOption;
  * Both authenticated MCP header maps are explicit and credentials remain app-private file references.
  */
 final class RuntimeProfileWriter {
-    static final String MCP_URL = "http://127.0.0.1:8766/mcp";
+    static final String MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp";
 
     private RuntimeProfileWriter() { }
 
