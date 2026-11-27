@@ -71,7 +71,13 @@ case "$url" in
     ;;
   *":18080/"*)
     [[ "${BUDDY_TEST_FAIL_BRIDGE:-0}" != "1" ]] || exit 22
-    [[ "${BUDDY_TEST_BRIDGE_FIXED:-0}" == "1" ]] && exit 0
+    if [[ "${BUDDY_TEST_BRIDGE_FIXED:-0}" == "1" ]]; then
+      pid_file="$BUDDY_TERMUX_HOME/.local/state/tunnels/buddy-bridge.pid"
+      [[ -s "$pid_file" ]] || exit 22
+      pid="$(cat "$pid_file")"
+      kill -0 "$pid" 2>/dev/null
+      exit $?
+    fi
     test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-013.health.url"
     exit $?
     ;;
