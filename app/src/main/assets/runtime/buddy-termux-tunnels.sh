@@ -161,8 +161,8 @@ legacy_bridge_process_live() {
   legacy_profile="$HOME_DIR/.config/tunnel-client/termux-bridge.yaml"
   for file in /proc/[0-9]*/cmdline; do
     [[ -r "$file" ]] || continue
-    pid="\${file#/proc/}"
-    pid="\${pid%/cmdline}"
+    pid="${file#/proc/}"
+    pid="${pid%/cmdline}"
     cmdline="$(tr '\000' ' ' < "$file" 2>/dev/null || true)"
     if [[ "$cmdline" == *"tunnel-client"* && "$cmdline" == *"$legacy_profile"* ]]; then
       printf '%s\n' "$pid"
