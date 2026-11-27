@@ -29,10 +29,7 @@ public final class BuddyRuntimeService extends Service {
 
     private ScheduledExecutorService executor;
     private ScheduledExecutorService helperExecutor;
-    private RuntimeSupervisor supervisor;
-    private static final int TERMUX_BRIDGE_PORT_PRIMARY = 18080;
-    private static final int TERMUX_BRIDGE_PORT_LEGACY = 8080;
-    private static final int DROIDMCP_PORT = 41507;
+    private RuntimeConnectionManager connections;
     private RuntimeRecoveryPolicy recovery;
     private ScheduledFuture<?> monitorTask;
     private ScheduledFuture<?> connectionMonitorTask;
@@ -41,7 +38,6 @@ public final class BuddyRuntimeService extends Service {
     private boolean retryScheduled;
     private volatile boolean reaChannelConfigured;
     private volatile boolean reaInstallInProgress;
-    private volatile long lastTermuxReconcileAt;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -63,7 +59,7 @@ public final class BuddyRuntimeService extends Service {
             return thread;
         });
         Context app = getApplicationContext();
-        supervisor = new RuntimeSupervisor(app);
+        connections = new RuntimeConnectionManager(app);
         helperExecutor = Executors.newScheduledThreadPool(2, r -> {
             Thread thread = new Thread(r, "buddy-termux-connection-monitor");
             thread.setDaemon(true);
@@ -96,13 +92,13 @@ public final class BuddyRuntimeService extends Service {
         }
         promoteToForeground(getString(R.string.runtime_notification_starting));
         if (ACTION_CONNECT_TERMUX.equals(action)) {
-            if (!TermuxRuntimeController.isInstalled(this)) {
+            if (!connections.isTermuxInstalled()) {
                 setTermuxPersistentState("NOT_INSTALLED", "Install Termux to connect Bridge and DroidMCP.");
-            } else if (!TermuxRuntimeController.hasPermission(this)) {
+            } else if (!connections.hasTermuxPermission()) {
                 setTermuxPersistentState("NEEDS_PERMISSION", "Grant Buddy the Termux RUN_COMMAND permission.");
             } else {
                 setTermuxPersistentState("INSTALLING", "Installing Buddy's isolated Termux tunnel manager.");
-                TermuxRuntimeController.installManager(this);
+                connections.installTermuxManager();
             }
             startConnectionMonitor();
             return START_STICKY;
@@ -113,10 +109,12 @@ public final class BuddyRuntimeService extends Service {
             startConnectionMonitor();
             return START_STICKY;
         }
-        if (supervisor != null && supervisor.state() == RuntimeStateMachine.State.READY) {
-            supervisor.stop();
-        }
-        scheduleAttempt(0);
+        executor.execute(() -> {
+            if (connections != null && connections.buddyState() == RuntimeStateMachine.State.READY) {
+                connections.stopBuddyTunnel();
+            }
+            scheduleAttempt(0);
+        });
         reconcileTermuxConnections();
         startConnectionMonitor();
         return START_STICKY;
