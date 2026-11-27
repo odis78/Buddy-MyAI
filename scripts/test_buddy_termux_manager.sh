@@ -21,8 +21,26 @@ trap cleanup EXIT
 
 mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
 mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
-: > "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
-: > "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
+cat > "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml" <<YAML
+control_plane:
+  tunnel_id: "tunnel_11111111111111111111111111111111"
+health:
+  url_file: "$STATE/bridge-013.health.url"
+mcp:
+  commands:
+    - channel: bridge
+      command: "node bridge-013"
+YAML
+cat > "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml" <<YAML
+control_plane:
+  tunnel_id: "tunnel_22222222222222222222222222222222"
+health:
+  url_file: "$STATE/droidmcp.health.url"
+mcp:
+  commands:
+    - channel: droidmcp
+      command: "node droidmcp-filesystem"
+YAML
 
 cat > "$PREFIX/bin/curl" <<'SH'
 #!/usr/bin/env bash
@@ -37,13 +55,10 @@ profile=""
 while (($#)); do
   if [[ "$1" == "--config" && $# -ge 2 ]]; then profile="$2"; shift 2; else shift; fi
 done
+health_file="$(awk -F: '/^[[:space:]]*url_file:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/"/, "", $0); print $0; exit}' "$profile")"
 case "$profile" in
-  *bridge-013.yaml)
-    printf '%s\n' "http://127.0.0.1:18080" > "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-013.health.url"
-    ;;
-  *droidmcp-filesystem.yaml)
-    printf '%s\n' "http://127.0.0.1:41507" > "$BUDDY_TERMUX_HOME/.local/state/tunnels/droidmcp.health.url"
-    ;;
+  *bridge-013.yaml) printf '%s\\n' "http://127.0.0.1:18080" > "$health_file" ;;
+  *droidmcp-filesystem.yaml) printf '%s\\n' "http://127.0.0.1:41507" > "$health_file" ;;
   *) exit 20 ;;
 esac
 child=""
@@ -62,24 +77,24 @@ export BUDDY_TERMUX_HOME="$HOME_DIR"
 export BUDDY_TERMUX_PREFIX="$PREFIX"
 
 "$HOME_DIR/bin/buddy-tunnels" start all
-test -s "$STATE/bridge-013.pid"
-test -s "$STATE/droidmcp.pid"
+test -s "$STATE/buddy-bridge.pid"
+test -s "$STATE/buddy-droidmcp.pid"
 "$HOME_DIR/bin/buddy-tunnels" status
 "$HOME_DIR/bin/buddy-tunnels" start all
 "$HOME_DIR/bin/buddy-tunnels" stop all
-test ! -e "$STATE/bridge-013.pid"
-test ! -e "$STATE/droidmcp.pid"
+test ! -e "$STATE/buddy-bridge.pid"
+test ! -e "$STATE/buddy-droidmcp.pid"
 
 # A dead PID is safe to recover because no matching process or health endpoint remains.
-printf '99999999\n' > "$STATE/bridge-013.pid"
+printf '99999999\n' > "$STATE/buddy-bridge.pid"
 "$HOME_DIR/bin/buddy-tunnels" start bridge
-test -s "$STATE/bridge-013.pid"
+test -s "$STATE/buddy-bridge.pid"
 "$HOME_DIR/bin/buddy-tunnels" stop bridge
 
 # A live PID owned by another process must never be adopted, signalled, or overwritten.
 sleep 60 &
 CONFLICT_PID="$!"
-printf '%s\n' "$CONFLICT_PID" > "$STATE/bridge-013.pid"
+printf '%s\n' "$CONFLICT_PID" > "$STATE/buddy-bridge.pid"
 if "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
   echo "unsafe start accepted a foreign live PID" >&2
   exit 1
@@ -88,7 +103,7 @@ kill -0 "$CONFLICT_PID"
 kill "$CONFLICT_PID"
 wait "$CONFLICT_PID" 2>/dev/null || true
 CONFLICT_PID=""
-rm -f "$STATE/bridge-013.pid"
+rm -f "$STATE/buddy-bridge.pid"
 
 # The manager controls only Bridge and DroidMCP and never uses force-kill.
 ! grep -q 'rea-android' "$MANAGER"
