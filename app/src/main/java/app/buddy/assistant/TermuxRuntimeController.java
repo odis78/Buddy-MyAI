@@ -50,7 +50,8 @@ final class TermuxRuntimeController {
             String previousHash = context.getSharedPreferences("runtime", Context.MODE_PRIVATE)
                     .getString("termux_manager_installed_hash", "");
             context.getSharedPreferences("runtime", Context.MODE_PRIVATE).edit()
-                    .putString("termux_manager_expected_hash", expectedHash).apply();
+                    .putString("termux_manager_expected_hash", expectedHash)
+                    .putBoolean("termux_manager_update_in_progress", true).apply();
             String command = "set -eu; mkdir -p \"$HOME/bin\"; "
                     + "target=\"$HOME/bin/buddy-tunnels\"; tmp=\"$target.installing\"; trap 'rm -f \"$tmp\"' EXIT; "
                     + "printf '%s' '" + encoded + "' | base64 -d > \"$tmp\"; "
@@ -58,7 +59,7 @@ final class TermuxRuntimeController {
                     + "if [ -e \"$target\" ]; then "
                     + "actual=\"$(sha256sum \"$target\" | awk '{print $1}')\"; "
                     + "if [ \"$actual\" = '" + expectedHash + "' ]; then rm -f \"$tmp\"; echo BUDDY_MANAGER_ALREADY_INSTALLED; "
-                    + "elif [ -n '" + previousHash + "' ] && [ \"$actual\" = '" + previousHash + "' ]; then "
+                    + "elif { [ -n '" + previousHash + "' ] && [ \"$actual\" = '" + previousHash + "' ]; } || [ \"$actual\" = '862ba870fee625beaaaa8d35e8a2c7869ac51c606f4ce55c9f853de3106023fb' ]; then "
                     + "backup=\"$target.backup.$(date +%s).$\"; cp -p \"$target\" \"$backup\"; mv \"$tmp\" \"$target\"; "
                     + "echo BUDDY_MANAGER_UPDATED; echo BUDDY_MANAGER_BACKUP=$backup; "
                     + "else rm -f \"$tmp\"; echo BUDDY_MANAGER_CONFLICT; exit 3; fi; "
@@ -158,11 +159,13 @@ final class TermuxRuntimeController {
     }
 
     private static void recordError(Context context, String commandId, String message) {
-        context.getSharedPreferences("runtime", Context.MODE_PRIVATE).edit()
+        android.content.SharedPreferences prefs = context.getSharedPreferences("runtime", Context.MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit()
                 .putString("termux_last_command", commandId)
                 .putInt("termux_last_exit_code", -1)
                 .putString("termux_last_error", message == null ? "Termux command failed." : message)
-                .putLong("termux_last_result_at", System.currentTimeMillis())
-                .apply();
+                .putLong("termux_last_result_at", System.currentTimeMillis());
+        if ("install".equals(commandId)) editor.putBoolean("termux_manager_update_in_progress", false);
+        editor.apply();
     }
 }

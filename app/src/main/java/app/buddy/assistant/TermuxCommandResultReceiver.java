@@ -43,7 +43,7 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
 
         // The Termux-side manager resolves the actual loopback port from health.url_file.
         // Persist only a bounded numeric port emitted by that hash-verified manager.
-        if ("reconcile".equals(commandId) || "status".equals(commandId) || "stop".equals(commandId)) {
+        if ("start".equals(commandId) || "reconcile".equals(commandId) || "status".equals(commandId) || "stop".equals(commandId)) {
             java.util.regex.Matcher portMatch = java.util.regex.Pattern
                     .compile("(?m)^BUDDY_DROIDMCP_PORT=([0-9]{1,5})\\s*$").matcher(stdout);
             if (portMatch.find()) {
@@ -55,13 +55,26 @@ public final class TermuxCommandResultReceiver extends BroadcastReceiver {
         }
         editor.apply();
 
-        if ("install".equals(commandId) && exitCode == 0) {
-            String expectedHash = prefs.getString("termux_manager_expected_hash", "");
-            prefs.edit()
-                    .putBoolean("termux_manager_installed", true)
-                    .putString("termux_manager_installed_hash", expectedHash)
-                    .apply();
-            BuddyRuntimeService.termuxManagerReady(context);
+        if ("install".equals(commandId)) {
+            boolean setupPending = prefs.getBoolean("setup_all_pending", false);
+            android.content.SharedPreferences.Editor installEditor = prefs.edit()
+                    .putBoolean("termux_manager_update_in_progress", false);
+            if (exitCode == 0) {
+                String expectedHash = prefs.getString("termux_manager_expected_hash", "");
+                installEditor.putBoolean("termux_manager_installed", true)
+                        .putString("termux_manager_installed_hash", expectedHash);
+            } else {
+                installEditor.putBoolean("setup_all_pending", false);
+            }
+            installEditor.apply();
+            if (exitCode == 0) {
+                if (setupPending) {
+                    prefs.edit().putBoolean("setup_all_pending", false).apply();
+                    BuddyRuntimeService.start(context);
+                } else {
+                    BuddyRuntimeService.termuxManagerReady(context);
+                }
+            }
         }
     }
 }

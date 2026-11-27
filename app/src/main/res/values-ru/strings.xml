@@ -2221,16 +2221,16 @@
     <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (внешний)</string>
     <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
-    <string name="runtime_termux_monitor_info">Buddy управляет существующими Termux Bridge 0.1.3 и read-only DroidMCP 0.4.0 через Termux RUN_COMMAND. Подключи Termux один раз, выдай разрешение, включи allow-external-apps=true в ~/.termux/termux.properties, выполни termux-setup-storage для общего хранилища и перезапусти Termux. Убедись, что в Termux установлены Node.js и curl (при необходимости: pkg install nodejs-lts curl). Buddy установит отдельный управляющий скрипт и не заменит существующий менеджер.</string>
-    <string name="runtime_monitor_bridge">Управлять Termux Bridge 0.1.3</string>
-    <string name="runtime_monitor_droidmcp">Управлять Termux DroidMCP-Filesystem</string>
+    <string name="runtime_termux_monitor_info">Buddy один раз получает разрешение RUN_COMMAND и использует allow-external-apps=true. Для Bridge/DroidMCP нужны Node.js и curl. termux-setup-storage нужен только для доступа к общим файлам, а не для запуска туннелей. Buddy обновляет только собственный менеджер с резервной копией; старые менеджеры и REA не меняются.</string>
+    <string name="runtime_monitor_bridge">Включить/выключить управление Termux Bridge 0.1.3</string>
+    <string name="runtime_monitor_droidmcp">Включить/выключить управление Termux DroidMCP-Filesystem</string>
     <string name="runtime_enable_local_rea">Подключить оригинальный REA как канал Buddy</string>
     <string name="runtime_helper_switch_info">Buddy управляет Bridge и DroidMCP внутри Termux отдельным обратимым скриптом. Оригинальный REA 6.5.0 остаётся в существующем Alpine/PRoot Buddy и работает каналом основного туннеля. Отдельный REA-туннель в Termux не запускается.</string>
     <string name="runtime_notification_waiting_termux">Ожидаю готовности Termux Bridge и DroidMCP.</string>
     <string name="runtime_notification_bridge_legacy">Обнаружен старый профиль Termux Bridge на порту 8080. Останови старый туннель штатным менеджером Termux, прежде чем Buddy запустит Bridge 0.1.3 на порту 18080. Один tunnel ID нельзя запускать дважды.</string>
     <string name="runtime_notification_termux_conflict">Оба порта Termux Bridge отвечают. Нужно устранить дублирующие процессы в Termux.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
-    <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится через Android Keystore.</string>
+    <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится в Android Keystore. Кнопка ниже копирует сохранённый ключ.</string>
     <string name="runtime_api_key_saved">Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.</string>
     <string name="runtime_tunnel_id_label">Идентификатор туннеля</string>
     <string name="runtime_tunnel_id_hint">tunnel_ и 32 шестнадцатеричных символа</string>
@@ -2267,8 +2267,17 @@
     <string name="runtime_termux_status_detail">Termux: %1$s</string>
     <string name="runtime_open_termux">Открыть Termux для настройки</string>
     <string name="runtime_connect_termux">Установить / обновить менеджер Termux</string>
-    <string name="runtime_termux_setup_info">Однократная настройка: выдай Buddy разрешение RUN_COMMAND и включи allow-external-apps=true в ~/.termux/termux.properties. Buddy создаёт только собственный скрипт ~/bin/buddy-tunnels, не меняя существующий менеджер и REA. Для файлов Termux один раз выполни termux-setup-storage, затем перезапусти Termux.</string>
+    <string name="runtime_termux_setup_info">Однократная подготовка: разрешение RUN_COMMAND и allow-external-apps=true в ~/.termux/termux.properties. Node.js и curl должны быть установлены. termux-setup-storage нужен только для общих файлов. Buddy использует отдельный ~/bin/buddy-tunnels и сохраняет резервную копию при безопасном обновлении.</string>
     <string name="runtime_termux_not_installed">Termux не установлен.</string>
     <string name="runtime_termux_connect_requested">Подключение Termux запрошено.</string>
     <string name="runtime_termux_permission_denied">Для управления туннелями Buddy нужно разрешение Termux RUN_COMMAND.</string>
+    <string name="runtime_copy_api_key">Скопировать сохранённый API-ключ</string>
+    <string name="runtime_copy_tunnel_id">Скопировать ID туннеля</string>
+    <string name="runtime_setup_all">Автонастройка и запуск</string>
+    <string name="runtime_setup_all_info">Сохраняет настройки, безопасно обновляет отдельный менеджер Buddy с резервной копией, запускает Bridge и read-only DroidMCP, затем основной туннель с каналом REA. Старые менеджеры Termux и исторический маршрут REA не затрагиваются.</string>
+    <string name="runtime_setup_requested">Запрошены автонастройка и запуск.</string>
+    <string name="runtime_api_key_not_saved">API-ключ ещё не сохранён.</string>
+    <string name="runtime_api_key_copied">Сохранённый API-ключ скопирован. Не оставляйте его в буфере обмена.</string>
+    <string name="runtime_tunnel_id_copied">ID туннеля скопирован.</string>
+    <string name="runtime_test223_active">Test223 ещё активен на порту 18767. Перед запуском Test224 принудительно останови приложение Test223 через Настройки Android → Приложения → Buddy Test223 → Остановить. Не нажимай «Остановить runtime» в Test223: эта кнопка также остановит Termux Bridge и DroidMCP.</string>
 </resources>

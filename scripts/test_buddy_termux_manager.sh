@@ -22,7 +22,9 @@ trap cleanup EXIT
 trap 'rc=$?; printf "TEST FAILURE line=%s command=%s exit=%s\n" "$LINENO" "$BASH_COMMAND" "$rc" >&2; exit "$rc"' ERR
 
 mkdir -p "$HOME_DIR/bin" "$(dirname "$BIN")" "$PREFIX/bin" "$STATE"
-mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
+mkdir -p "$HOME_DIR/.config/tunnel-client-bridge-013" "$HOME_DIR/.config/termux-bridge" "$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated"
+printf 'export CONTROL_PLANE_API_KEY=test-key\n' > "$HOME_DIR/.config/termux-bridge/runtime.env"
+chmod 600 "$HOME_DIR/.config/termux-bridge/runtime.env"
 cat > "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly" <<'SH'
 #!/usr/bin/env bash
 export DROIDMCP_ROOT="$HOME/droidmcp-sandbox"
@@ -69,6 +71,13 @@ case "$url" in
     ;;
   *":18080/"*)
     [[ "${BUDDY_TEST_FAIL_BRIDGE:-0}" != "1" ]] || exit 22
+    if [[ "${BUDDY_TEST_BRIDGE_FIXED:-0}" == "1" ]]; then
+      pid_file="$BUDDY_TERMUX_HOME/.local/state/tunnels/buddy-bridge.pid"
+      [[ -s "$pid_file" ]] || exit 22
+      pid="$(cat "$pid_file")"
+      kill -0 "$pid" 2>/dev/null
+      exit $?
+    fi
     test -s "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-013.health.url"
     exit $?
     ;;
@@ -97,7 +106,10 @@ while (($#)); do
 done
 health_file="$(awk -F: '/^[[:space:]]*url_file:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/"/, "", $0); print $0; exit}' "$profile")"
 case "$profile" in
-  *bridge-013.yaml) printf '%s\n' "http://127.0.0.1:18080" > "$health_file" ;;
+  *bridge-013.yaml)
+    [[ -z "$health_file" ]] || printf '%s\n' "http://127.0.0.1:18080" > "$health_file"
+    [[ -z "${CONTROL_PLANE_API_KEY:-}" ]] || printf '%s' "$CONTROL_PLANE_API_KEY" > "$BUDDY_TERMUX_HOME/.local/state/tunnels/bridge-key-observed"
+    ;;
   *droidmcp-filesystem.yaml) printf '%s\n' "http://127.0.0.1:${BUDDY_TEST_DROID_PORT:-46577}" > "$health_file" ;;
   *) exit 20 ;;
 esac
@@ -122,6 +134,15 @@ legacy_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge)"
 [[ "$legacy_output" == *"LEGACY_READY"* ]]
 test ! -e "$STATE/buddy-bridge.pid"
 unset BUDDY_TEST_LEGACY_BRIDGE
+
+# Bridge must load its own protected runtime.env without exposing the key in command arguments.
+mv "$HOME_DIR/.config/termux-bridge/runtime.env" "$HOME_DIR/.config/termux-bridge/runtime.env.disabled"
+if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
+  echo "Bridge started without its runtime.env" >&2
+  exit 1
+fi
+test ! -e "$STATE/buddy-bridge.pid"
+mv "$HOME_DIR/.config/termux-bridge/runtime.env.disabled" "$HOME_DIR/.config/termux-bridge/runtime.env"
 
 # A modified wrapper that no longer disables every write operation must be rejected.
 cp "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly" "$HOME_DIR/droidmcp-stage-v0.4.0/droidmcp-readonly.backup"
@@ -176,6 +197,7 @@ mv "$DROID_PROFILE_TEST.disabled" "$DROID_PROFILE_TEST"
 
 start_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start all)"
 [[ "$start_output" == *"BUDDY_DROIDMCP_PORT=46577"* ]]
+test "$(cat "$STATE/bridge-key-observed")" = "test-key"
 test -s "$STATE/buddy-bridge.pid"
 test -s "$STATE/buddy-droidmcp.pid"
 status_output="$(bash "$HOME_DIR/bin/buddy-tunnels" status)"
@@ -187,23 +209,27 @@ bash "$HOME_DIR/bin/buddy-tunnels" stop all
 export BUDDY_TEST_DROID_PORT=53219
 dynamic_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start droidmcp)"
 [[ "$dynamic_output" == *"BUDDY_DROIDMCP_PORT=53219"* ]]
+printf '%s' "http://127.0.0.1:53219" > "$STATE/droidmcp.health.url"
+no_newline_status="$(bash "$HOME_DIR/bin/buddy-tunnels" status)"
+[[ "$no_newline_status" == *"BUDDY_DROIDMCP_PORT=53219"* ]]
 bash "$HOME_DIR/bin/buddy-tunnels" stop droidmcp
 unset BUDDY_TEST_DROID_PORT
 bash "$HOME_DIR/bin/buddy-tunnels" start bridge
 
-# An owned but unhealthy Bridge is stopped gracefully before a replacement is attempted.
+# An owned process that misses its health deadline is retained for diagnosis, never killed by timeout.
 OLD_BRIDGE_PID="$(cat "$STATE/buddy-bridge.pid")"
 export BUDDY_TEST_FAIL_BRIDGE=1 BUDDY_HEALTH_ATTEMPTS=1 BUDDY_STOP_ATTEMPTS=1
-if bash "$HOME_DIR/bin/buddy-tunnels" start bridge >/dev/null 2>&1; then
-  echo "unhealthy Bridge should report a failed replacement health check" >&2
+if timeout_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge 2>&1)"; then
+  echo "unhealthy Bridge should report health timeout" >&2
   exit 1
 fi
-if kill -0 "$OLD_BRIDGE_PID" 2>/dev/null; then
-  old_state="$(awk '{print $3}' "/proc/$OLD_BRIDGE_PID/stat" 2>/dev/null || true)"
-  [[ "$old_state" == "Z" ]]
-fi
-test ! -e "$STATE/buddy-bridge.pid"
+[[ "$timeout_output" == *"process left running"* ]]
+NEW_BRIDGE_PID="$(cat "$STATE/buddy-bridge.pid")"
+[[ "$NEW_BRIDGE_PID" != "$OLD_BRIDGE_PID" ]]
+kill -0 "$NEW_BRIDGE_PID"
 unset BUDDY_TEST_FAIL_BRIDGE BUDDY_HEALTH_ATTEMPTS BUDDY_STOP_ATTEMPTS
+bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
+test ! -e "$STATE/buddy-bridge.pid"
 
 bash "$HOME_DIR/bin/buddy-tunnels" stop all
 test ! -e "$STATE/buddy-bridge.pid"
@@ -234,5 +260,17 @@ rm -f "$STATE/buddy-bridge.pid"
 ! grep -q 'rea-all' "$MANAGER"
 ! grep -Eq 'kill[[:space:]]+(-9|-KILL)' "$MANAGER"
 grep -q 'kill -TERM' "$MANAGER"
+
+# Bridge health may be derived from its fixed loopback listen_addr when url_file is absent.
+bash "$HOME_DIR/bin/buddy-tunnels" stop all >/dev/null 2>&1 || true
+sed -i '/url_file:/d' "$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
+export BUDDY_TEST_BRIDGE_FIXED=1
+if ! fixed_bridge_output="$(bash "$HOME_DIR/bin/buddy-tunnels" start bridge 2>&1)"; then
+  printf 'fixed Bridge start failed:\n%s\n' "$fixed_bridge_output" >&2
+  exit 1
+fi
+[[ "$fixed_bridge_output" == *"bridge: READY"* ]]
+bash "$HOME_DIR/bin/buddy-tunnels" stop bridge
+unset BUDDY_TEST_BRIDGE_FIXED
 
 echo "Termux manager tests passed: start/status, idempotency, legacy Bridge avoidance, independent channels, graceful stop/recovery, stale and foreign PID protection."

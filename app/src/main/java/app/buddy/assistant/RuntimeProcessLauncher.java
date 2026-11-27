@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Starts the hardened Tunnel Client as a native Android child process, outside the agent PRoot. */
 final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
-    // Intentionally blank in isolated test222 so it cannot collide with the active Test220 tunnel.
-    static final String DEFAULT_TUNNEL_ID = "";
+    // Dedicated Test224 tunnel ID supplied for this installation; never reuse Test220.
+    static final String DEFAULT_TUNNEL_ID = "tunnel_15bad0275a40c4f8eb80e7baec6e3ce2";
     static final String RESERVED_TEST220_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
     static final String API_KEY_FILE = "control-plane-api-key";
     static final String AUTH_HEADER_FILE = "buddy-auth-header";
