@@ -89,6 +89,11 @@ final class RuntimeSupervisor {
         }
     }
 
+    synchronized boolean isMcpDiscovered(int expectedTools) {
+        return tunnelProcess != null && tunnelProcess.isAlive()
+                && RuntimeHealthProbe.isMcpDiscovered(new File(runtimeDir, "health.url"), expectedTools);
+    }
+
     synchronized boolean isReady() {
         boolean ready = tunnelProcess != null && tunnelProcess.isAlive()
                 && (!requireBuddyMcp || RuntimeHealthProbe.isBuddyMcpAvailable())
