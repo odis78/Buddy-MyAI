@@ -67,11 +67,11 @@ The control-plane API key is stored by Buddy using AES-GCM with an Android Keyst
 2. Open Autonomous Buddy in Test224.
 3. Enter the control-plane API key once and save. The dedicated tunnel ID is prefilled.
 4. Tap **Автонастройка и запуск**.
-4. If Android asks, grant Buddy Termux RUN_COMMAND. Termux must already have `allow-external-apps=true`.
-5. Buddy safely updates only its own manager, backs up the recognized previous version, waits for the install callback, then starts the main tunnel and reconciles Bridge/DroidMCP.
-6. The app keeps the REA 6.5.0 channel inside Buddy Alpine/PRoot and reports the actual DroidMCP port.
+5. If Android asks, grant Buddy Termux RUN_COMMAND. Termux must already have `allow-external-apps=true`.
+6. Buddy safely updates only its own manager, backs up the recognized previous version, waits for the install callback, then starts the main tunnel and reconciles Bridge/DroidMCP.
+7. The app keeps the REA 6.5.0 channel inside Buddy Alpine/PRoot and reports the actual DroidMCP port.
 
-Do not run Test223 and Test224 main tunnels simultaneously with the same main tunnel ID. Stop Test223's Buddy runtime before starting Test224; do not stop the already-running Termux Bridge or DroidMCP processes.
+Do not run Test223 and Test224 main tunnels simultaneously with the same main tunnel ID. Force-stop the Test223 app as described above; do not use its in-app Stop runtime button and do not stop the already-running Termux Bridge or DroidMCP processes.
 
 ## Non-goals / protected infrastructure
 
