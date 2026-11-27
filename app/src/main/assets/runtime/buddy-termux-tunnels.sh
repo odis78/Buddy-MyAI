@@ -29,24 +29,27 @@ resolve_binary() {
 }
 
 discover_profile() {
-  local name="$1" directory file expected_id expected_port
+  local name="$1" directory file expected_id
   local -a matches=()
   case "$name" in
     bridge)
       expected_id='tunnel_6ae28b8f01788191b42901f090964502'
-      expected_port='18080'
       ;;
     droidmcp)
       expected_id='tunnel_6af1637e86788191aa429d5518d41938'
-      expected_port='41507'
       ;;
     *) return 2 ;;
   esac
   for directory in "$HOME_DIR/.config" "$HOME_DIR/droidmcp-stage-v0.4.0"; do
     [[ -d "$directory" ]] || continue
     while IFS= read -r -d '' file; do
-      if grep -Fq "$expected_id" "$file" && grep -Fq "127.0.0.1:$expected_port" "$file" && grep -q 'url_file:' "$file"; then
-        matches+=("$file")
+      if grep -Fq "$expected_id" "$file" && grep -q 'listen_addr:' "$file" && grep -q 'url_file:' "$file"; then
+        local listener
+        listener="$(awk -F: '/^[[:space:]]*listen_addr:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/["[:space:]]/, "", $0); print $0; exit}' "$file")"
+        if [[ "$listener" =~ ^127\.0\.0\.1:([0-9]{1,5})$ ]]; then
+          local candidate_port="${BASH_REMATCH[1]}"
+          if (( 10#$candidate_port <= 65535 )); then matches+=("$file"); fi
+        fi
       fi
     done < <(find "$directory" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
   done
@@ -93,11 +96,18 @@ component_paths() {
     }
   fi
   case "$1" in
-    bridge) expected_id='tunnel_6ae28b8f01788191b42901f090964502'; expected_port='18080' ;;
-    droidmcp) expected_id='tunnel_6af1637e86788191aa429d5518d41938'; expected_port='41507' ;;
+    bridge) expected_id='tunnel_6ae28b8f01788191b42901f090964502' ;;
+    droidmcp) expected_id='tunnel_6af1637e86788191aa429d5518d41938' ;;
   esac
-  if ! grep -Fq "$expected_id" "$PROFILE" || ! grep -Fq "127.0.0.1:$expected_port" "$PROFILE"; then
-    echo "$1: refusing profile with an unexpected tunnel ID or health port"
+  local listener
+  listener="$(awk -F: '/^[[:space:]]*listen_addr:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/["[:space:]]/, "", $0); print $0; exit}' "$PROFILE")"
+  if ! grep -Fq "$expected_id" "$PROFILE" || [[ ! "$listener" =~ ^127\.0\.0\.1:([0-9]{1,5})$ ]]; then
+    echo "$1: refusing profile with an unexpected tunnel ID or non-loopback health listener"
+    return 2
+  fi
+  local configured_port="${BASH_REMATCH[1]}"
+  if (( 10#$configured_port > 65535 )); then
+    echo "$1: refusing profile with an invalid health port"
     return 2
   fi
   if [[ "$1" == "droidmcp" ]]; then
@@ -178,24 +188,26 @@ legacy_bridge_health_live() {
     "http://127.0.0.1:8080/readyz" >/dev/null 2>&1
 }
 
+health_url_port() {
+  local url port
+  [[ -s "$HEALTH_FILE" ]] || return 1
+  IFS= read -r url < "$HEALTH_FILE" || return 1
+  [[ "$url" =~ ^http://127\.0\.0\.1:([0-9]{1,5})/?$ ]] || return 1
+  port="${BASH_REMATCH[1]}"
+  (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
+  printf '%s\\n' "$((10#$port))"
+}
+
 health_endpoint_live() {
-  local name="$1" port
-  case "$name" in
-    bridge) port=18080 ;;
-    droidmcp) port=41507 ;;
-    *) return 2 ;;
-  esac
-  [[ -x "$PREFIX/bin/curl" ]] || return 1
-  "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 \
-    "http://127.0.0.1:$port/readyz" >/dev/null 2>&1
+  case "$1" in bridge|droidmcp) health_ok ;; *) return 2 ;; esac
 }
 
 health_ok() {
-  local url
-  [[ -s "$HEALTH_FILE" && -x "$PREFIX/bin/curl" ]] || return 1
-  IFS= read -r url < "$HEALTH_FILE" || return 1
-  [[ "$url" == http://127.0.0.1:* ]] || return 1
-  "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 "${url%/}/readyz" >/dev/null 2>&1
+  local port
+  [[ -x "$PREFIX/bin/curl" ]] || return 1
+  port="$(health_url_port)" || return 1
+  "$PREFIX/bin/curl" --silent --show-error --fail --max-time 2 \
+    "http://127.0.0.1:$port/readyz" >/dev/null 2>&1
 }
 
 wait_health() {
@@ -428,3 +440,12 @@ case "${1:-status}" in
     exit 2
     ;;
 esac
+command_status=$?
+# Android Buddy cannot read Termux's private health.url_file directly. Publish only
+# the validated loopback port so its local health probes follow the real listener.
+droid_port=0
+if component_paths droidmcp >/dev/null 2>&1 && health_ok; then
+  droid_port="$(health_url_port 2>/dev/null || echo 0)"
+fi
+echo "BUDDY_DROIDMCP_PORT=$droid_port"
+exit "$command_status"
