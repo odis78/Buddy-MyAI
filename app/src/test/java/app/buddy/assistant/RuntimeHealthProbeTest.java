@@ -80,4 +80,58 @@ public class RuntimeHealthProbeTest {
             dir.delete();
         }
     }
+
+    @Test public void requiresSameChildInitializeAndCompleteToolsList() throws Exception {
+        File dir = Files.createTempDirectory("buddy-mcp-health-test").toFile();
+        String body = "{\"schema_version\":1,\"component\":\"mcp\",\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,"
+                + "\"details\":{\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
+                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}}";
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            Thread responder = respondOnce(server, body);
+            File url = new File(dir, "health.url");
+            Files.write(url.toPath(), ("http://127.0.0.1:" + server.getLocalPort()).getBytes(StandardCharsets.UTF_8));
+            assertTrue(RuntimeHealthProbe.isMcpDiscovered(url, 2));
+            responder.join(2000);
+        } finally {
+            new File(dir, "health.url").delete();
+            dir.delete();
+        }
+    }
+
+    @Test public void rejectsIncompleteOrWrongToolCatalogEvidence() throws Exception {
+        File dir = Files.createTempDirectory("buddy-mcp-health-test").toFile();
+        String body = "{\"schema_version\":1,\"component\":\"mcp\",\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,"
+                + "\"details\":{\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
+                + "\"tools_list\":{\"ok\":true,\"complete\":false,\"partial\":true,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}}";
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            Thread responder = respondOnce(server, body);
+            File url = new File(dir, "health.url");
+            Files.write(url.toPath(), ("http://127.0.0.1:" + server.getLocalPort()).getBytes(StandardCharsets.UTF_8));
+            assertFalse(RuntimeHealthProbe.isMcpDiscovered(url, 2));
+            responder.join(2000);
+        } finally {
+            new File(dir, "health.url").delete();
+            dir.delete();
+        }
+    }
+
+    private Thread respondOnce(ServerSocket server, String body) {
+        Thread responder = new Thread(() -> {
+            try (Socket socket = server.accept()) {
+                byte[] request = new byte[2048];
+                socket.getInputStream().read(request);
+                byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+                OutputStream out = socket.getOutputStream();
+                out.write(("HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nContent-Length: "
+                        + payload.length + "\\r\\nConnection: close\\r\\n\\r\\n")
+                        .getBytes(StandardCharsets.US_ASCII));
+                out.write(payload);
+                out.flush();
+            } catch (Exception ignored) { }
+        });
+        responder.start();
+        return responder;
+    }
 }
