@@ -4,29 +4,90 @@ set -u
 
 PREFIX="${BUDDY_TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
 HOME_DIR="${BUDDY_TERMUX_HOME:-/data/data/com.termux/files/home}"
-BIN="$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64"
 STATE="$HOME_DIR/.local/state/tunnels"
-BRIDGE_PROFILE="$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml"
-DROID_PROFILE="$HOME_DIR/droidmcp-stage-v0.4.0/profile-dedicated/droidmcp-filesystem.yaml"
-PATH="$PREFIX/bin:$HOME_DIR/bin:$PATH"
+BRIDGE_PROFILE="${BUDDY_BRIDGE_PROFILE:-$HOME_DIR/.config/tunnel-client-bridge-013/bridge-013.yaml}"
+DROID_PROFILE="${BUDDY_DROIDMCP_PROFILE:-}"
+BIN="${BUDDY_TUNNEL_CLIENT_BIN:-}"
+PATH="$PREFIX/bin:$HOME_DIR/bin:$HOME_DIR/.local/bin:$PATH"
 export PATH
+
+resolve_binary() {
+  local candidate found
+  if [[ -n "$BIN" && -x "$BIN" ]]; then return 0; fi
+  found="$(command -v tunnel-client 2>/dev/null || true)"
+  if [[ -n "$found" && -x "$found" ]]; then BIN="$found"; return 0; fi
+  for candidate in \
+    "$HOME_DIR/.local/bin/tunnel-client" \
+    "$HOME_DIR/bin/tunnel-client" \
+    "$HOME_DIR/tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64" \
+    "$PREFIX/bin/tunnel-client"; do
+    if [[ -x "$candidate" ]]; then BIN="$candidate"; return 0; fi
+  done
+  return 1
+}
+
+discover_profile() {
+  local name="$1" directory file pattern
+  local -a matches=()
+  case "$name" in
+    bridge) pattern='bridge-013|TERMUX_BRIDGE_REA_ROOT|18080' ;;
+    droidmcp) pattern='droidmcp|41507' ;;
+    *) return 2 ;;
+  esac
+  for directory in "$HOME_DIR/.config" "$HOME_DIR/droidmcp-stage-v0.4.0"; do
+    [[ -d "$directory" ]] || continue
+    while IFS= read -r -d '' file; do
+      if grep -Eqi "$pattern" "$file" && grep -q 'tunnel_id:' "$file" && grep -q 'url_file:' "$file"; then
+        matches+=("$file")
+      fi
+    done < <(find "$directory" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
+  done
+  if (("${#matches[@]}" == 1)); then
+    printf '%s\n' "${matches[0]}"
+    return 0
+  fi
+  if (("${#matches[@]}" > 1)); then
+    echo "$name: ambiguous profile discovery (${#matches[@]} candidates); set the profile path explicitly" >&2
+    return 2
+  fi
+  return 1
+}
+
+profile_health_file() {
+  local profile="$1" raw
+  raw="$(awk -F: '/^[[:space:]]*url_file:/ {sub(/^[^:]*:[[:space:]]*/, "", $0); gsub(/"/, "", $0); print $0; exit}' "$profile")"
+  [[ -n "$raw" ]] || return 1
+  case "$raw" in
+    "~/"*) printf '%s/%s\n' "$HOME_DIR" "${raw#~/}" ;;
+    /*) printf '%s\n' "$raw" ;;
+    *) printf '%s/%s\n' "$HOME_DIR" "$raw" ;;
+  esac
+}
 
 component_paths() {
   case "$1" in
     bridge)
       PROFILE="$BRIDGE_PROFILE"
-      PID_FILE="$STATE/bridge-013.pid"
-      HEALTH_FILE="$STATE/bridge-013.health.url"
-      LOG_FILE="$STATE/bridge-013-recovery.log"
+      PID_FILE="$STATE/buddy-bridge.pid"
+      LOG_FILE="$STATE/buddy-bridge-manager.log"
       ;;
     droidmcp)
       PROFILE="$DROID_PROFILE"
-      PID_FILE="$STATE/droidmcp.pid"
-      HEALTH_FILE="$STATE/droidmcp.health.url"
-      LOG_FILE="$STATE/droidmcp.log"
+      PID_FILE="$STATE/buddy-droidmcp.pid"
+      LOG_FILE="$STATE/buddy-droidmcp-manager.log"
       ;;
     *) return 2 ;;
   esac
+  if [[ ! -s "$PROFILE" ]]; then
+    PROFILE="$(discover_profile "$1")" || {
+      echo "$1: profile not found or ambiguous under Termux configuration directories"
+      return 2
+    }
+  fi
+  HEALTH_FILE="$(profile_health_file "$PROFILE")" || {
+    echo "$1: profile has no health.url_file entry"
+    return 2
+  }
 }
 
 pid_matches() {
@@ -34,7 +95,7 @@ pid_matches() {
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
   [[ -r "/proc/$pid/cmdline" ]] || return 1
   cmdline="$(tr '\000' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
-  [[ "$cmdline" == *"$BIN"* && "$cmdline" == *" run "* && "$cmdline" == *"$profile"* ]]
+  [[ "$cmdline" == *"tunnel-client"* && "$cmdline" == *" run "* && "$cmdline" == *"$profile"* ]]
 }
 
 find_matching_pid() {
@@ -75,7 +136,7 @@ wait_health() {
 start_one() {
   local name="$1" pid found
   component_paths "$name" || return 2
-  [[ -x "$BIN" ]] || { echo "$name: tunnel-client binary missing"; return 1; }
+  resolve_binary || { echo "$name: tunnel-client binary not found in Termux PATH or known install locations"; return 1; }
   [[ -s "$PROFILE" ]] || { echo "$name: profile missing"; return 1; }
   mkdir -p "$STATE" || return 1
 
@@ -149,10 +210,15 @@ stop_one() {
   local name="$1" pid attempt
   component_paths "$name" || return 2
   if [[ ! -s "$PID_FILE" ]]; then
-    echo "$name: STOPPED (no owned PID file)"
-    return 0
+    found="$(find_matching_pid "$PROFILE")"
+    case "$?" in
+      0) pid="$found"; printf '%s\n' "$pid" > "$PID_FILE" ;;
+      1) echo "$name: STOPPED (no matching process)"; return 0 ;;
+      2) return 1 ;;
+    esac
+  else
+    IFS= read -r pid < "$PID_FILE" || pid=""
   fi
-  IFS= read -r pid < "$PID_FILE" || pid=""
   if ! pid_matches "$pid" "$PROFILE"; then
     if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
       echo "$name: CONFLICT (PID ownership could not be verified; live process left untouched)"
