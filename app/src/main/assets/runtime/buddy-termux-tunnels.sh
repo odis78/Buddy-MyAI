@@ -196,7 +196,7 @@ health_url_port() {
   port="${url##*:}"
   port="${port%/}"
   (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
-  printf '%s\\n' "$((10#$port))"
+  printf '%s\n' "$((10#$port))"
 }
 
 health_endpoint_live() {
