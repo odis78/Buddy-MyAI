@@ -2378,6 +2378,7 @@
     <string name="runtime_enable_local_rea">Expose original REA as a Buddy tunnel channel</string>
     <string name="runtime_helper_switch_info">Buddy manages Bridge and DroidMCP inside Termux with its own reversible script. Original REA 6.5.0 stays inside Buddy\'s existing Alpine/PRoot and shares the Buddy tunnel; no separate REA tunnel is started in Termux.</string>
     <string name="runtime_notification_waiting_termux">Waiting for Termux Bridge and DroidMCP to become ready.</string>
+    <string name="runtime_notification_bridge_legacy">Legacy Termux Bridge detected on port 8080. Stop it to start Bridge 0.1.3 on port 18080.</string>
     <string name="runtime_notification_termux_conflict">Both Termux Bridge health ports are live. Resolve duplicate tunnel processes in Termux.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
     <string name="runtime_api_key_hint">Paste API key (stored with Android Keystore)</string>
