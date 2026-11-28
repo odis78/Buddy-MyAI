@@ -92,8 +92,8 @@ jobs:
 
           func TestBuddyHelperProfilesPreserveExistingTunnelIdentities(t *testing.T) {
             cases := []struct { name, tunnelID, channel string }{
-              {"bridge-profile-validation.yaml", "tunnel_6ae28b8f01788191b42901f090964502", "main"},
-              {"droidmcp-profile-validation.yaml", "tunnel_6af1637e86788191aa429d5518d41938", "main"},
+              {"bridge-profile-validation.yaml", "tunnel_6ae28b8f01788191b42901f090964502", "bridge"},
+              {"droidmcp-profile-validation.yaml", "tunnel_6af1637e86788191aa429d5518d41938", "droidmcp"},
             }
             for _, tc := range cases {
               data, err := os.ReadFile("../../" + tc.name)
