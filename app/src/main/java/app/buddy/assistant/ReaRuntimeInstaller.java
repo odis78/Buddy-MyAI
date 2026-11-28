@@ -19,7 +19,7 @@ final class ReaRuntimeInstaller {
     static final String PACKAGE_ASSET = "runtime/rea-agents-6.5.0.tgz";
     static final String PACKAGE_SHA256 = "531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699";
     static final String BRIDGE_ASSET = "runtime/termux-bridge-0.1.3.mjs";
-    static final String BRIDGE_SHA256 = "d4858a0c5ffd9ddda08a911682ae44a3eebd707ddef6e2bf522a95339c6b7634";
+    static final String BRIDGE_SHA256 = "de8b033446e82b3e54570d681151cae5a8df2ef16e22f5d9bcc2757ecd0bb292";
     static final String DROIDMCP_ASSET = "runtime/droidmcp-filesystem-0.4.0.mjs";
     static final String DROIDMCP_SHA256 = "75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265";
     static final String REA_SOURCE_COMMIT = "3b79af28e80785afce9f5998d8f03289402a1847";
