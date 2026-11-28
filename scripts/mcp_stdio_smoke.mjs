@@ -83,7 +83,13 @@ try {
     assert.ok(JSON.stringify(listing).includes("smoke.txt"), "DroidMCP did not list the fixture file");
     const file = textJson(await request(4, "tools/call", { name: "read_file", arguments: { path: "smoke.txt" } }));
     assert.ok(JSON.stringify(file).includes("buddy-smoke-ok"), "DroidMCP did not read fixture content");
-    console.log("DroidMCP MCP stdio smoke passed: 5 read-only tools, directory listing and file read verified.");
+    const traversal = textJson(await request(5, "tools/call", { name: "read_file", arguments: { path: "../etc/passwd" } }));
+    assert.equal(traversal.ok, false, "DroidMCP allowed a parent-directory traversal");
+    const secret = textJson(await request(6, "tools/call", { name: "read_file", arguments: { path: ".env" } }));
+    assert.equal(secret.ok, false, "DroidMCP exposed a dotenv secret file");
+    const symlink = textJson(await request(7, "tools/call", { name: "read_file", arguments: { path: "escape-to-etc" } }));
+    assert.equal(symlink.ok, false, "DroidMCP followed a symlink outside its root");
+    console.log("DroidMCP MCP stdio smoke passed: 5 read-only tools, read/list, traversal, secret-file and symlink guards verified.");
   }
 } catch (error) {
   child.kill("SIGKILL");
