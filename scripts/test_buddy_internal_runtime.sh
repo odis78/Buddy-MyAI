@@ -60,4 +60,11 @@ grep -Fq 'args.confirmed !== true' app/src/main/assets/runtime/termux-bridge-0.1
 grep -Fq "['confirmed']" app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 ! grep -Fq 'TERMUX_BRIDGE_REA_ROOT' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 
+# Verify every bundled runtime asset against the installer-pinned digest.
+installer="app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java"
+pinned_sha() { sed -nE "s/.*$1 = \"([0-9a-f]{64})\".*/\\1/p" "$installer"; }
+test "$(sha256sum app/src/main/assets/runtime/termux-bridge-0.1.3.mjs | awk '{print $1}')" = "$(pinned_sha BRIDGE_SHA256)"
+test "$(sha256sum app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs | awk '{print $1}')" = "$(pinned_sha DROIDMCP_SHA256)"
+test "$(sha256sum app/src/main/assets/runtime/rea-agents-6.5.0.tgz | awk '{print $1}')" = "$(pinned_sha PACKAGE_SHA256)"
+
 echo "Buddy Test225 internal runtime safety checks passed."
