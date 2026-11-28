@@ -11,6 +11,7 @@ on:
       - fix/buddy-runtime-cloudflared-flavor-20261125
       - fix/buddy-mcp-runtime-independent-20261127
       - work/buddy-myai-final-product-20261127
+      - fix/test225-restore-test220-main-tunnel-20261127
   pull_request:
   workflow_dispatch:
 
@@ -42,10 +43,8 @@ jobs:
         run: node --test mcp-bridge/sse-response.test.mjs
       - name: Recorded agent output tests
         run: bash linux/test/run.sh
-      - name: Termux tunnel manager syntax and lifecycle tests
-        run: |
-          bash -n app/src/main/assets/runtime/buddy-termux-tunnels.sh
-          bash scripts/test_buddy_termux_manager.sh
+      - name: Buddy internal runtime safety regression tests
+        run: bash scripts/test_buddy_internal_runtime.sh
 
   tunnel-client-runtime:
     name: Pinned standard Tunnel Client runtime tests and Linux ARM64 build
@@ -64,22 +63,46 @@ jobs:
         run: |
           cp app/src/test/resources/buddy-myai-tunnel-profile.yaml tunnel-client/buddy-profile-validation.yaml
           cp app/src/test/resources/buddy-myai-rea-channel-profile.yaml tunnel-client/buddy-rea-profile-validation.yaml
+          cp app/src/test/resources/bridge-mcp-tunnel-profile.yaml tunnel-client/bridge-profile-validation.yaml
+          cp app/src/test/resources/droidmcp-tunnel-profile.yaml tunnel-client/droidmcp-profile-validation.yaml
           cat > tunnel-client/pkg/runtimeconfig/buddy_profile_validation_test.go <<'EOF'
           package runtimeconfig
 
           import (
             "os"
+            "strings"
             "testing"
           )
 
           func TestBuddyGeneratedProfilesAcceptedByPinnedRuntime(t *testing.T) {
-            for _, name := range []string{"buddy-profile-validation.yaml", "buddy-rea-profile-validation.yaml"} {
+            for _, name := range []string{"buddy-profile-validation.yaml", "buddy-rea-profile-validation.yaml", "bridge-profile-validation.yaml", "droidmcp-profile-validation.yaml"} {
               data, err := os.ReadFile("../../" + name)
               if err != nil {
                 t.Fatalf("read profile fixture %s: %v", name, err)
               }
               if err := ValidateFullProfileBytes(name, data); err != nil {
                 t.Fatalf("pinned Tunnel Client rejected %s: %v", name, err)
+              }
+            }
+          }
+
+          func TestBuddyHelperProfilesPreserveExistingTunnelIdentities(t *testing.T) {
+            cases := []struct { name, tunnelID, channel string }{
+              {"bridge-profile-validation.yaml", "tunnel_6ae28b8f01788191b42901f090964502", "bridge"},
+              {"droidmcp-profile-validation.yaml", "tunnel_6af1637e86788191aa429d5518d41938", "droidmcp"},
+            }
+            for _, tc := range cases {
+              data, err := os.ReadFile("../../" + tc.name)
+              if err != nil { t.Fatal(err) }
+              profile := string(data)
+              if !strings.Contains(profile, "tunnel_id: \\""+tc.tunnelID+"\\"") {
+                t.Fatalf("%s changed the preserved tunnel ID", tc.name)
+              }
+              if !strings.Contains(profile, "channel: "+tc.channel) {
+                t.Fatalf("%s has no %s channel", tc.name, tc.channel)
+              }
+              if err := ValidateFullProfileBytes(tc.name, data); err != nil {
+                t.Fatalf("pinned runtime rejected %s: %v", tc.name, err)
               }
             }
           }
@@ -288,13 +311,28 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - name: Decode stable test signing key when configured
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BUDDY_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/test225-signing.jks"
+          echo "BUDDY_KEYSTORE=$RUNNER_TEMP/test225-signing.jks" >> "$GITHUB_ENV"
       - name: Run Buddy JVM unit tests
+        env:
+          BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
+          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
         run: ./gradlew --no-daemon testGithubDebugUnitTest
       - name: Build native libraries
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
-      - name: Assemble isolated side-by-side Test224 debug APK
+      - name: Assemble isolated side-by-side Test225 debug APK
+        env:
+          BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
+          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleGithubDebug
       - name: Verify APK signature and package metadata
         shell: bash
@@ -306,9 +344,9 @@ jobs:
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner" && test -x "$BUILD_TOOLS/aapt"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signature-verification.txt
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test224'"
-          printf '%s\n' "$BADGING" | grep -F "versionCode='224'"
-          printf '%s\n' "$BADGING" | grep -F "versionName='2.3.24-GT.2-test224'"
+          printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test225'"
+          printf '%s\n' "$BADGING" | grep -F "versionCode='225'"
+          printf '%s\n' "$BADGING" | grep -F "versionName='2.3.25-GT.2-test225'"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libtunnel-client.so'
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/rea-agents-6.5.0.tgz'
           REA_SHA="$(unzip -p "$APK" assets/runtime/rea-agents-6.5.0.tgz | sha256sum | cut -d ' ' -f1)"
@@ -320,27 +358,27 @@ jobs:
             echo 'Unexpected cloudflared payload in standard runtime APK' >&2
             exit 1
           fi
-          bash -n app/src/main/assets/runtime/buddy-termux-tunnels.sh
-          bash scripts/test_buddy_termux_manager.sh
-          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/buddy-termux-tunnels.sh'
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/termux-bridge-0.1.3.mjs'
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/droidmcp-filesystem-0.4.0.mjs'
+          ! unzip -Z1 "$APK" | grep -F 'buddy-termux-tunnels.sh'
           mkdir -p dist
-          cp "$APK" dist/buddy-runtimefix-test224-debug.apk
-          sha256sum dist/buddy-runtimefix-test224-debug.apk | tee dist/apk-sha256.txt
+          cp "$APK" dist/buddy-test225-debug.apk
+          sha256sum dist/buddy-test225-debug.apk | tee dist/apk-sha256.txt
       - name: Record isolated candidate signing identity
         shell: bash
         run: |
           set -euo pipefail
-          APK='dist/buddy-runtimefix-test224-debug.apk'
+          APK='dist/buddy-test225-debug.apk'
           test -s "$APK"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signing-identity.txt
           grep -Eq 'certificate SHA-256 digest: [0-9a-fA-F]{64}' dist/apk-signing-identity.txt
-          echo "PACKAGE_ISOLATION=app.buddy.myai.gt.test224" >> "$GITHUB_STEP_SUMMARY"
-          echo "Test224 is installed side-by-side. Test220, Test223, and the production package remain installed and untouched." >> "$GITHUB_STEP_SUMMARY"
+          echo "PACKAGE_ISOLATION=app.buddy.myai.gt.test225" >> "$GITHUB_STEP_SUMMARY"
+          echo "Test225 is installed side-by-side because Test224's CI-generated debug signing key is not available for reuse. Test224, Test220, Test223, and the production package remain untouched." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: buddy-runtimefix-test224-debug
+          name: buddy-test225-debug
           path: |
             dist/buddy-runtimefix-test224-debug.apk
             dist/apk-signature-verification.txt

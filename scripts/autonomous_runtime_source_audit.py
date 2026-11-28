@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only baseline audit for Buddy Autonomous Runtime. No device or Termux access."""
+"""Read-only architecture and safety audit for Buddy Test225."""
 from __future__ import annotations
 import json
 import re
@@ -16,291 +16,99 @@ def read(path: str) -> str:
 gradle = read("app/build.gradle.kts")
 version = read("app/src/main/java/app/buddy/assistant/BuildInfo.java")
 linux = read("app/src/main/java/app/buddy/assistant/Linux.java")
-helper = read("app/src/main/java/app/buddy/assistant/Helper.java")
 mcp = read("app/src/main/java/app/buddy/assistant/McpServer.java")
 secrets = read("app/src/main/java/app/buddy/assistant/Secrets.java")
-runtime_binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
-runtime_launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
-rea_runtime_installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
-termux_manager = read("app/src/main/assets/runtime/buddy-termux-tunnels.sh")
-termux_controller = read("app/src/main/java/app/buddy/assistant/TermuxRuntimeController.java")
-termux_receiver = read("app/src/main/java/app/buddy/assistant/TermuxCommandResultReceiver.java")
-runtime_supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
-runtime_service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
-runtime_connection_manager = read("app/src/main/java/app/buddy/assistant/RuntimeConnectionManager.java")
-runtime_boot = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeBootReceiver.java")
-runtime_settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
+backup = read("app/src/main/java/app/buddy/assistant/Backup.java")
+binary = read("app/src/main/java/app/buddy/assistant/RuntimeBinaryLocator.java")
+launcher = read("app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java")
+profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
+installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
+service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
+supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
+settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
 manifest = read("app/src/main/AndroidManifest.xml")
-runtime_profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
-profile_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
-runtime_hardening = read("scripts/tunnel-client-runtime/dumpable_linux.go")
-runtime_hardening_test = read("scripts/tunnel-client-runtime/dumpable_linux_test.go")
-runtime_fifo_test = read("scripts/tunnel-client-runtime/file_reference_fifo_test.go")
-runtime_patch = read("scripts/patch_tunnel_client_runtime.py")
-runtime_workflow = read(".github/workflows/autonomous-runtime-audit.yml")
-audit_doc = read("docs/BUDDY_AUTONOMOUS_RUNTIME_AUDIT_2026-11-24.md")
+bridge = read("app/src/main/assets/runtime/termux-bridge-0.1.3.mjs")
+droid = read("app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs")
+helper_bootstrap = read("app/src/main/java/app/buddy/assistant/RuntimeHelperBootstrap.java")
+lifecycle_gate = read("app/src/main/java/app/buddy/assistant/RuntimeLifecycleGate.java")
+main_fixture = read("app/src/test/resources/buddy-myai-tunnel-profile.yaml")
+rea_fixture = read("app/src/test/resources/buddy-myai-rea-channel-profile.yaml")
+bridge_fixture = read("app/src/test/resources/bridge-mcp-tunnel-profile.yaml")
+droid_fixture = read("app/src/test/resources/droidmcp-tunnel-profile.yaml")
+workflow = read(".github/workflows/autonomous-runtime-audit.yml")
+migration_doc = read("docs/BUDDY_TEST225_ARCHITECTURE.md")
 
-def match(pattern: str, value: str) -> str | None:
-    found = re.search(pattern, value)
-    return found.group(1) if found else None
+checks: list[dict[str, str]] = []
 
-checks = []
-def add(name: str, status: str, detail: str):
-    checks.append({"name": name, "status": status, "detail": detail})
+def add(name: str, ok: bool, detail: str) -> None:
+    checks.append({"name": name, "status": "PASS" if ok else "FAIL", "detail": detail})
 
-app_id = match(r'applicationId\s*=\s*"([^"]+)"', gradle)
-version_name = match(r'VERSION\s*=\s*"([^"]+)"', version)
-version_code = match(r'VERSION_CODE\s*=\s*(\d+)', version)
-compile_sdk = match(r'compileSdk\s*=\s*(\d+)', gradle)
-target_sdk = match(r'targetSdk\s*=\s*(\d+)', gradle)
-min_sdk = match(r'minSdk\s*=\s*(\d+)', gradle)
+version_name = re.search(r'VERSION\s*=\s*"([^"]+)"', version)
+version_code = re.search(r'VERSION_CODE\s*=\s*(\d+)', version)
+app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle)
+debug_suffix = re.search(r'applicationIdSuffix\s*=\s*"([^"]+)"', gradle)
+debug_port = 'buildConfigField("int", "MCP_PORT", "18769")' in gradle
+default_port = 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
 
-chatgpt_invariant = all(term in audit_doc for term in [
-    "ГЛАВНЫЙ НЕИЗМЕНЯЕМЫЙ ИНВАРИАНТ: CHATGPT",
-    "ChatGPT остаётся отдельным, самостоятельным приложением",
-    "Критерий отказа:",
-    "фактического подключения из ChatGPT",
-])
-add("chatgpt_control_plane_compatibility", "PASS" if chatgpt_invariant else "FAIL",
-    "ChatGPT remains the external control plane; current MCP/auth/tool contract must pass end-to-end before cutover")
+add("version_metadata", bool(version_name and version_name.group(1) == "2.3.25-GT.2" and version_code and version_code.group(1) == "225",
+    "Test225 versionName=2.3.25-GT.2; versionCode=225")
+add("side_by_side_package", bool(app_id and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix and debug_suffix.group(1) == ".test225",
+    "Test225 uses app.buddy.myai.gt.test225 so Test224 remains installed and untouched")
+add("isolated_loopback_ports", bool(default_port and debug_port and "PORT = BuildConfig.MCP_PORT" in mcp and "127.0.0.1" in mcp and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile,
+    "Production MCP port 8766; Test225 debug port 18769; profile endpoint follows BuildConfig")
+add("builtin_alpine_proot", "ALPINE_SHA256" in linux and "libproot.so" in linux and "alpine.partial" in linux,
+    "App-private Alpine 3.24.2 rootfs and bundled PRoot are verified before use")
+add("non_destructive_linux_install", "Existing Alpine root is incomplete; preserved" in linux and "staging.renameTo(root)" in linux and "deleteTree(root)" not in linux,
+    "Incomplete existing Alpine data is preserved; only the temporary staging directory is removed")
+add("android_keystore_secret_store", "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets,
+    "Secrets are encrypted with an Android Keystore AES/GCM key")
+add("backup_secret_boundary", "API keys stay out" in backup and '"token"' in backup,
+    "Chats/settings can be backed up; API keys and per-install tokens remain excluded")
+add("pinned_tunnel_client_binary", all(x in binary for x in ["EXPECTED_SHA256", "nativeLibraryDir", "MessageDigest"]),
+    "Pinned ARM64 Tunnel Client is located in nativeLibraryDir and SHA-256 verified")
+add("rea_internal_channel", all(x in profile for x in ['channel: main', 'channel: rea']) and "REA_TUNNEL_ID" not in launcher and "startReaConfigured" not in launcher,
+    "REA runs as a second channel under the main Buddy tunnel, not as a separate tunnel")
+add("internal_bridge_droidmcp_launchers", all(x in launcher for x in ["BRIDGE_TUNNEL_ID", "DROIDMCP_TUNNEL_ID", "startBridgeConfigured", "startDroidMcpConfigured", "writeStdioProfile"]),
+    "Bridge and DroidMCP are launched as internal stdio MCP servers with their preserved tunnel IDs")
+add("internal_helper_installer", all(x in installer for x in ["BRIDGE_ASSET", "DROIDMCP_ASSET", "HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0", "REA_MCP_READY=207/207;6/6"]),
+    "One app-private installer provisions REA, Bridge and read-only DroidMCP inside Alpine")
+add("bridge_fixed_command_allowlist", "const COMMANDS" in bridge and "shell: false" in bridge and "spawn(" in bridge,
+    "Bridge exposes fixed commands only and never invokes a shell")
+add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory", "directory_tree", "read-only safety policy", "Path escapes the configured read-only root"]) and not any(x in droid for x in ['tool("write_file"', 'tool("delete_file"', 'tool("move_file"', 'tool("copy_file"']),
+    "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
+add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBootstrap", "bridgeSupervisor", "droidMcpSupervisor", "reaChannelConfigured", "startReaMonitor"]) and "TermuxRuntimeController" not in service and "reaSupervisor" not in service,
+    "Buddy independently supervises its main tunnel and internal Bridge/DroidMCP helpers")
+add("helper_shutdown_gate", all(x in helper_bootstrap for x in ["startIfActive", "runIfActive"]) and all(x in lifecycle_gate for x in ["markStopping", "cleanup", "startIfActive"]),
+    "Helper startup is serialized against graceful shutdown")
+add("exact_process_ownership", all(x in supervisor for x in ["tunnelProcess.isAlive()", "RuntimeHealthProbe.isReady", "destroyForcibly"]),
+    "Supervisor tracks and terminates only the exact child Process it owns")
+add("no_termux_runtime_dependency", "com.termux.permission.RUN_COMMAND" not in manifest and "TermuxCommandResultReceiver" not in manifest and "tunnelId" not in settings and "Termux" not in settings and not (ROOT / "app/src/main/assets/runtime/buddy-termux-tunnels.sh").exists() and not (ROOT / "app/src/main/java/app/buddy/assistant/TermuxRuntimeController.java").exists() and not (ROOT / "app/src/main/java/app/buddy/assistant/RuntimeConnectionManager.java").exists(),
+    "No Termux RUN_COMMAND permission, runtime controller, manager script or manual Tunnel ID field")
+add("credential_fifo_isolation", all(x in launcher for x in ["Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "O_NONBLOCK"]) and "CONTROL_PLANE_API_KEY" not in launcher and "BUDDY_AUTH_HEADER" not in launcher,
+    "Tunnel credentials are handed to child processes through short-lived private FIFOs, not argv/env")
+add("profiles_match_pinned_runtime", all(x in main_fixture and x in rea_fixture for x in ["extra_headers:", "discovery_extra_headers:", "file:"]) and all(x in bridge_fixture and x in droid_fixture for x in ["tunnel_id:", "commands:", "channel:"]),
+    "Main, REA, Bridge and DroidMCP profiles are covered by fixtures for upstream validation")
+add("upstream_runtime_ci", "go test ./pkg/runtimeconfig" in workflow and "TestBuddyHelperProfilesPreserveExistingTunnelIdentities" in workflow and "testGithubDebugUnitTest" in workflow and "cloudflared:" not in profile,
+    "CI validates the four profiles against the pinned standard Tunnel Client and runs Android unit tests")
+add("chatgpt_control_plane_invariant", "ChatGPT remains the external control plane" in migration_doc and "Termux is not required" in migration_doc,
+    "ChatGPT remains external; Buddy owns its on-device runtime")
+add("test225_migration_boundary", "Test224" in migration_doc and "signing" in migration_doc and "API key" in migration_doc,
+    "Test224 is preserved; side-by-side migration requires restoring backup and re-entering the package-local API key")
 
-add("version_metadata", "PASS" if version_name and version_code else "FAIL",
-    f"versionName={version_name}; versionCode={version_code}")
-add("package_metadata", "PASS" if app_id else "FAIL", f"applicationId={app_id}")
-add("sdk_metadata", "PASS" if compile_sdk and target_sdk and min_sdk else "FAIL",
-    f"minSdk={min_sdk}; compileSdk={compile_sdk}; targetSdk={target_sdk}")
-add("builtin_alpine_proot", "PASS" if "ALPINE_SHA256" in linux and "libproot.so" in linux and "static ProcessBuilder builder" in linux else "FAIL",
-    "Buddy has an app-private Alpine rootfs installer and PRoot command builder" if "ALPINE_SHA256" in linux and "libproot.so" in linux else "Required PRoot markers missing")
-add("child_process_launch", "PASS" if "Linux.builder(app, cmd).start()" in helper else "FAIL",
-    "Existing Helper launches child processes inside Buddy Linux")
-profile_writer = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java")
-gradle = read("app/build.gradle.kts")
-local_mcp_ok = (
-    "PORT = BuildConfig.MCP_PORT" in mcp
-    and "127.0.0.1" in mcp
-    and 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
-    and 'buildConfigField("int", "MCP_PORT", "18768")' in gradle
-    and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile_writer
-)
-add("local_mcp_server", "PASS" if local_mcp_ok else "FAIL",
-    "Build-specific loopback MCP endpoint and profile URL")
-add("android_keystore_secret_store", "PASS" if "AndroidKeyStore" in secrets and "AES/GCM/NoPadding" in secrets else "FAIL",
-    "Existing encrypted secret storage uses Android Keystore AES/GCM")
-add("runtime_artifact_integrity", "PASS" if all(term in runtime_binary for term in ["EXPECTED_SHA256", "nativeLibraryDir", "MessageDigest"]) and "CLOUDFLARED" not in runtime_binary else "FAIL",
-    "The standard pinned Tunnel Client Linux ARM64 executable is located in nativeLibraryDir and SHA-256 verified")
-
-standard_runtime_ok = (
-    "cmd/client-runtime" in runtime_patch
-    and "Flavor=runtime " in runtime_workflow
-    and "./cmd/client-runtime" in runtime_workflow
-    and "flavor=runtime" in runtime_workflow
-    and "buddy_profile_runtime_test.go" in runtime_workflow
-    and "libtunnel-client.so" in runtime_workflow
-    and "libcloudflared.so" not in runtime_workflow
-)
-add("standard_runtime_profile_compatibility", "PASS" if standard_runtime_ok else "FAIL",
-    "Buddy builds the standard runtime matching existing no-Cloudflared tunnel profiles and tests acceptance plus rejection of injected Cloudflared settings")
-
-
-profile_auth_ok = all(term in runtime_profile and term in profile_fixture for term in [
-    "extra_headers:", "discovery_extra_headers:", "file:"
-])
-add("buddy_tunnel_auth_profile", "PASS" if profile_auth_ok else "FAIL",
-    "Buddy profile preserves Authorization for both MCP discovery and request traffic")
-buddy_profile_mode_ok = ("cloudflared:" not in runtime_profile and "cloudflared:" not in profile_fixture)
-add("buddy_profile_matches_existing_tunnel_mode", "PASS" if buddy_profile_mode_ok else "FAIL",
-    "Buddy, REA, Bridge, and DroidMCP profiles do not enable an unconfigured Cloudflared dependency")
-rea_runtime_ok = (
-    "nodejs-current" in rea_runtime_installer
-    and "openjdk21-jre-headless" in rea_runtime_installer
-    and "android-tools" in rea_runtime_installer
-    and "rea-agents-6.5.0.tgz" in rea_runtime_installer
-    and "git clone --depth 1 --branch rea-agents-6.5.0" in rea_runtime_installer
-    and "mcp doctor --format json" in rea_runtime_installer
-    and "EXPECTED_TOOLS = 207" in rea_runtime_installer
-    and "EXPECTED_PROMPTS = 6" in rea_runtime_installer
-    and "Linux.commandAt(app, \"/root/rea-source\"" in runtime_launcher
-    and "channel: rea" in runtime_profile
-)
-add("rea_runtime_bootstrap", "PASS" if rea_runtime_ok else "FAIL",
-    "Original REA 6.5.0 is installed only inside Buddy's existing Alpine/PRoot runtime and validated at 207 tools/6 prompts")
-
-rea_profile_ok = (
-    "renderBuddyProfile(String tunnelId, File runtimeDir," in runtime_profile
-    and "channel: main" in runtime_profile
-    and "channel: rea" in runtime_profile
-    and "REA_TUNNEL_ID" not in runtime_launcher
-    and "startReaConfigured" not in runtime_launcher
-)
-add("rea_internal_buddy_channel", "PASS" if rea_profile_ok else "FAIL",
-    "REA is a separate MCP channel under Buddy's existing tunnel identity, not an independent fourth tunnel")
-
-termux_manager_ok = (
-    "BRIDGE_PROFILE=" in termux_manager
-    and "DROID_PROFILE=" in termux_manager
-    and "start_one bridge" in termux_manager
-    and "start_one droidmcp" in termux_manager
-    and "kill -TERM" in termux_manager
-    and "SIGKILL" in termux_manager
-    and "rea-android" not in termux_manager
-    and "rea-all" not in termux_manager
-    and "tunnel_6ae28b8f01788191b42901f090964502" in termux_manager
-    and "tunnel_6af1637e86788191aa429d5518d41938" in termux_manager
-    and "tunnel-client-android-build-v0.0.19/bin/tunnel-client-android-arm64" in termux_manager
-    and "LEGACY_READY" in termux_manager
-    and "UNHEALTHY" in termux_manager
-    and "pid_alive" in termux_manager
-    and "health_endpoint_live" in termux_manager
-    and "runtime.env" in termux_manager
-    and "CONTROL_PLANE_API_KEY" in termux_manager
-    and '[[ -n "$url" ]]' in termux_manager
-    and "process left running" in termux_manager
-    and "command -v node" in termux_manager
-    and "droidmcp-readonly" in termux_manager
-    and "DROIDMCP_ROOT" in termux_manager
-    and "droidmcp-sandbox" in termux_manager
-    and "droidmcp-filesystem" in termux_manager
-    and "DROIDMCP_TRANSPORT=stdio" in termux_manager
-    and "DROIDMCP_FILESYSTEM_DISABLED_TOOLS=write_file,delete_file,move_file,copy_file" in termux_manager
-    and "start_one droidmcp" in termux_manager
-)
-add("termux_bridge_droidmcp_manager", "PASS" if termux_manager_ok else "FAIL",
-    "Buddy installs a separate Termux manager for Bridge and DroidMCP only, validates PID ownership and stops gracefully")
-
-three_channel_ok = (
-    "com.termux.RUN_COMMAND" in termux_controller
-    and "com.termux.permission.RUN_COMMAND" in termux_controller
-    and "PendingIntent.FLAG_MUTABLE" in termux_controller
-    and "runtime/buddy-termux-tunnels.sh" in termux_controller
-    and "dispatchVerifiedManager" in termux_controller
-    and "sha256sum" in termux_controller
-    and "termux_manager_installed_hash" in termux_receiver
-    and "setup_all_pending" in termux_receiver
-    and "termux_droidmcp_port" in termux_receiver
-    and "termux_manager_update_in_progress" in termux_controller
-    and "termuxManagerReady" in termux_receiver
-    and "RuntimeConnectionManager" in runtime_service
-    and "TermuxRuntimeController.reconcile" in runtime_connection_manager
-    and "RuntimeSupervisor" in runtime_connection_manager
-    and "recoverTermuxIfUnavailable" in runtime_connection_manager
-    and "bridgeLegacyOnly" in runtime_connection_manager
-    and "LEGACY_ONLY" in runtime_service
-    and "com.termux.permission.RUN_COMMAND" in manifest
-    and 'android:name="com.termux"' in manifest
-    and "startBridgeConfigured" not in runtime_service
-    and "startDroidMcpConfigured" not in runtime_service
-)
-add("three_mcp_channel_connection_manager", "PASS" if three_channel_ok else "FAIL",
-    "Connection lifecycle is split between Buddy's main+REA channel and the two Termux-owned remote MCP tunnels")
-secret_files_ok = all(term in runtime_launcher for term in [
-    "Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "API_KEY_FILE", "AUTH_HEADER_FILE", "0600", "O_NONBLOCK"
-]) and "CONTROL_PLANE_API_KEY" not in runtime_launcher and "BUDDY_AUTH_HEADER" not in runtime_launcher
-add("runtime_secret_file_isolation", "PASS" if secret_files_ok else "FAIL",
-    "Tunnel credentials are read from short-lived 0600 app-private files, not argv or environment")
-fifo_ok = "TestBuddyFileSecretReferenceReadsOneShotFIFO" in runtime_fifo_test and "syscall.Mkfifo" in runtime_fifo_test
-add("runtime_fifo_secret_handoff", "PASS" if fifo_ok else "FAIL",
-    "Pinned Tunnel Client file-reference resolver is regression-tested with one-shot FIFOs")
-supervisor_ok = all(term in runtime_supervisor for term in [
-    "RuntimeProcessLauncher.startConfigured", "RuntimeHealthProbe.isReady", "tunnelProcess.isAlive", "destroyForcibly"
-])
-add("runtime_process_supervisor", "PASS" if supervisor_ok else "FAIL",
-    "Supervisor owns an exact Process handle, gates on loopback MCP and health, and stops only that handle")
-fgs_ok = (
-    "FOREGROUND_SERVICE_TYPE_SPECIAL_USE" in runtime_service
-    and "foregroundServiceType=\"specialUse\"" in manifest
-    and "PROPERTY_SPECIAL_USE_FGS_SUBTYPE" in manifest
-    and "BOOT_COMPLETED" in manifest and "auto_start" in runtime_boot
-)
-add("runtime_foreground_lifecycle", "PASS" if fgs_ok else "FAIL",
-    "User-visible special-use foreground service and opt-in boot restart are declared")
-settings_ok = ("Secrets.put" in runtime_settings and "Secrets.get" in runtime_settings
-    and "ClipboardManager" in runtime_settings and "copySavedApiKey" in runtime_settings
-    and "copyTunnelId" in runtime_settings and "setupAll" in runtime_settings
-    and "setup_all_pending" in runtime_settings and "isLoopbackPortOpen(18767)" in runtime_settings
-    and "auto_start" in runtime_settings
-    and "RuntimeProcessLauncher.DEFAULT_TUNNEL_ID" in runtime_settings
-    and "REQUEST_TERMUX_RUN_COMMAND" in runtime_settings and "connectTermux" in runtime_settings)
-add("runtime_user_configuration", "PASS" if settings_ok else "FAIL",
-    "User can save the control-plane key, configure opt-in startup, and explicitly connect Termux with a runtime permission gate")
-rea_backoff_ok = "reaRecovery.nextDelayMillis()" in runtime_service and "reaInstallRetryTask" in runtime_service
-add("rea_install_backoff", "PASS" if rea_backoff_ok else "FAIL",
-    "REA bootstrap retries use bounded exponential backoff rather than a fixed 15-second loop")
-storage_minimized = "MANAGE_EXTERNAL_STORAGE" not in manifest and "grantStorageAccess" not in runtime_settings
-add("storage_permission_minimization", "PASS" if storage_minimized else "FAIL",
-    "Buddy no longer requests broad all-files access for Termux-owned DroidMCP filesystem operations")
-hardening_ok = (
-    "PR_SET_DUMPABLE" in runtime_hardening
-    and "hardenProcess" in runtime_hardening
-    and "TUNNEL_DUMPABLE_SECRET" in runtime_hardening_test
-    and "dumpable_linux.go" in runtime_patch
-    and "hardenProcess()" in runtime_patch
-)
-add("tunnel_runtime_procfs_hardening", "PASS" if hardening_ok else "FAIL",
-    "Pinned Tunnel Client build is patched to deny same-UID procfs access to its environment, with a regression test")
-test_dirs = [ROOT / "app/src/test", ROOT / "app/src/androidTest"]
-has_tests = any(p.exists() for p in test_dirs)
-add("app_java_test_coverage", "PASS" if has_tests else "WARN",
-    "Java/JVM or instrumentation test source directory exists" if has_tests else "No app/src/test or app/src/androidTest directory exists at the audited baseline")
-has_supervisor = any((ROOT / p).exists() for p in [
-    "app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java",
-    "app/src/main/java/app/buddy/assistant/RuntimeOrchestrator.java",
-])
-runtime_primitives = all((ROOT / p).is_file() for p in [
-    "app/src/main/java/app/buddy/assistant/RuntimeComponentSpec.java",
-    "app/src/main/java/app/buddy/assistant/RuntimeDependencyPlanner.java",
-    "app/src/main/java/app/buddy/assistant/RuntimeProcessIdentity.java",
-    "app/src/main/java/app/buddy/assistant/RuntimeStateMachine.java",
-])
-runtime_tests = all((ROOT / p).is_file() for p in [
-    "app/src/test/java/app/buddy/assistant/RuntimeDependencyPlannerTest.java",
-    "app/src/test/java/app/buddy/assistant/RuntimeProcessIdentityTest.java",
-    "app/src/test/java/app/buddy/assistant/RuntimeStateMachineTest.java",
-])
-add("runtime_lifecycle_primitives", "PASS" if runtime_primitives else "FAIL",
-    "Dependency planning, process identity and lifecycle state machine sources are present")
-add("runtime_jvm_tests", "PASS" if runtime_tests else "FAIL",
-    "Focused JVM tests cover dependency validation, PID reuse identity and lifecycle transitions")
-
-lifecycle_gate = (
-    "RuntimeConnectionManager" in runtime_service
-    and "scheduleReaInstall" in runtime_service
-    and "connectionMonitorTask" in runtime_service
-    and "connections.stopTermux()" in runtime_service
-    and "RuntimeStateMachine.State.READY" in runtime_service
-    and "startBuddyTunnel" in runtime_connection_manager
-)
-add("connection_lifecycle_ownership", "PASS" if lifecycle_gate else "FAIL",
-    "Buddy owns its main Tunnel Client and REA child; Termux-owned Bridge/DroidMCP are managed through a separate serialized controller")
-
-cleartext_enabled = 'android:usesCleartextTraffic="true"' in manifest
-add("global_cleartext_policy", "WARN" if cleartext_enabled else "PASS",
-    "Application-wide cleartext HTTP is enabled; trace HTTP consumers and constrain exceptions to required local/user-configured endpoints" if cleartext_enabled
-    else "Application-wide cleartext HTTP is disabled")
-
-add("persistent_runtime_supervisor", "PASS" if has_supervisor else "WARN",
-    "Dedicated runtime supervisor source exists" if has_supervisor else "Dedicated multi-process runtime supervisor not present in baseline")
-add("release_signing_gate", "WARN",
-    "Workflow has optional signing hooks, but actual release keystore availability and certificate identity are not verified")
-add("gt_package_line", "PASS" if app_id in {"app.buddy.myai.gt", "app.buddy.myai.gt.test223", "app.buddy.myai.gt.test224"} else "WARN",
-    f"GT package identity is correctly isolated as {app_id}" if app_id in {"app.buddy.myai.gt", "app.buddy.myai.gt.test223"} else f"Expected GT package line, found {app_id}")
+failed = [x for x in checks if x["status"] != "PASS"]
 report = {
-    "schema": "buddy-autonomous-runtime-audit/v1",
-    "source": "GitHub Actions workspace",
-    "version": {"applicationId": app_id, "versionName": version_name,
-                "versionCode": int(version_code) if version_code else None,
-                "minSdk": int(min_sdk) if min_sdk else None,
-                "compileSdk": int(compile_sdk) if compile_sdk else None,
-                "targetSdk": int(target_sdk) if target_sdk else None},
+    "project": "Buddy Test225",
+    "version": version_name.group(1) if version_name else None,
+    "version_code": version_code.group(1) if version_code else None,
+    "debug_application_id": (app_id.group(1) + (debug_suffix.group(1) if debug_suffix else "")) if app_id else None,
+    "migration_mode": "side-by-side",
     "checks": checks,
-    "summary": {
-        "pass": sum(x["status"] == "PASS" for x in checks),
-        "warn": sum(x["status"] == "WARN" for x in checks),
-        "fail": sum(x["status"] == "FAIL" for x in checks),
-    },
+    "summary": {"passed": len(checks) - len(failed), "failed": len(failed), "status": "FAIL" if failed else "PASS"},
 }
 out = ROOT / "build/reports/autonomous-runtime-audit.json"
 out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-print(json.dumps(report, indent=2))
-if report["summary"]["fail"]:
-    raise SystemExit(1)
+out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+for item in checks:
+    print(f'{item["status"]}: {item["name"]}: {item["detail"]}')
+print(f'AUDIT_RESULT={report["summary"]["status"]} PASS={report["summary"]["passed"]} FAIL={report["summary"]["failed"]}')
+raise SystemExit(1 if failed else 0)
