@@ -2370,7 +2370,7 @@
 
     <!-- Additive strings for the isolated Buddy runtime. -->
     <string name="runtime_settings_title">Buddy runtime</string>
-    <string name="runtime_settings_info">Buddy runs the pinned Tunnel Client, REA 6.5.0, Bridge 0.1.3 and read-only DroidMCP 0.4.0 inside its private Alpine/PRoot Linux. Main MCP endpoint: 127.0.0.1:%1$d/mcp. REA is a second channel under the existing Buddy tunnel; Bridge and DroidMCP retain their existing tunnel IDs. Termux is not required for normal operation. The runtime is isolated in Buddy's private app storage.</string>
+    <string name="runtime_settings_info">Buddy runs the pinned Tunnel Client, REA 6.5.0, Bridge 0.1.3 and read-only DroidMCP 0.4.0 inside its private Alpine/PRoot Linux. Main MCP endpoint: 127.0.0.1:%1$d/mcp. REA is a second channel under the existing Buddy tunnel; Bridge and DroidMCP retain their existing tunnel IDs. Termux is not required for normal operation. The runtime is isolated in Buddy\'s private app storage.</string>
     <string name="runtime_notification_external_conflict">A Buddy or external tunnel endpoint is already listening on a protected port. Buddy will not create a duplicate tunnel or stop the existing process. Close the old runtime and Buddy will retry automatically.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
     <string name="runtime_api_key_hint">Paste API key (encrypted with Android Keystore). Use the button below to copy the saved key.</string>
