@@ -123,6 +123,14 @@ final class RuntimeSupervisor {
         stopInternal();
     }
 
+    synchronized String diagnosticsSummary() {
+        long pid = tunnelProcess != null && tunnelProcess.isAlive() ? tunnelProcess.pid() : -1;
+        String summary = "PID=" + (pid > 0 ? pid : "not-running")
+                + " · " + RuntimeHealthProbe.diagnostics(new File(runtimeDir, "health.url"));
+        if (lastError != null && !lastError.trim().isEmpty()) summary += " · supervisorError=" + lastError;
+        return summary;
+    }
+
     synchronized RuntimeStateMachine.State state() { return machine.state(); }
     synchronized String lastError() { return lastError; }
 
