@@ -88,7 +88,7 @@ final class RuntimeProcessLauncher {
         guestEnvironment.put("BUDDY_ANDROID_PACKAGE", BuildConfig.APPLICATION_ID);
         java.util.List<String> command = Linux.commandAtWithSystem(app, "/root/rea-source", guestEnvironment,
                 "/usr/bin/node", "/root/bridge/server/index.mjs");
-        return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, command);
+        return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, "bridge", command);
     }
 
     static Process startDroidMcpConfigured(Context context) throws Exception {
@@ -100,11 +100,11 @@ final class RuntimeProcessLauncher {
         guestEnvironment.put("DROIDMCP_ROOT", "/storage/emulated/0");
         java.util.List<String> command = Linux.commandAtWithStorage(app, "/storage/emulated/0", guestEnvironment,
                 "/usr/bin/node", "/root/droidmcp/server/index.mjs");
-        return startStdioConfigured(app, "droidmcp-tunnel", DROIDMCP_TUNNEL_ID, command);
+        return startStdioConfigured(app, "droidmcp-tunnel", DROIDMCP_TUNNEL_ID, "droidmcp", command);
     }
 
     private static Process startStdioConfigured(Context app, String runtimeName, String tunnelId,
-                                                java.util.List<String> command) throws Exception {
+                                                String channel, java.util.List<String> command) throws Exception {
         String apiKey = Secrets.get(app, API_KEY_SECRET);
         String buddyToken = Prefs.token(app);
         if (apiKey == null || apiKey.trim().isEmpty()) {
@@ -129,7 +129,7 @@ final class RuntimeProcessLauncher {
             File binary = RuntimeBinaryLocator.locate(app);
             RuntimeBinaryLocator.locateProot(app);
             File config = new File(runtimeDir, "stdio-mcp.yaml");
-            RuntimeProfileWriter.writeStdioProfile(config, tunnelId, runtimeDir, command);
+            RuntimeProfileWriter.writeStdioProfile(config, tunnelId, channel, runtimeDir, command);
             chmod(config, 0600, "stdio MCP runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
