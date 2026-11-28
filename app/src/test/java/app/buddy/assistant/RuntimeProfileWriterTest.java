@@ -65,7 +65,7 @@ public class RuntimeProfileWriterTest {
 
     @Test public void generatedBridgeProfileMatchesPinnedFixture() throws Exception {
         assertProfileFixture("bridge-mcp-tunnel-profile.yaml", BRIDGE_TUNNEL,
-                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERMUX_BRIDGE_REA_ROOT=/root/rea-source /usr/bin/node /root/bridge/server/index.mjs");
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin BUDDY_BRIDGE_REA_ROOT=/root/rea-source /usr/bin/node /root/bridge/server/index.mjs");
     }
 
     @Test public void generatedDroidMcpProfileMatchesPinnedFixture() throws Exception {
@@ -86,29 +86,6 @@ public class RuntimeProfileWriterTest {
         assertEquals(new String(bytes, StandardCharsets.UTF_8),
                 RuntimeProfileWriter.renderStdioProfile(tunnelId, new File("/tmp/buddy-helper"),
                         java.util.Collections.singletonList(command)));
-    }
-
-    @Test public void rejectsMalformedTunnelId() {
-        try {
-            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
-            fail("invalid tunnel id accepted");
-        } catch (IllegalArgumentException expected) { }
-    }
-
-    @Test public void writesProfileAtomicallyAndReplacesPreviousVersion() throws Exception {
-        File dir = Files.createTempDirectory("buddy-profile-test").toFile();
-        File target = new File(dir, "buddy-myai.yaml");
-        try {
-            Files.write(target.toPath(), "old".getBytes(StandardCharsets.UTF_8));
-            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"));
-            String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
-            assertTrue(yaml.contains(TUNNEL));
-            assertTrue(yaml.contains("discovery_extra_headers"));
-            assertFalse(new File(dir, "buddy-myai.yaml.installing").exists());
-        } finally {
-            target.delete();
-            dir.delete();
-        }
     }
 
     @Test public void rejectsMalformedTunnelId() {
