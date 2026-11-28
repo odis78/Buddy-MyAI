@@ -2280,4 +2280,6 @@
     <string name="runtime_api_key_copied">Сохранённый API-ключ скопирован. Не оставляйте его в буфере обмена.</string>
     <string name="runtime_tunnel_id_copied">ID туннеля скопирован.</string>
     <string name="runtime_test223_active">Если Test224 работает на порту 18768, остановите его runtime перед запуском Test225, чтобы не создать дубликат основного туннеля. Процессы Termux не затрагиваются.</string>
+    <string name="runtime_grant_file_access">Разрешить доступ ко всем файлам</string>
+    <string name="runtime_file_access_settings_unavailable">Не удалось открыть настройки доступа ко всем файлам Android.</string>
 </resources>

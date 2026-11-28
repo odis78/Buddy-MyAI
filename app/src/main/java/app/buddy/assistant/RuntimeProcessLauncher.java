@@ -105,8 +105,12 @@ final class RuntimeProcessLauncher {
     private static Process startStdioConfigured(Context app, String runtimeName, String tunnelId,
                                                 java.util.List<String> command) throws Exception {
         String apiKey = Secrets.get(app, API_KEY_SECRET);
+        String buddyToken = Prefs.token(app);
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Buddy Tunnel Client API key is not configured");
+        }
+        if (buddyToken == null || buddyToken.trim().isEmpty()) {
+            throw new IllegalStateException("Buddy MCP authentication token is unavailable");
         }
         File runtimeDir = new File(app.getFilesDir(), "runtime/" + runtimeName);
         if (!runtimeDir.isDirectory() && !runtimeDir.mkdirs()) {
@@ -114,9 +118,13 @@ final class RuntimeProcessLauncher {
         }
         chmod(runtimeDir, 0700, "stdio MCP runtime directory permissions could not be secured");
         File apiKeyFifo = new File(runtimeDir, API_KEY_FILE);
+        File authHeaderFifo = new File(runtimeDir, AUTH_HEADER_FILE);
+        File discoveryHeaderFifo = new File(runtimeDir, DISCOVERY_AUTH_HEADER_FILE);
         Process process = null;
         try {
             createSecretFifo(apiKeyFifo);
+            createSecretFifo(authHeaderFifo);
+            createSecretFifo(discoveryHeaderFifo);
             File binary = RuntimeBinaryLocator.locate(app);
             RuntimeBinaryLocator.locateProot(app);
             File config = new File(runtimeDir, "stdio-mcp.yaml");
@@ -125,7 +133,8 @@ final class RuntimeProcessLauncher {
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
             process = createProcessBuilder(binary, config, runtimeDir).start();
-            handoffSecret(process, apiKeyFifo, apiKey);
+            handoffSecrets(process, apiKeyFifo, apiKey, authHeaderFifo,
+                    "Bearer " + buddyToken, discoveryHeaderFifo, "Bearer " + buddyToken);
             cleanupSecretFiles(runtimeDir);
             return process;
         } catch (Exception e) {
