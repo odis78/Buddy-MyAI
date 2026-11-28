@@ -84,7 +84,7 @@ final class Linux {
                 untar(in, staging);
             }
             write(new File(staging, "etc/resolv.conf"), DNS);
-            write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\\n::1 localhost\\n");
+            write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
             new File(staging, "root").mkdirs();
             new File(staging, "tmp").mkdirs();
             if (!new File(staging, "etc/alpine-release").isFile()
