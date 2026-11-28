@@ -132,6 +132,8 @@ final class RuntimeSupervisor {
         return summary;
     }
 
+    synchronized boolean isProcessAlive() { return tunnelProcess != null && tunnelProcess.isAlive(); }
+
     synchronized RuntimeStateMachine.State state() { return machine.state(); }
     synchronized String lastError() { return lastError; }
 
