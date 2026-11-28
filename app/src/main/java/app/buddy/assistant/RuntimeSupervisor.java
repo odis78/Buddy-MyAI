@@ -125,8 +125,9 @@ final class RuntimeSupervisor {
 
     synchronized String diagnosticsSummary() {
         long pid = tunnelProcess != null && tunnelProcess.isAlive() ? tunnelProcess.pid() : -1;
+        String localEndpoint = requireBuddyMcp ? " · localMCP=127.0.0.1:" + McpServer.PORT + "/mcp" : "";
         String summary = "PID=" + (pid > 0 ? pid : "not-running")
-                + " · " + RuntimeHealthProbe.diagnostics(new File(runtimeDir, "health.url"));
+                + localEndpoint + " · " + RuntimeHealthProbe.diagnostics(new File(runtimeDir, "health.url"));
         if (lastError != null && !lastError.trim().isEmpty()) summary += " · supervisorError=" + lastError;
         return summary;
     }
