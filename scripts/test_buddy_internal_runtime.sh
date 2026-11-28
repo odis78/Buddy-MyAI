@@ -33,6 +33,8 @@ grep -Fq 'shell: false' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 grep -Fq 'buddy-bridge' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 grep -Fq 'BUDDY_BRIDGE_REA_ROOT' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'BUDDY_ANDROID_PACKAGE' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+grep -Fq 'args.confirmed !== true' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
+grep -Fq "['confirmed']" app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 ! grep -Fq 'TERMUX_BRIDGE_REA_ROOT' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 
 echo "Buddy Test225 internal runtime safety checks passed."
