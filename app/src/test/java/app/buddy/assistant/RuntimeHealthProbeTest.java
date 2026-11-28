@@ -100,6 +100,23 @@ public class RuntimeHealthProbeTest {
         }
     }
 
+    @Test public void requiresAtLeastOneToolWhenNoExactCountIsRequested() throws Exception {
+        File dir = Files.createTempDirectory("buddy-mcp-health-test").toFile();
+        String body = "{\"schema_version\":1,\"component\":\"mcp\",\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,"
+                + "\"details\":{\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},
+                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":0,\"tool_names\":[]}}}";
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            Thread responder = respondOnce(server, body);
+            File url = new File(dir, "health.url");
+            Files.write(url.toPath(), ("http://127.0.0.1:" + server.getLocalPort()).getBytes(StandardCharsets.UTF_8));
+            assertFalse(RuntimeHealthProbe.isMcpDiscovered(url, 0));
+            responder.join(2000);
+        } finally {
+            new File(dir, "health.url").delete();
+            dir.delete();
+        }
+    }
     @Test public void rejectsIncompleteOrWrongToolCatalogEvidence() throws Exception {
         File dir = Files.createTempDirectory("buddy-mcp-health-test").toFile();
         String body = "{\"schema_version\":1,\"component\":\"mcp\",\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,"

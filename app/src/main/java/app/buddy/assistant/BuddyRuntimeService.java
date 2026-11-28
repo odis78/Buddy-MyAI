@@ -127,6 +127,12 @@ public final class BuddyRuntimeService extends Service {
             boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
             if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) supervisor.stop();
             boolean ready = supervisor.start();
+            if (ready && !supervisor.isMcpDiscovered(0)) {
+                setPersistentState("DEGRADED", "Main Tunnel Client is healthy, but Buddy MCP tools have not been fully discovered yet.");
+                updateNotification(getString(R.string.runtime_notification_retry, 30));
+                scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
+                return;
+            }
             if (ready) {
                 recovery.reset();
                 reaChannelConfigured = desiredReaChannel;
@@ -213,6 +219,10 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setBridgePersistentState(state, detail),
                         "6 tools; internal Bridge 0.1.3",
                         () -> bridgeSupervisor.lastError());
+                if (bridgeReady && !bridgeSupervisor.isMcpDiscovered(6)) {
+                    setBridgePersistentState("DEGRADED", "Bridge health is ready, but its complete 6-tool catalog is not discovered yet.");
+                    bridgeReady = false;
+                }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
             boolean droidReady;
@@ -226,6 +236,10 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setDroidPersistentState(state, detail),
                         "read-only filesystem tools; internal DroidMCP 0.4.0",
                         () -> droidMcpSupervisor.lastError());
+                if (droidReady && !droidMcpSupervisor.isMcpDiscovered(5)) {
+                    setDroidPersistentState("DEGRADED", "DroidMCP health is ready, but its complete 5-tool read-only catalog is not discovered yet.");
+                    droidReady = false;
+                }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
             if (bridgeReady && droidReady) {
@@ -259,11 +273,11 @@ public final class BuddyRuntimeService extends Service {
         if (helperExecutor == null) return;
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
-            boolean mainReady = supervisor != null && supervisor.isReady();
+            boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0);
             boolean bridgeConflict = RuntimeHealthProbe.isLoopbackPortOpen(18080);
             boolean droidConflict = RuntimeHealthProbe.isLoopbackPortOpen(44611);
-            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady();
-            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
+            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6);
+            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady() && droidMcpSupervisor.isMcpDiscovered(5);
             if (bridgeConflict && bridgeReady && bridgeSupervisor != null) {
                 bridgeSupervisor.stop();
                 bridgeReady = false;
@@ -307,7 +321,7 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            if (supervisor.isReady()) return;
+            if (supervisor.isReady() && supervisor.isMcpDiscovered(0)) return;
             String message = supervisor.lastError();
             setPersistentState("DEGRADED", message);
             long delay = recovery.nextDelayMillis();
