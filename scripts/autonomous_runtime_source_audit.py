@@ -63,6 +63,8 @@ add("isolated_phone_service_ports", "PORT = 8768" in read("app/src/main/java/app
     "Test225 isolates microphone and SSH ports from Test220/Test224 and keeps the Linux recorder in sync")
 add("forget_background_pairing_cleanup", all(x in read("app/src/main/java/app/buddy/assistant/Background.java") for x in ["adb unpair 127.0.0.1:", "adb_known_hosts.pb", "buddy-helper-test225.log", "setBackgroundAdbPort(c, 0)"]),
     "Forget pairing stops the helper, attempts ADB unpair, removes the helper log and clears private ADB keys")
+add("manual_wireless_pairing_fallback", all(x in read("app/src/main/java/app/buddy/assistant/Background.java") for x in ["askForCode(svc, mine)", "static String codeIn", "Character.digit", "background_type_code", "background_no_code"]) and "background_type_code" in read("app/src/main/res/values-ru/strings.xml"),
+    "If Accessibility cannot read the Android pairing dialog, Buddy asks for the six-digit code in its own bubble")
 add("uninstall_cleans_shell_helper", "buddy-shell-owner-watch" in read("app/src/main/java/app/buddy/assistant/Shell.java") and "System.exit(0)" in read("app/src/main/java/app/buddy/assistant/Shell.java") and "new File(classPath).isFile()" in read("app/src/main/java/app/buddy/assistant/Shell.java") and " + LOG" in read("app/src/main/java/app/buddy/assistant/Background.java"),
     "The shell-UID virtual-display helper watches its APK path and removes its log when Test225 is uninstalled")
 add("isolated_background_helper", "PORT = 8772" in read("app/src/main/java/app/buddy/assistant/Background.java") and "buddy-helper-test225.log" in read("app/src/main/java/app/buddy/assistant/Background.java") and 'assistant.Shell " + PORT + " ' in read("app/src/main/java/app/buddy/assistant/Background.java"),
