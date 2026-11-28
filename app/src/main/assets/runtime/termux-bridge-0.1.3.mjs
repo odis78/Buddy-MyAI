@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const VERSION = '0.1.3';
-const ROOT = path.resolve(process.env.TERMUX_BRIDGE_REA_ROOT || path.join(os.homedir(), 'rea'));
+const ROOT = path.resolve(process.env.BUDDY_BRIDGE_REA_ROOT || path.join(os.homedir(), 'rea'));
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_OUTPUT = 16 * 1024;
 
@@ -54,6 +54,7 @@ function runCommand(spec) {
 function launchMyAi() {
   return new Promise((resolve) => {
     const bin = '/system/bin/am';
+    const appPackage = process.env.BUDDY_ANDROID_PACKAGE || 'app.buddy.myai.gt.test225';
     const args = [
       'start',
       '-a', 'android.intent.action.MAIN',
@@ -97,7 +98,7 @@ function launchMyAi() {
         resolve({
           ok: code === 0,
           exitCode: code,
-          package: 'app.buddy.myai.gt',
+          package: appPackage,
           stdout,
           stderr,
           note: code === 0
@@ -115,7 +116,7 @@ function tool(name, description, properties = {}, required = []) {
 const TOOLS = [
   tool('bridge_status', 'Read-only status of this local bridge and configured project root.'),
   tool('project_git_status', 'Run read-only git status --short --branch in the configured project root.'),
-  tool('diagnose_environment', 'Check availability and versions of common Termux development tools.'),
+  tool('diagnose_environment', 'Check availability and versions of the internal Buddy Linux development tools.'),
   tool('read_project_file', 'Read a small non-sensitive UTF-8 regular file under the configured project root.', { path: { type: 'string', description: 'Relative path such as package.json or README.md; secret files and symlinks are blocked.' } }, ['path']),
   tool('run_allowlisted_command', 'Run one fixed diagnostic command only. Ask the user to approve the exact command in conversation before calling with confirmed=true.', { command_id: { type: 'string', enum: Object.keys(COMMANDS) }, confirmed: { type: 'boolean', description: 'Must be true only after the user explicitly approves the exact command in conversation.' } }, ['command_id', 'confirmed']),
   tool('launch_android_app', 'Launch only the preconfigured Buddy GT Android app. No package name or command can be supplied by the caller.')
@@ -124,7 +125,7 @@ const TOOLS = [
 async function callTool(name, args = {}) {
   switch (name) {
     case 'bridge_status':
-      return textResult({ bridge: 'termux-bridge', version: VERSION, platform: process.platform, arch: process.arch, node: process.version, configuredRoot: ROOT, rootExists: fs.existsSync(ROOT), rootIsDirectory: fs.existsSync(ROOT) ? fs.statSync(ROOT).isDirectory() : false, executionPolicy: 'fixed allowlist; shell disabled; one fixed Android app launch', note: 'Account plugin installation alone does not connect to this local process.' });
+      return textResult({ bridge: 'buddy-bridge', version: VERSION, platform: process.platform, arch: process.arch, node: process.version, configuredRoot: ROOT, rootExists: fs.existsSync(ROOT), rootIsDirectory: fs.existsSync(ROOT) ? fs.statSync(ROOT).isDirectory() : false, executionPolicy: 'fixed allowlist; shell disabled; one fixed Android app launch', note: 'Account plugin installation alone does not connect to this local process.' });
     case 'project_git_status': {
       if (!fs.existsSync(ROOT) || !fs.statSync(ROOT).isDirectory()) return textResult({ ok: false, error: 'Configured project root does not exist or is not a directory.', root: ROOT });
       return textResult(await runCommand({ bin: 'git', args: ['status', '--short', '--branch'], cwd: ROOT }));
@@ -153,7 +154,7 @@ function send(message) { process.stdout.write(JSON.stringify(message) + '\n'); }
 function handle(msg) {
   if (!msg || typeof msg !== 'object') return;
   if (msg.method === 'notifications/initialized' || msg.method?.startsWith('notifications/')) return;
-  if (msg.method === 'initialize') return send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: msg.params?.protocolVersion || '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'termux-bridge', version: VERSION } } });
+  if (msg.method === 'initialize') return send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: msg.params?.protocolVersion || '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'buddy-bridge', version: VERSION } } });
   if (msg.method === 'ping') return send({ jsonrpc: '2.0', id: msg.id, result: {} });
   if (msg.method === 'tools/list') return send({ jsonrpc: '2.0', id: msg.id, result: { tools: TOOLS } });
   if (msg.method === 'tools/call') {
