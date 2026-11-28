@@ -2377,7 +2377,7 @@
     <string name="runtime_monitor_droidmcp">Enable/disable internal read-only DroidMCP</string>
     <string name="runtime_enable_local_rea">Expose original REA as a Buddy tunnel channel</string>
     <string name="runtime_helper_switch_info">Buddy installs and supervises REA, Bridge and read-only DroidMCP inside its app-private Alpine/PRoot Linux. Termux permissions and external Termux processes are not used.</string>
-    <string name="runtime_notification_waiting_termux">Waiting for Buddy\\'s internal Bridge and DroidMCP servers to become ready.</string>
+    <string name="runtime_notification_waiting_termux">Waiting for the internal Buddy Bridge and DroidMCP servers to become ready.</string>
     <string name="runtime_notification_bridge_legacy">An existing Bridge endpoint is live. Buddy will not duplicate or stop it; stop the old process before migration.</string>
     <string name="runtime_notification_external_conflict">A Buddy or external tunnel endpoint is already listening on a protected port. Buddy will not create a duplicate tunnel or stop the existing process. Close the old runtime and Buddy will retry automatically.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
