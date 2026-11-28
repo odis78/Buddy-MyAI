@@ -15,7 +15,7 @@ public final class BuddyRuntimeBootReceiver extends BroadcastReceiver {
         Context app = context.getApplicationContext();
         boolean autoStart = app.getSharedPreferences("runtime", Context.MODE_PRIVATE)
                 .getBoolean("auto_start", false);
-        if (!autoStart) return; // Runtime can still monitor Termux tunnels before the Buddy API key is configured.
+        if (!autoStart) return; // Buddy can still initialize its internal MCP helpers after the API key is configured.
         try {
             BuddyRuntimeService.start(app);
         } catch (RuntimeException e) {
