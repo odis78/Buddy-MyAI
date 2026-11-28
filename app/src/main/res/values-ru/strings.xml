@@ -2254,4 +2254,5 @@
     <string name="runtime_bridge_status_detail">Bridge: %1$s</string>
     <string name="runtime_droid_status_detail">DroidMCP: %1$s</string>
     <string name="runtime_rea_status_detail">REA: %1$s</string>
+    <string name="runtime_settings_subtitle">Управление внутренними MCP-серверами Buddy</string>
 </resources>
