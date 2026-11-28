@@ -217,7 +217,7 @@ public final class BuddyRuntimeService extends Service {
                 return;
             }
             boolean bridgeReady;
-            if (RuntimeHealthProbe.isLoopbackPortOpen(18080)) {
+            if (!bridgeSupervisor.isProcessAlive() && RuntimeHealthProbe.isLoopbackPortOpen(18080)) {
                 bridgeRemoteVerified = false;
                 setBridgePersistentState("EXTERNAL_CONFLICT",
                         "Legacy Bridge health port 18080 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
@@ -238,7 +238,7 @@ public final class BuddyRuntimeService extends Service {
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
             boolean droidReady;
-            if (RuntimeHealthProbe.isLoopbackPortOpen(44611)) {
+            if (!droidMcpSupervisor.isProcessAlive() && RuntimeHealthProbe.isLoopbackPortOpen(44611)) {
                 droidRemoteVerified = false;
                 setDroidPersistentState("EXTERNAL_CONFLICT",
                         "Legacy DroidMCP health port 44611 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
@@ -290,18 +290,10 @@ public final class BuddyRuntimeService extends Service {
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
             boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0) && mainRemoteVerified && supervisor.isControlPlanePolling(0);
-            boolean bridgeConflict = RuntimeHealthProbe.isLoopbackPortOpen(18080);
-            boolean droidConflict = RuntimeHealthProbe.isLoopbackPortOpen(44611);
+            boolean bridgeConflict = (bridgeSupervisor == null || !bridgeSupervisor.isProcessAlive()) && RuntimeHealthProbe.isLoopbackPortOpen(18080);
+            boolean droidConflict = (droidMcpSupervisor == null || !droidMcpSupervisor.isProcessAlive()) && RuntimeHealthProbe.isLoopbackPortOpen(44611);
             boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6) && bridgeRemoteVerified && bridgeSupervisor.isControlPlanePolling(6);
             boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady() && droidMcpSupervisor.isMcpDiscovered(5) && droidRemoteVerified && droidMcpSupervisor.isControlPlanePolling(5);
-            if (bridgeConflict && bridgeReady && bridgeSupervisor != null) {
-                bridgeSupervisor.stop();
-                bridgeReady = false;
-            }
-            if (droidConflict && droidReady && droidMcpSupervisor != null) {
-                droidMcpSupervisor.stop();
-                droidReady = false;
-            }
             if (mainReady && bridgeReady && droidReady) return;
             if (bridgeConflict) setBridgePersistentState("EXTERNAL_CONFLICT",
                     "Legacy Bridge health port 18080 became occupied; Buddy stopped only its own duplicate helper.");
