@@ -1971,6 +1971,8 @@
     <string name="background_needs_dev">Сначала включите раздел «Для разработчиков»: Настройки → Об устройстве → нажмите «Номер сборки» 7 раз.</string>
     <string name="background_needs_service">Сначала включите сервис специальных возможностей Buddy.</string>
     <string name="background_no_dialog">Buddy не успел увидеть окно подключения. Попробуйте ещё раз.</string>
+    <string name="background_type_code">Не удаётся прочитать код сопряжения. Оставьте открытым окно «Сопряжение устройства по коду» и введите здесь шесть цифр.</string>
+    <string name="background_no_code">Окно сопряжения ещё не открыто</string>
     <string name="background_remove">Удалить</string>
     <string name="background_remove_text">Buddy забудет подключение и остановит вспомогательную программу. Чаты снова будут работать на настоящем экране.</string>
     <string name="background_default">Новые чаты работают в фоне</string>
