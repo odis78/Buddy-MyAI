@@ -1153,7 +1153,7 @@ final class Background {
                         typed = read[0];
                         return;
                     }
-                    if (over[0] || !answer.startsWith("ANSWER (typed")) return;
+                    if (over[0] || answer == null || !answer.startsWith("ANSWER (typed")) return;
                     String code = codeIn(answer.substring(answer.indexOf(':') + 1));
                     if (code != null) {
                         typed = new String[]{code, null};
