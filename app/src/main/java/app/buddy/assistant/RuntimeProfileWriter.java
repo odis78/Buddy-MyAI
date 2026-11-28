@@ -116,11 +116,6 @@ final class RuntimeProfileWriter {
                 + "      command: \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
-    static String renderReaProfile(String tunnelId, File runtimeDir,
-                                   java.util.List<String> mcpCommand) {
-        return renderStdioProfile(tunnelId, runtimeDir, mcpCommand);
-    }
-
     static void writeStdioProfile(File target, String tunnelId, File runtimeDir,
                                   java.util.List<String> mcpCommand) throws IOException {
         if (target == null) throw new IllegalArgumentException("stdio profile target is required");

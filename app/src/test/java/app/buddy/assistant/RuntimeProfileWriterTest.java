@@ -88,17 +88,6 @@ public class RuntimeProfileWriterTest {
                         java.util.Collections.singletonList(command)));
     }
 
-    @Test public void writeReaProfileCreatesCompleteAtomicProfile() throws Exception {
-        File dir = Files.createTempDirectory("rea-profile").toFile();
-        File target = new File(dir, "rea-mcp.yaml");
-        RuntimeProfileWriter.writeReaProfile(target, REA_TUNNEL, dir,
-                java.util.Collections.singletonList(REA_COMMAND));
-        assertTrue(target.isFile());
-        assertEquals(RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, dir,
-                        java.util.Collections.singletonList(REA_COMMAND)),
-                new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
-    }
-
     @Test public void rejectsMalformedTunnelId() {
         try {
             RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
