@@ -129,9 +129,9 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            if (ready && !supervisor.isControlPlanePolling(0)) {
+            if (ready && !supervisor.isRemoteConnected(0)) {
                 setPersistentState("CONTROL_PLANE_WAITING",
-                        "Local MCP is ready, but the OpenAI control plane has no recent successful poll. Check network egress and the exact tunnel-client log error.");
+                        "MCP initialize and tools/list passed, but no recent accepted remote response is confirmed. Check network egress and the exact tunnel-client log error.");
                 updateNotification(getString(R.string.runtime_notification_retry, 30));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
@@ -222,8 +222,8 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setBridgePersistentState(state, detail),
                         "6 tools; internal Bridge 0.1.3",
                         () -> bridgeSupervisor.lastError());
-                if (bridgeReady && (!bridgeSupervisor.isMcpDiscovered(6) || !bridgeSupervisor.isControlPlanePolling(6))) {
-                    setBridgePersistentState("DEGRADED", "Bridge health is ready, but its 6-tool catalog or control-plane poll is not confirmed yet.");
+                if (bridgeReady && (!bridgeSupervisor.isMcpDiscovered(6) || !bridgeSupervisor.isRemoteConnected(6))) {
+                    setBridgePersistentState("DEGRADED", "Bridge health is ready, but its 6-tool catalog and accepted remote response are not both confirmed yet.");
                     bridgeReady = false;
                 }
             }
@@ -239,8 +239,8 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setDroidPersistentState(state, detail),
                         "read-only filesystem tools; internal DroidMCP 0.4.0",
                         () -> droidMcpSupervisor.lastError());
-                if (droidReady && (!droidMcpSupervisor.isMcpDiscovered(5) || !droidMcpSupervisor.isControlPlanePolling(5))) {
-                    setDroidPersistentState("DEGRADED", "DroidMCP health is ready, but its 5-tool catalog or control-plane poll is not confirmed yet.");
+                if (droidReady && (!droidMcpSupervisor.isMcpDiscovered(5) || !droidMcpSupervisor.isRemoteConnected(5))) {
+                    setDroidPersistentState("DEGRADED", "DroidMCP health is ready, but its 5-tool catalog and accepted remote response are not both confirmed yet.");
                     droidReady = false;
                 }
             }
@@ -276,7 +276,7 @@ public final class BuddyRuntimeService extends Service {
         if (helperExecutor == null) return;
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
-            boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isControlPlanePolling(0);
+            boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isRemoteConnected(0);
             boolean bridgeConflict = RuntimeHealthProbe.isLoopbackPortOpen(18080);
             boolean droidConflict = RuntimeHealthProbe.isLoopbackPortOpen(44611);
             boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6) && bridgeSupervisor.isControlPlanePolling(6);
