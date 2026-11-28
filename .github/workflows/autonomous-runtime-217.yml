@@ -164,7 +164,7 @@ jobs:
           mkdir -p dist
           cp "$APK" dist/buddy-217-unsigned-inspection.apk
           sha256sum dist/buddy-217-unsigned-inspection.apk | tee dist/apk-sha256.txt
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962c3c89aef350131
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: buddy-217-unsigned-inspection
           path: dist/buddy-217-unsigned-inspection.apk
