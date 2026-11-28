@@ -380,7 +380,7 @@ jobs:
         with:
           name: buddy-test225-debug
           path: |
-            dist/buddy-runtimefix-test224-debug.apk
+            dist/buddy-test225-debug.apk
             dist/apk-signature-verification.txt
             dist/apk-signing-identity.txt
             dist/apk-sha256.txt

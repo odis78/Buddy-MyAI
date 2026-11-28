@@ -8,6 +8,8 @@ import static org.junit.Assert.*;
 
 public class RuntimeProfileWriterTest {
     private static final String TUNNEL = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    private static final String BRIDGE_TUNNEL = "tunnel_6ae28b8f01788191b42901f090964502";
+    private static final String DROID_TUNNEL = "tunnel_6af1637e86788191aa429d5518d41938";
     private static final String REA_COMMAND = "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 /usr/bin/node /root/rea/scripts/rea.mjs mcp";
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
