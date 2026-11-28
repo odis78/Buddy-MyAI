@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Read-only DroidMCP exposes the user shared files after an explicit Android special-access grant. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Background mode only: never asked of the user; Buddy's own adb grants it when they pair it with Wireless
          debugging, so Buddy can switch Wireless debugging on again after a restart of the phone. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
@@ -122,6 +126,10 @@
 
         <activity
             android:name=".AppPermissionsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RuntimeSettingsActivity"
             android:exported="false" />
 
         <activity
@@ -263,6 +271,25 @@
                 android:resource="@xml/accessibility_config" />
         </service>
 
+        <!-- User-enabled autonomous Tunnel Client process; specialUse avoids Android 15 dataSync time limits. -->
+        <service
+            android:name=".BuddyRuntimeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Maintains the user-enabled authenticated ChatGPT MCP tunnel to Buddy's local phone tools." />
+        </service>
+
+        <receiver
+            android:name=".BuddyRuntimeBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Notification rules: sees notifications from the apps the user's rules watch (Settings → Notification rules) -->
         <service
             android:name=".NotificationWatcher"
@@ -273,5 +300,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
     </application>
 </manifest>
