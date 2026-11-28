@@ -66,6 +66,10 @@ public class McpServersActivity extends Screen {
     private void render() {
         body.removeAllViews();
         body.addView(text(this, getString(R.string.mcp_intro), 13, MUTED), full());
+        Button runtime = button(this, getString(R.string.runtime_settings_title), false);
+        runtime.setOnClickListener(v -> startActivity(new android.content.Intent(this, RuntimeSettingsActivity.class)));
+        body.addView(runtime, gap(12));
+        body.addView(text(this, getString(R.string.runtime_settings_subtitle), 12, MUTED), gap(4));
         List<McpServers.S> all = new ArrayList<>(McpServers.all());
         if (all.isEmpty()) body.addView(text(this, getString(R.string.mcp_none), 15, TEXT), gap(18));
         for (McpServers.S s : all) body.addView(serverRow(s), gap(all.indexOf(s) == 0 ? 14 : 4));
