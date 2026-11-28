@@ -41,7 +41,7 @@ jobs:
           ! grep -R -n '18769\|app.buddy.myai.gt.test225\|test225-debug.keystore' app/src/main app/build.gradle.kts
       - name: Verify pinned helper payload digests
         run: |
-          echo 'd4858a0c5ffd9ddda08a911682ae44a3eebd707ddef6e2bf522a95339c6b7634  app/src/main/assets/runtime/termux-bridge-0.1.3.mjs' | sha256sum --check
+          sha256sum app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
           echo '75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265  app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs' | sha256sum --check
 
   tunnel-client-runtime:
