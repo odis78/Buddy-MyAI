@@ -105,12 +105,14 @@ public final class BuddyRuntimeService extends Service {
     private void attemptStart() {
         if (stopping || supervisor == null) return;
         try {
-            // Test224 and the production package use different fixed MCP ports. Never start a second
-            // main tunnel identity while either existing Buddy runtime still owns its local endpoint.
+            // Test220/Test223/Test224 and the production package own separate fixed MCP ports.
+            // Never start the same main tunnel identity while an older Buddy runtime is still live.
             if (RuntimeHealthProbe.isLoopbackPortOpen(8766)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18766)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18767)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18768)) {
                 setPersistentState("EXTERNAL_CONFLICT",
-                        "Another Buddy MCP endpoint (8766 or 18768) is already listening; no duplicate main tunnel was started.");
+                        "Another Buddy MCP endpoint is already listening; no duplicate main tunnel was started.");
                 updateNotification(getString(R.string.runtime_notification_external_conflict));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
