@@ -43,6 +43,7 @@ grep -Fq 'PORT = 8772' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'buddy-shell-owner-watch' app/src/main/java/app/buddy/assistant/Shell.java
 grep -Fq 'askForCode(svc, mine)' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'static String codeIn' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'normalizesUnicodeDigits' app/src/test/java/app/buddy/assistant/BackgroundPairingCodeTest.java
 grep -Fq 'background_type_code' app/src/main/res/values-ru/strings.xml
 grep -Fq 'new File(classPath).isFile()' app/src/main/java/app/buddy/assistant/Shell.java
 grep -Fq 'System.exit(0)' app/src/main/java/app/buddy/assistant/Shell.java
