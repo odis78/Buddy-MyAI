@@ -60,8 +60,14 @@ final class Linux {
         File root = root(c);
         File parent = root.getParentFile();
         if (root.exists()) {
-            throw new IOException("Existing Alpine root is incomplete; preserved at "
-                    + root.getAbsolutePath() + " for recovery");
+            String[] existing = root.isDirectory() ? root.list() : null;
+            if (existing != null && existing.length == 0) {
+                // A previous installer may have created only the empty target directory before interruption.
+                if (!root.delete()) throw new IOException("Empty incomplete Alpine directory could not be removed");
+            } else {
+                throw new IOException("Existing Alpine root is incomplete; preserved at "
+                        + root.getAbsolutePath() + " for recovery");
+            }
         }
         if (parent == null) {
             throw new IOException("Alpine parent directory is unavailable");
