@@ -201,6 +201,33 @@ public class RuntimeHealthProbeTest {
         }
     }
 
+    @Test public void diagnosticsExposePidIndependentHealthPortTransportToolsAndLastOk() throws Exception {
+        File dir = Files.createTempDirectory("buddy-health-diagnostics-test").toFile();
+        String now = Instant.now().toString();
+        String body = "{\"schema_version\":1,\"live\":true,\"ready\":true,\"components\":{"
+                + "\"mcp\":{\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,\"details\":{"
+                + "\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
+                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}},"
+                + "\"control-plane\":{\"status\":\"ok\",\"state\":\"idle\",\"details\":{\"last_success\":\"" + now + "\"}},"
+                + "\"response-delivery\":{\"status\":\"ok\",\"state\":\"accepted\",\"details\":{\"accepted\":1,\"last_accepted\":\"" + now + "\"}}}}";
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            Thread responder = respondOnce(server, body);
+            File url = new File(dir, "health.url");
+            Files.write(url.toPath(), ("http://127.0.0.1:" + server.getLocalPort()).getBytes(StandardCharsets.UTF_8));
+            String summary = RuntimeHealthProbe.diagnostics(url);
+            assertTrue(summary.contains("healthPort=" + server.getLocalPort()));
+            assertTrue(summary.contains("transport=stdio"));
+            assertTrue(summary.contains("tools=2"));
+            assertTrue(summary.contains("lastOK=" + now));
+            assertTrue(summary.contains("lastAccepted=" + now));
+            responder.join(2000);
+        } finally {
+            new File(dir, "health.url").delete();
+            dir.delete();
+        }
+    }
+
     private Thread respondOnce(ServerSocket server, String body) {
         Thread responder = new Thread(() -> {
             try (Socket socket = server.accept()) {
