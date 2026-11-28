@@ -22,8 +22,8 @@ grep -Fq 'startBridgeConfigured' app/src/main/java/app/buddy/assistant/RuntimePr
 grep -Fq 'startDroidMcpConfigured' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'RuntimeHelperBootstrap' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'port != McpServer.PORT' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
-test "$(grep -o 'isLoopbackPortOpen(39073)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java | wc -l)" -ge 2
-grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18768)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'int[] legacyPorts = {39073, 18766, 18767, 18768}' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(port)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18080)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(44611)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'supervisor.isMcpDiscovered(0)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
