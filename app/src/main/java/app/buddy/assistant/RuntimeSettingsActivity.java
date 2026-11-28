@@ -4,9 +4,14 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -21,17 +26,13 @@ import static app.buddy.assistant.Ui.*;
 /** User-controlled configuration and start/stop controls for Buddy's autonomous tunnel runtime. */
 public final class RuntimeSettingsActivity extends Screen {
     private EditText apiKey;
-    private EditText tunnelId;
     private Switch autoStart;
-    private Switch monitorBridge;
-    private Switch monitorDroidMcp;
-    private Switch reaEnabled;
     private TextView savedKey;
     private TextView status;
-    private TextView termuxStatus;
     private TextView bridgeStatus;
     private TextView droidStatus;
     private TextView reaStatus;
+    private Button grantStorageAccess;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -51,7 +52,6 @@ public final class RuntimeSettingsActivity extends Screen {
         LinearLayout body = column(this);
         body.setPaddingRelative(dp(this, 20), dp(this, 8), dp(this, 20), dp(this, 28));
         body.addView(text(this, getString(R.string.runtime_settings_info, McpServer.PORT), 14, MUTED), topGap(8));
-        body.addView(text(this, getString(R.string.runtime_termux_monitor_info), 12, MUTED), topGap(6));
 
         body.addView(sectionLabel(this, getString(R.string.runtime_api_key_label)), topGap(8));
         apiKey = field(getString(R.string.runtime_api_key_hint), true);
@@ -62,17 +62,6 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(copyKey, topGap(6));
         copyKey.setOnClickListener(v -> copySavedApiKey());
 
-        body.addView(sectionLabel(this, getString(R.string.runtime_tunnel_id_label)), topGap(16));
-        tunnelId = field(getString(R.string.runtime_tunnel_id_hint), false);
-        String initialTunnelId = getSharedPreferences("runtime", MODE_PRIVATE)
-                .getString("tunnel_id", RuntimeProcessLauncher.DEFAULT_TUNNEL_ID);
-        if (initialTunnelId == null || initialTunnelId.trim().isEmpty()) initialTunnelId = RuntimeProcessLauncher.DEFAULT_TUNNEL_ID;
-        tunnelId.setText(initialTunnelId);
-        body.addView(tunnelId, full());
-        Button copyId = button(this, getString(R.string.runtime_copy_tunnel_id), false);
-        body.addView(copyId, topGap(6));
-        copyId.setOnClickListener(v -> copyTunnelId());
-
         autoStart = new Switch(this);
         autoStart.setText(getString(R.string.runtime_auto_start));
         autoStart.setTextColor(TEXT);
@@ -81,41 +70,12 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(autoStart, topGap(18));
         body.addView(text(this, getString(R.string.runtime_auto_start_info), 12, MUTED), topGap(4));
 
-        monitorBridge = new Switch(this);
-        monitorBridge.setText(getString(R.string.runtime_monitor_bridge));
-        monitorBridge.setTextColor(TEXT);
-        monitorBridge.setTextSize(15);
-        monitorBridge.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("monitor_bridge", true));
-        body.addView(monitorBridge, topGap(16));
-
-        monitorDroidMcp = new Switch(this);
-        monitorDroidMcp.setText(getString(R.string.runtime_monitor_droidmcp));
-        monitorDroidMcp.setTextColor(TEXT);
-        monitorDroidMcp.setTextSize(15);
-        monitorDroidMcp.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("monitor_droidmcp", true));
-        body.addView(monitorDroidMcp, topGap(10));
-
-        reaEnabled = new Switch(this);
-        reaEnabled.setText(getString(R.string.runtime_enable_local_rea));
-        reaEnabled.setTextColor(TEXT);
-        reaEnabled.setTextSize(15);
-        reaEnabled.setChecked(getSharedPreferences("runtime", MODE_PRIVATE).getBoolean("rea_enabled", true));
-        body.addView(reaEnabled, topGap(10));
-        body.addView(text(this, getString(R.string.runtime_helper_switch_info), 12, MUTED), topGap(4));
-
-        Button save = button(this, getString(R.string.runtime_save), true);
-        body.addView(save, topGap(18));
-        save.setOnClickListener(v -> saveSettings());
-
         LinearLayout stateCard = column(this);
         stateCard.setPadding(dp(this, 14), dp(this, 12), dp(this, 14), dp(this, 12));
         stateCard.setBackground(outlined(this, CARD, 14, OUTLINE, 1));
         stateCard.addView(title(this, getString(R.string.runtime_status), 14));
         status = text(this, "", 13, MUTED);
         stateCard.addView(status, topGap(4));
-        stateCard.addView(sectionLabel(this, getString(R.string.runtime_termux_status_label)), topGap(12));
-        termuxStatus = text(this, "", 13, MUTED);
-        stateCard.addView(termuxStatus, topGap(4));
         stateCard.addView(sectionLabel(this, getString(R.string.runtime_bridge_status_label)), topGap(12));
         bridgeStatus = text(this, "", 13, MUTED);
         stateCard.addView(bridgeStatus, topGap(4));
@@ -127,18 +87,18 @@ public final class RuntimeSettingsActivity extends Screen {
         stateCard.addView(reaStatus, topGap(4));
         body.addView(stateCard, topGap(18));
 
-        Button setupAll = button(this, getString(R.string.runtime_setup_all), true);
-        body.addView(setupAll, topGap(14));
-        setupAll.setOnClickListener(v -> setupAll());
-        body.addView(text(this, getString(R.string.runtime_setup_all_info), 12, MUTED), topGap(5));
+        grantStorageAccess = button(this, getString(R.string.runtime_grant_file_access), true);
+        body.addView(grantStorageAccess, topGap(12));
+        grantStorageAccess.setOnClickListener(v -> openAllFilesAccessSettings());
 
-        Button connectTermux = button(this, getString(R.string.runtime_connect_termux), false);
-        body.addView(connectTermux, topGap(12));
-        connectTermux.setOnClickListener(v -> connectTermux());
-        body.addView(text(this, getString(R.string.runtime_termux_setup_info), 12, MUTED), topGap(6));
-        Button openTermux = button(this, getString(R.string.runtime_open_termux), false);
-        body.addView(openTermux, topGap(8));
-        openTermux.setOnClickListener(v -> openTermux());
+        Button start = button(this, getString(R.string.runtime_setup_and_start), true);
+        body.addView(start, topGap(14));
+        start.setOnClickListener(v -> {
+            if (!saveSettings()) return;
+            BuddyRuntimeService.start(this);
+            Toast.makeText(this, R.string.runtime_toast_started, Toast.LENGTH_SHORT).show();
+            refreshStatus();
+        });
 
         Button stop = button(this, getString(R.string.runtime_stop), false);
         body.addView(stop, topGap(8));
@@ -185,76 +145,19 @@ public final class RuntimeSettingsActivity extends Screen {
         return edit;
     }
 
-    private static final int REQUEST_TERMUX_RUN_COMMAND = 8452;
-
-    private void openTermux() {
-        Intent launch = getPackageManager().getLaunchIntentForPackage("com.termux");
-        if (launch == null) {
-            Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
-            return;
+    private void openAllFilesAccessSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception ignored) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            } catch (Exception e) {
+                Toast.makeText(this, R.string.runtime_file_access_settings_unavailable, Toast.LENGTH_LONG).show();
+            }
         }
-        startActivity(launch);
-    }
-
-    private void connectTermux() {
-        if (!TermuxRuntimeController.isInstalled(this)) {
-            Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!TermuxRuntimeController.hasPermission(this)) {
-            requestPermissions(new String[]{TermuxRuntimeController.PERMISSION}, REQUEST_TERMUX_RUN_COMMAND);
-            return;
-        }
-        BuddyRuntimeService.connectTermux(this);
-        Toast.makeText(this, R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
-        refreshStatus();
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_TERMUX_RUN_COMMAND) return;
-        if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            boolean setupPending = getSharedPreferences("runtime", MODE_PRIVATE)
-                    .getBoolean("setup_all_after_permission", false);
-            getSharedPreferences("runtime", MODE_PRIVATE).edit()
-                    .remove("setup_all_after_permission")
-                    .putBoolean("setup_all_pending", setupPending).apply();
-            BuddyRuntimeService.connectTermux(this);
-            Toast.makeText(this, setupPending ? R.string.runtime_setup_requested : R.string.runtime_termux_connect_requested, Toast.LENGTH_SHORT).show();
-        } else {
-            getSharedPreferences("runtime", MODE_PRIVATE).edit()
-                    .putBoolean("setup_all_pending", false).putBoolean("setup_all_after_permission", false).apply();
-            Toast.makeText(this, R.string.runtime_termux_permission_denied, Toast.LENGTH_LONG).show();
-        }
-        refreshStatus();
-    }
-
-    private void setupAll() {
-        if (RuntimeHealthProbe.isLoopbackPortOpen(18767)) {
-            Toast.makeText(this, R.string.runtime_test223_active, Toast.LENGTH_LONG).show();
-            return;
-        }
-        getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", true).apply();
-        if (!saveSettings()) {
-            getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", false).apply();
-            return;
-        }
-        if (!TermuxRuntimeController.isInstalled(this)) {
-            getSharedPreferences("runtime", MODE_PRIVATE).edit().putBoolean("setup_all_pending", false).apply();
-            Toast.makeText(this, R.string.runtime_termux_not_installed, Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!TermuxRuntimeController.hasPermission(this)) {
-            getSharedPreferences("runtime", MODE_PRIVATE).edit()
-                    .putBoolean("setup_all_after_permission", true).apply();
-            requestPermissions(new String[]{TermuxRuntimeController.PERMISSION}, REQUEST_TERMUX_RUN_COMMAND);
-            return;
-        }
-        getSharedPreferences("runtime", MODE_PRIVATE).edit()
-                .putBoolean("setup_all_pending", true).apply();
-        BuddyRuntimeService.connectTermux(this);
-        Toast.makeText(this, R.string.runtime_setup_requested, Toast.LENGTH_SHORT).show();
-        refreshStatus();
     }
 
     private void copySavedApiKey() {
@@ -270,51 +173,21 @@ public final class RuntimeSettingsActivity extends Screen {
         }
     }
 
-    private void copyTunnelId() {
-        String value = tunnelId.getText().toString().trim();
-        if (value.isEmpty()) value = RuntimeProcessLauncher.DEFAULT_TUNNEL_ID;
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("Buddy tunnel ID", value));
-            Toast.makeText(this, R.string.runtime_tunnel_id_copied, Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private boolean saveSettings() {
         String key = apiKey.getText().toString().trim();
-        String id = tunnelId.getText().toString().trim();
-        if (id.isEmpty()) id = RuntimeProcessLauncher.DEFAULT_TUNNEL_ID;
-        if (RuntimeProcessLauncher.RESERVED_TEST220_TUNNEL_ID.equalsIgnoreCase(id)) {
-            tunnelId.setError(getString(R.string.runtime_test220_tunnel_id_reserved));
-            tunnelId.requestFocus();
-            return false;
-        }
-        if (!id.isEmpty() && !id.matches("tunnel_[a-fA-F0-9]{32}")) {
-            tunnelId.setError(getString(R.string.runtime_invalid_tunnel_id));
-            tunnelId.requestFocus();
-            return false;
-        }
         if (key.isEmpty() && !Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)) {
-            Toast.makeText(this, R.string.runtime_missing_api_key, Toast.LENGTH_LONG).show();
+            apiKey.setError(getString(R.string.runtime_missing_api_key));
             apiKey.requestFocus();
             return false;
         }
         try {
-            android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
-            String currentState = prefs.getString("state", "STOPPED");
-            boolean runtimeWasActive = !"STOPPED".equals(currentState);
             if (!key.isEmpty()) Secrets.put(this, RuntimeProcessLauncher.API_KEY_SECRET, key);
-            prefs.edit()
-                    .putString("tunnel_id", id)
+            getSharedPreferences("runtime", MODE_PRIVATE).edit()
                     .putBoolean("auto_start", autoStart.isChecked())
-                    .putBoolean("monitor_bridge", monitorBridge.isChecked())
-                    .putBoolean("monitor_droidmcp", monitorDroidMcp.isChecked())
-                    .putBoolean("rea_enabled", reaEnabled.isChecked())
                     .apply();
             apiKey.setText("");
             refreshStatus();
             Toast.makeText(this, R.string.runtime_toast_saved, Toast.LENGTH_SHORT).show();
-            if (runtimeWasActive && !prefs.getBoolean("setup_all_pending", false)) BuddyRuntimeService.start(this);
             return true;
         } catch (Exception e) {
             Toast.makeText(this, e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
@@ -326,10 +199,6 @@ public final class RuntimeSettingsActivity extends Screen {
         if (savedKey == null || status == null) return;
         savedKey.setText(Secrets.has(this, RuntimeProcessLauncher.API_KEY_SECRET)
                 ? getString(R.string.runtime_api_key_saved) : getString(R.string.runtime_status_not_configured));
-        String termuxState = getSharedPreferences("runtime", MODE_PRIVATE).getString("termux_state", "NOT_CONNECTED");
-        String termuxDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("termux_detail", "");
-        if (termuxStatus != null) termuxStatus.setText(getString(R.string.runtime_termux_status_detail,
-                termuxDetail.isEmpty() ? termuxState : termuxState + " · " + termuxDetail));
         String state = getSharedPreferences("runtime", MODE_PRIVATE).getString("state", "STOPPED");
         String detail = getSharedPreferences("runtime", MODE_PRIVATE).getString("detail", "");
         status.setText(getString(R.string.runtime_status_detail,
@@ -346,5 +215,9 @@ public final class RuntimeSettingsActivity extends Screen {
         String reaDetail = getSharedPreferences("runtime", MODE_PRIVATE).getString("rea_detail", "");
         reaStatus.setText(getString(R.string.runtime_rea_status_detail,
                 reaDetail.isEmpty() ? reaState : reaState + " · " + reaDetail));
+        if (grantStorageAccess != null) {
+            boolean needsAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager();
+            grantStorageAccess.setVisibility(needsAccess ? View.VISIBLE : View.GONE);
+        }
     }
 }

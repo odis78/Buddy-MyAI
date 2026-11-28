@@ -53,6 +53,12 @@ public class RuntimeProcessLauncherTest {
         }
     }
 
+    @Test public void preservesExistingHelperTunnelIdentities() {
+        assertEquals("tunnel_6ae28b8f01788191b42901f090964502", RuntimeProcessLauncher.BRIDGE_TUNNEL_ID);
+        assertEquals("tunnel_6af1637e86788191aa429d5518d41938", RuntimeProcessLauncher.DROIDMCP_TUNNEL_ID);
+        assertEquals("tunnel_6b02e7e420948191a1829df4a5373d20", RuntimeProcessLauncher.DEFAULT_TUNNEL_ID);
+    }
+
     @Test public void rejectsIncompleteLaunchInputs() throws Exception {
         File dir = Files.createTempDirectory("buddy-launch-test").toFile();
         try {

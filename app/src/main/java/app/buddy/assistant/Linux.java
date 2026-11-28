@@ -43,35 +43,68 @@ final class Linux {
     }
 
     static boolean installed(Context c) {
-        return new File(root(c), "etc/alpine-release").exists();
+        File root = root(c);
+        return new File(root, "etc/alpine-release").isFile()
+                && new File(root, "bin/sh").isFile()
+                && new File(root, "usr/bin/env").isFile()
+                && new File(root, "root").isDirectory()
+                && new File(root, "tmp").isDirectory();
     }
 
-    /** Downloads, verifies and unpacks Alpine. Safe to call again; it starts over if a previous try didn't finish. */
+    /**
+     * Downloads, verifies and stages Alpine, then atomically publishes it.
+     * An existing incomplete root is preserved for diagnosis instead of being recursively deleted.
+     */
     static synchronized void install(Context c) throws IOException {
         if (installed(c)) return;
         File root = root(c);
-        deleteTree(root);
-        root.mkdirs();
-        File tgz = new File(c.getCacheDir(), "alpine.tar.gz");
-        download(Mirrors.alpine(c) + ALPINE_PATH, tgz);
-        String sum = sha256(tgz);
-        if (!ALPINE_SHA256.equals(sum)) {
-            tgz.delete();
-            throw new IOException(c.getString(R.string.linux_download_corrupt, sum));
+        File parent = root.getParentFile();
+        if (root.exists()) {
+            String[] existing = root.isDirectory() ? root.list() : null;
+            if (existing != null && existing.length == 0) {
+                // A previous installer may have created only the empty target directory before interruption.
+                if (!root.delete()) throw new IOException("Empty incomplete Alpine directory could not be removed");
+            } else {
+                throw new IOException("Existing Alpine root is incomplete; preserved at "
+                        + root.getAbsolutePath() + " for recovery");
+            }
         }
-        File staging = new File(root.getParentFile(), "alpine.partial");
+        if (parent == null) {
+            throw new IOException("Alpine parent directory is unavailable");
+        }
+        if (!parent.isDirectory() && !parent.mkdirs()) {
+            throw new IOException("Alpine parent directory is unavailable");
+        }
+
+        File tgz = new File(c.getCacheDir(), "alpine.tar.gz");
+        File staging = new File(parent, "alpine.partial");
         deleteTree(staging);
         staging.mkdirs();
-        try (InputStream in = new GZIPInputStream(new BufferedInputStream(new FileInputStream(tgz)))) {
-            untar(in, staging);
+        try {
+            download(Mirrors.alpine(c) + ALPINE_PATH, tgz);
+            String sum = sha256(tgz);
+            if (!ALPINE_SHA256.equals(sum)) {
+                throw new IOException(c.getString(R.string.linux_download_corrupt, sum));
+            }
+            try (InputStream in = new GZIPInputStream(new BufferedInputStream(new FileInputStream(tgz)))) {
+                untar(in, staging);
+            }
+            write(new File(staging, "etc/resolv.conf"), DNS);
+            write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
+            new File(staging, "root").mkdirs();
+            new File(staging, "tmp").mkdirs();
+            if (!new File(staging, "etc/alpine-release").isFile()
+                    || !new File(staging, "bin/sh").isFile()
+                    || !new File(staging, "usr/bin/env").isFile()) {
+                throw new IOException("Staged Alpine root failed structural validation");
+            }
+            if (!staging.renameTo(root)) {
+                throw new IOException(c.getString(R.string.linux_move_failed));
+            }
+        } finally {
+            tgz.delete();
+            if (staging.exists()) deleteTree(staging);
         }
-        write(new File(staging, "etc/resolv.conf"), DNS);
-        write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
-        new File(staging, "root").mkdirs();
-        new File(staging, "tmp").mkdirs();
-        tgz.delete();
-        deleteTree(root);
-        if (!staging.renameTo(root)) throw new IOException(c.getString(R.string.linux_move_failed));
     }
 
     /** The proot command line for running {@code cmd} inside Alpine. */

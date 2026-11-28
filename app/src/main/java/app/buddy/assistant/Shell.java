@@ -22,6 +22,7 @@ import android.view.MotionEvent;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -117,6 +118,8 @@ public final class Shell {
     public static void main(String[] a) throws Exception {
         final int port = Integer.parseInt(a[0]);
         final String token = a[1];
+        final String logPath = a.length > 2 ? a[2] : "";
+        final String classPath = System.getenv("CLASSPATH");
         Looper.prepareMainLooper();
         try {
             dm = displayManager();
@@ -130,6 +133,25 @@ public final class Shell {
         ht.start();
         frames = new Handler(ht.getLooper());
         final ServerSocket server = new ServerSocket(port, 16, InetAddress.getByName("127.0.0.1"));
+        // This helper runs as Android's shell user, outside Buddy's app UID. The package manager
+        // cannot kill it on uninstall, so it watches the APK path it was launched from and exits
+        // as soon as that APK disappears. Its private log is removed at the same time.
+        Thread ownerWatch = new Thread(() -> {
+            while (!server.isClosed()) {
+                if (classPath == null || classPath.isEmpty() || !new File(classPath).isFile()) {
+                    try { server.close(); } catch (Exception ignored) {}
+                    if (!logPath.isEmpty()) {
+                        try { new File(logPath).delete(); } catch (Exception ignored) {}
+                    }
+                    System.exit(0);
+                    return;
+                }
+                try { Thread.sleep(5_000); }
+                catch (InterruptedException ignored) { return; }
+            }
+        }, "buddy-shell-owner-watch");
+        ownerWatch.setDaemon(true);
+        ownerWatch.start();
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {

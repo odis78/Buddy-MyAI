@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 
-/** Installs only the original REA core inside Buddy's one existing Alpine/PRoot Linux runtime. */
+/** First-run installer for the isolated REA 6.5.0 MCP runtime inside Buddy's Alpine rootfs. */
 final class ReaRuntimeInstaller {
     static final String VERSION = "6.5.0";
     static final String NODE_VERSION = "v26.13.1";
@@ -18,6 +18,10 @@ final class ReaRuntimeInstaller {
     static final int EXPECTED_PROMPTS = 6;
     static final String PACKAGE_ASSET = "runtime/rea-agents-6.5.0.tgz";
     static final String PACKAGE_SHA256 = "531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699";
+    static final String BRIDGE_ASSET = "runtime/termux-bridge-0.1.3.mjs";
+    static final String BRIDGE_SHA256 = "b84b49879f1dade4b4d48a4c2b6ce35b19b5399d27693451ac31fb01a698fcf4";
+    static final String DROIDMCP_ASSET = "runtime/droidmcp-filesystem-0.4.0.mjs";
+    static final String DROIDMCP_SHA256 = "75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265";
     static final String REA_SOURCE_COMMIT = "3b79af28e80785afce9f5998d8f03289402a1847";
 
     interface ProgressListener {
@@ -37,23 +41,32 @@ final class ReaRuntimeInstaller {
             throw new IOException("At least 500 MB of free app storage is required for the REA runtime");
         }
 
-        if (progress != null) progress.onProgress("Preparing original REA 6.5.0 in Buddy's Alpine runtime");
+        if (progress != null) progress.onProgress("Preparing Alpine Node.js 26 runtime");
         File packageFile = new File(root, "tmp/rea-agents-6.5.0.tgz");
+        File bridgeFile = new File(root, "tmp/termux-bridge-0.1.3.mjs");
+        File droidFile = new File(root, "tmp/droidmcp-filesystem-0.4.0.mjs");
         copyVerifiedAsset(app.getAssets(), PACKAGE_ASSET, packageFile, PACKAGE_SHA256);
+        copyVerifiedAsset(app.getAssets(), BRIDGE_ASSET, bridgeFile, BRIDGE_SHA256);
+        copyVerifiedAsset(app.getAssets(), DROIDMCP_ASSET, droidFile, DROIDMCP_SHA256);
 
-        if (progress != null) progress.onProgress("Installing REA and validating its MCP catalog (207 tools, 6 prompts)");
-        String output = Linux.exec(app, buildInstallCommand(), 600);
-        if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")) {
+        if (progress != null) progress.onProgress("Installing REA, Bridge and DroidMCP helper runtimes");
+        String command = buildInstallCommand();
+        String output = Linux.exec(app, command, 600);
+        if (!output.trim().endsWith("[exit 0]") || !output.contains("REA_MCP_READY=207/207;6/6")
+                || !output.contains("HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0")) {
             throw new IOException("REA bootstrap failed: " + tail(output));
         }
 
         File marker = new File(root, "root/.buddy-rea-runtime-version");
         try (FileOutputStream out = new FileOutputStream(marker, false)) {
             out.write((VERSION + "\n" + NODE_VERSION + "\n" + PACKAGE_SHA256 + "\n"
-                    + REA_SOURCE_COMMIT + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    + BRIDGE_SHA256 + "\n" + DROIDMCP_SHA256 + "\n" + REA_SOURCE_COMMIT + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             out.getFD().sync();
         }
         packageFile.delete();
+        bridgeFile.delete();
+        droidFile.delete();
     }
 
     static boolean isReady(Context context) {
@@ -64,12 +77,10 @@ final class ReaRuntimeInstaller {
             String value = new String(java.nio.file.Files.readAllBytes(marker.toPath()),
                     java.nio.charset.StandardCharsets.UTF_8);
             if (!value.contains(VERSION) || !value.contains(NODE_VERSION)
-                    || !value.contains(PACKAGE_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
+                    || !value.contains(PACKAGE_SHA256) || !value.contains(BRIDGE_SHA256)
+                    || !value.contains(DROIDMCP_SHA256) || !value.contains(REA_SOURCE_COMMIT)) return false;
             String output = Linux.exec(context,
-                    "node --version && test -f /root/rea/scripts/rea.mjs "
-                            + "&& test -d /root/rea/node_modules "
-                            + "&& test -d /root/rea-source/.git "
-                            + "&& test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"",
+                    "node --version && java -version >/dev/null 2>&1 && adb version >/dev/null 2>&1 && test -f /root/rea/scripts/rea.mjs && test -d /root/rea/node_modules && test -d /root/rea-source/.git && test \"$(git -C /root/rea-source rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\" && test -f /root/bridge/server/index.mjs && test -f /root/droidmcp/server/index.mjs && test -d /storage/emulated/0",
                     30);
             return output.contains(NODE_VERSION) && output.trim().endsWith("[exit 0]");
         } catch (Exception ignored) {
@@ -97,15 +108,15 @@ final class ReaRuntimeInstaller {
         String actual = hex(digest.digest());
         if (!expectedSha256.equals(actual)) {
             target.delete();
-            throw new IOException("Bundled REA package failed SHA-256 verification");
+            throw new IOException("Bundled runtime asset failed SHA-256 verification: " + assetName);
         }
     }
 
     private static String buildInstallCommand() {
         return "set -eu; "
-                + "stage=\"$(mktemp -d /root/.buddy-rea-stage.XXXXXX)\"; "
-                + "backup=\"/root/.buddy-rea-backup-$(date +%s)-$$\"; "
-                + "mkdir -p \"$stage/new/rea\" \"$stage/new/rea-source\"; "
+                + "stage=\"$(mktemp -d /root/.buddy-runtime-stage.XXXXXX)\"; "
+                + "backup=\"/root/.buddy-runtime-backup-$(date +%s)-$$\"; "
+                + "mkdir -p \"$stage/new/rea\" \"$stage/new/rea-source\" \"$stage/new/bridge/server\" \"$stage/new/droidmcp/server\"; "
                 + "apk update >/tmp/buddy-apk-update.log 2>&1 || { tail -n 30 /tmp/buddy-apk-update.log; exit 1; }; "
                 + "apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools "
                 + ">/tmp/buddy-apk-install.log 2>&1 || { tail -n 40 /tmp/buddy-apk-install.log; exit 1; }; "
@@ -126,16 +137,23 @@ final class ReaRuntimeInstaller {
                 + "git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git \"$stage/new/rea-source\" "
                 + ">/tmp/buddy-rea-source.log 2>&1 || { tail -n 40 /tmp/buddy-rea-source.log; exit 1; }; "
                 + "test \"$(git -C \"$stage/new/rea-source\" rev-parse HEAD)\" = \"" + REA_SOURCE_COMMIT + "\"; "
+                + "cp /tmp/termux-bridge-0.1.3.mjs \"$stage/new/bridge/server/index.mjs\"; "
+                + "cp /tmp/droidmcp-filesystem-0.4.0.mjs \"$stage/new/droidmcp/server/index.mjs\"; "
+                + "node --check \"$stage/new/bridge/server/index.mjs\"; "
+                + "node --check \"$stage/new/droidmcp/server/index.mjs\"; "
+                + "printf '%s\\n' 'HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0'; "
+                + "node --version; npm --version; java -version; adb version; "
                 + "mkdir -p \"$backup\"; "
-                + "for name in rea rea-source; do if [ -e \"/root/$name\" ]; then mv \"/root/$name\" \"$backup/$name\"; fi; done; "
-                + "for name in rea rea-source; do "
+                + "for name in rea rea-source bridge droidmcp; do "
+                + "if [ -e \"/root/$name\" ]; then mv \"/root/$name\" \"$backup/$name\"; fi; done; "
+                + "for name in rea rea-source bridge droidmcp; do "
                 + "if ! mv \"$stage/new/$name\" \"/root/$name\"; then "
-                + "for restore in rea rea-source; do "
+                + "for restore in rea rea-source bridge droidmcp; do "
                 + "if [ -e \"$backup/$restore\" ]; then "
                 + "if [ -e \"/root/$restore\" ]; then mv \"/root/$restore\" \"$stage/failed-$restore\"; fi; "
                 + "mv \"$backup/$restore\" \"/root/$restore\"; fi; done; exit 1; fi; done; "
                 + "printf '%s\\n' 'REA_RUNTIME_INSTALL_COMMITTED=1' "
-                + "'PREVIOUS_RUNTIME_BACKUP=' \"$backup\"; "
+                + "'PREVIOUS_RUNTIME_BACKUP='\"$backup\"; "
                 + "rm -rf \"$stage\"";
     }
 

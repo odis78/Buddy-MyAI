@@ -9,10 +9,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
@@ -103,32 +103,44 @@ final class RuntimeHealthProbe {
         }
     }
 
+    static boolean isControlPlanePolling(File urlFile, int expectedTools) {
+        if (expectedTools < 0) return false;
+        try {
+            return isControlPlaneSnapshotPolling(getHealthJson(urlFile, "/health?details=true"), expectedTools);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isControlPlaneSnapshotPolling(JSONObject root, int expectedTools) {
+        if (root.optInt("schema_version", -1) != 1
+                || !root.optBoolean("live", false)
+                || !root.optBoolean("ready", false)) return false;
+        JSONObject components = root.optJSONObject("components");
+        if (components == null) return false;
+        JSONObject mcp = components.optJSONObject("mcp");
+        JSONObject polling = components.optJSONObject("control-plane");
+        if (mcp == null || polling == null || !isMcpComponent(mcp, expectedTools)) return false;
+        JSONObject pollDetails = polling.optJSONObject("details");
+        if (pollDetails == null
+                || !"ok".equals(polling.optString("status", ""))
+                || pollDetails.optLong("consecutive_failures", -1) != 0) return false;
+        long pollAgeLimitSeconds = (long) Math.max(180,
+                pollDetails.optDouble("configured_wait_seconds", 0)
+                        + pollDetails.optDouble("deadline_seconds", 0) + 60);
+        pollAgeLimitSeconds = Math.min(pollAgeLimitSeconds, 1800);
+        return isRecent(pollDetails.optString("last_success", ""), pollAgeLimitSeconds * 1000L);
+    }
+
     private static boolean isRemoteSnapshotConnected(JSONObject root, int expectedTools) {
-            if (root.optInt("schema_version", -1) != 1
-                    || !root.optBoolean("live", false)
-                    || !root.optBoolean("ready", false)) return false;
-            JSONObject components = root.optJSONObject("components");
-            if (components == null) return false;
-            JSONObject mcp = components.optJSONObject("mcp");
-            JSONObject polling = components.optJSONObject("control-plane");
-            JSONObject delivery = components.optJSONObject("response-delivery");
-            if (mcp == null || polling == null || delivery == null
-                    || !isMcpComponent(mcp, expectedTools)) return false;
-
-            JSONObject pollDetails = polling.optJSONObject("details");
-            JSONObject deliveryDetails = delivery.optJSONObject("details");
-            if (pollDetails == null || deliveryDetails == null
-                    || !"ok".equals(polling.optString("status", ""))
-                    || !"ok".equals(delivery.optString("status", ""))
-                    || pollDetails.optLong("consecutive_failures", -1) != 0
-                    || deliveryDetails.optLong("accepted", 0) < 1) return false;
-
-            long pollAgeLimitSeconds = (long) Math.max(180,
-                    pollDetails.optDouble("configured_wait_seconds", 0)
-                            + pollDetails.optDouble("deadline_seconds", 0) + 60);
-            pollAgeLimitSeconds = Math.min(pollAgeLimitSeconds, 1800);
-            if (!isRecent(pollDetails.optString("last_success", ""), pollAgeLimitSeconds * 1000L)) return false;
-            return isRecent(deliveryDetails.optString("last_accepted", ""), DELIVERY_FRESH_MS);
+        if (!isControlPlaneSnapshotPolling(root, expectedTools)) return false;
+        JSONObject components = root.optJSONObject("components");
+        JSONObject delivery = components == null ? null : components.optJSONObject("response-delivery");
+        JSONObject deliveryDetails = delivery == null ? null : delivery.optJSONObject("details");
+        if (delivery == null || deliveryDetails == null
+                || !"ok".equals(delivery.optString("status", ""))
+                || deliveryDetails.optLong("accepted", 0) < 1) return false;
+        return isRecent(deliveryDetails.optString("last_accepted", ""), DELIVERY_FRESH_MS);
     }
 
     private static boolean isMcpComponent(JSONObject root, int expectedTools) {

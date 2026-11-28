@@ -38,11 +38,11 @@ final class Background {
     /** In front of a chat's id: the bubble's live picture is that chat's background screen, not a browser tab. */
     static final String KEY = "bg:";
     /** Where the helper listens (this phone only). */
-    static final int PORT = 8771;
+    static final int PORT = 8772;
     /** Where the helper's own output goes (the shell user's folder): read back when it doesn't start. */
-    private static final String LOG = "/data/local/tmp/buddy-helper.log";
+    private static final String LOG = "/data/local/tmp/buddy-helper-test225.log";
     /** Buddy's adb keeps a server of its own: another app's (Termux's) on the usual port has other keys. */
-    private static final String ADB = "export HOME=/root ANDROID_ADB_SERVER_PORT=5138; ";
+    private static final String ADB = "export HOME=/root ANDROID_ADB_SERVER_PORT=5140; ";
     private static final String SECURE = "android.permission.WRITE_SECURE_SETTINGS";
 
     /** Set up, step by step; the screen shows it. */
@@ -600,8 +600,8 @@ final class Background {
         for (int p : ports) list.append(' ').append(p);
         // an old helper goes first. The pattern is anchored: unanchored it also matches the shell that runs this very
         // line (which names the helper further on), and killed it before the new helper started
-        String helper = "pkill -f '^app_process.*assistant.Shell'; CLASSPATH=" + c.getPackageCodePath()
-                + " setsid app_process / " + Shell.class.getName() + " " + PORT + " " + Prefs.backgroundToken(c)
+        String helper = "pkill -f '^app_process.*assistant.Shell " + PORT + " '; CLASSPATH=" + c.getPackageCodePath()
+                + " setsid app_process / " + Shell.class.getName() + " " + PORT + " " + Prefs.backgroundToken(c) + " " + LOG
                 + " >" + LOG + " 2>&1 </dev/null &";
         // the port Wireless debugging announces on the Wi-Fi first (adb's own discovery): it moves now and then, and a
         // scan can miss it while finding other apps' ports, which adb only calls "offline"
@@ -807,26 +807,53 @@ final class Background {
                     set(Step.FAILED, out.trim());
                     return;
                 }
-                // (Settings.Global.DEVELOPMENT_SETTINGS_ENABLED isn't asked: a Pixel on Android 17 answers 0 with
-                // Developer options on, issue #29. Whether they're on shows when Buddy opens them.)
+                // (Settings.Global.DEVELOPMENT_SETTINGS_ENABLED isn't asked: some Android builds report 0 even when
+                // Developer options are on. Whether they're on shows when Buddy opens them.)
+                final int mine = ++attempt;
+                typed = null;
+                lastSeen = null;
+                settingsInFront = false;
+                frontUnread = false;
+                dialogSeen = false;
+                tappedPair = false;
+                asking = false;
+                askAgainAt = 0;
+                asks = 0;
                 waitUntil = System.currentTimeMillis() + 5 * 60_000;
                 set(Step.WAITING, "");
-                // Buddy goes there itself; wherever that stops short, the user does the step and it carries on
+                // Buddy opens Wireless debugging and the pairing dialog itself. If this phone hides the code from
+                // Accessibility, Buddy asks for the six digits in its own bubble while the dialog stays open.
+                final java.util.concurrent.atomic.AtomicBoolean walked = new java.util.concurrent.atomic.AtomicBoolean();
                 new Thread(() -> {
                     try {
                         openWireless(svc, true);
                     } catch (Exception ignored) {
+                    } finally {
+                        walked.set(true);
                     }
                 }).start();
                 String[] found = null;
+                long inSettings = 0;
                 while (step == Step.WAITING && System.currentTimeMillis() < waitUntil && found == null) {
                     sleep(700);
                     found = pairingDialog(svc);
+                    if (found == null) found = typed;
+                    long now = System.currentTimeMillis();
+                    if (found != null || !walked.get() || !(settingsInFront || frontUnread)) inSettings = 0;
+                    else if (inSettings == 0) inSettings = now;
+                    long need = tappedPair || dialogSeen || frontUnread ? 20_000 : 90_000;
+                    if (found == null && !asking && asks < 3 && inSettings != 0
+                            && now - inSettings > need && now > askAgainAt) {
+                        asking = true;
+                        asks++;
+                        askForCode(svc, mine);
+                    }
                 }
                 if (step != Step.WAITING) return; // cancelled
-                if (found == null) { // the likeliest reason comes along when the phone says Developer options are off
+                if (found == null) {
                     set(Step.FAILED, svc.getString(R.string.background_no_dialog)
-                            + (walkStopped.isEmpty() ? "" : "\n(" + walkStopped + ")"));
+                            + (walkStopped.isEmpty() ? "" : "\n(" + walkStopped + ")")
+                            + (lastSeen == null ? "" : "\n(" + lastSeen + ")"));
                     return;
                 }
                 set(Step.PAIRING, "");
@@ -865,7 +892,9 @@ final class Background {
 
     /** Forget the pairing and stop the helper (its displays go with it). */
     static void remove(final Context c) {
+        final int port = Prefs.backgroundAdbPort(c);
         Prefs.setBackgroundPaired(c, false);
+        Prefs.setBackgroundAdbPort(c, 0);
         displays.clear();
         set(Step.IDLE, "");
         new Thread(() -> {
@@ -874,7 +903,15 @@ final class Background {
             } catch (IOException ignored) {
             }
             try {
-                Linux.exec(c, "rm -f /root/.android/adbkey /root/.android/adbkey.pub", 30);
+                String unpair = port > 0
+                        ? "timeout 10 adb connect 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        + "timeout 10 adb -s 127.0.0.1:" + port + " shell rm -f " + LOG + " >/dev/null 2>&1 || true; "
+                        + "timeout 10 adb unpair 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        + "adb disconnect 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        : "";
+                Linux.exec(c, ADB + "adb start-server >/dev/null 2>&1; " + unpair
+                        + "adb kill-server >/dev/null 2>&1 || true; "
+                        + "rm -f /root/.android/adbkey /root/.android/adbkey.pub /root/.android/adb_known_hosts.pb", 60);
             } catch (Exception ignored) {
             }
         }).start();
@@ -956,6 +993,15 @@ final class Background {
      */
     /** Where Buddy's own walk through Settings stopped short, for the error the user reports ("" when it didn't). */
     private static volatile String walkStopped = "";
+    private static volatile String[] typed;
+    private static volatile boolean asking;
+    private static volatile long askAgainAt;
+    private static volatile int asks;
+    private static volatile boolean tappedPair, dialogSeen;
+    private static volatile boolean settingsInFront, frontUnread;
+    private static volatile int attempt;
+    private static volatile boolean sawDialogFields;
+    private static volatile String lastSeen;
 
     private static int stopped(String where) {
         walkStopped = where;
@@ -1017,7 +1063,7 @@ final class Background {
             if (m.matches()) port = Integer.parseInt(m.group(1));
         }
         if (port > 0) Prefs.setBackgroundAdbPort(svc, port);
-        if (pairToo) click(code);
+        if (pairToo && click(code)) tappedPair = true;
         return port;
     }
 
@@ -1036,14 +1082,34 @@ final class Background {
      */
     private static String[] pairingDialog(BuddyService svc) {
         try {
+            java.util.Set<String> apps = new java.util.LinkedHashSet<>();
+            boolean settings = false, unread = false;
+            sawDialogFields = false;
             for (AccessibilityWindowInfo w : svc.getWindows()) {
                 AccessibilityNodeInfo root = w.getRoot();
-                if (root == null || !"com.android.settings".contentEquals(String.valueOf(root.getPackageName()))) continue;
+                String pkg = root == null ? "(a window Buddy can't read)" : String.valueOf(root.getPackageName());
+                if (root == null && w.getType() == AccessibilityWindowInfo.TYPE_APPLICATION) unread = true;
+                apps.add(pkg);
+                if (root == null || !"com.android.settings".contentEquals(pkg)) continue;
+                settings = true;
                 String[] found = new String[2];
                 scan(root, found, 0);
-                if (found[0] != null) return found;
+                if (found[0] != null) {
+                    settingsInFront = true;
+                    frontUnread = unread;
+                    dialogSeen = sawDialogFields;
+                    return found;
+                }
             }
-        } catch (Exception ignored) {
+            settingsInFront = settings;
+            frontUnread = unread;
+            dialogSeen = sawDialogFields;
+            String now = "in front: " + (apps.isEmpty() ? "no window" : android.text.TextUtils.join(", ", apps))
+                    + (settings ? "; Settings is visible" : "");
+            if (settings || lastSeen == null || !lastSeen.contains("Settings")) lastSeen = now;
+        } catch (Exception e) {
+            lastSeen = "reading the screen failed: " + e;
+            frontUnread = true;
         }
         return null;
     }
@@ -1053,15 +1119,69 @@ final class Background {
         CharSequence t = n.getText();
         if (t != null) {
             String s = t.toString().trim(), id = String.valueOf(n.getViewIdResourceName());
+            if (id.endsWith(":id/pairing_code") || id.endsWith(":id/ip_addr") || id.endsWith(":id/pairing_caption")) {
+                sawDialogFields = true;
+            }
             if (CODE.matcher(s).matches()) found[0] = s;
             Matcher m = ADDRESS.matcher(s);
             if (m.matches()) found[1] = m.group(1);
-            else if (id.endsWith(":id/ip_addr")) { // the dialog's own address field, whatever kind of address it shows
+            else if (id.endsWith(":id/ip_addr")) {
                 Matcher last = Pattern.compile(":(\\d{4,5})$").matcher(s);
                 if (last.find()) found[1] = last.group(1);
             }
         }
         for (int i = 0; i < n.getChildCount(); i++) scan(n.getChild(i), found, depth + 1);
+    }
+
+    private static void askForCode(BuddyService svc, final int mine) {
+        new Thread(() -> {
+            McpServer.CALLER_REMOTE.set("Buddy");
+            try {
+                for (int i = 0; i < 3 && step == Step.WAITING && attempt == mine; i++) {
+                    final String[][] read = {null};
+                    final boolean[] over = {false};
+                    String answer = svc.askQuestion(svc.getString(R.string.background_type_code),
+                            java.util.Collections.singletonList(svc.getString(R.string.background_no_code)), true, () -> {
+                                if (read[0] == null && !over[0]) {
+                                    if (step != Step.WAITING || attempt != mine) over[0] = true;
+                                    else read[0] = pairingDialog(svc);
+                                }
+                                return read[0] != null || over[0] ? "read" : null;
+                            });
+                    if (attempt != mine || step != Step.WAITING) return;
+                    if (read[0] != null) {
+                        typed = read[0];
+                        return;
+                    }
+                    if (over[0] || answer == null || !answer.startsWith("ANSWER (typed")) return;
+                    String code = codeIn(answer.substring(answer.indexOf(':') + 1));
+                    if (code != null) {
+                        typed = new String[]{code, null};
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                McpServer.CALLER_REMOTE.remove();
+                if (attempt == mine) {
+                    askAgainAt = System.currentTimeMillis() + 45_000;
+                    asking = false;
+                }
+            }
+        }, "pair-code-ask").start();
+    }
+
+    static String codeIn(String said) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < said.length(); ) {
+            int cp = said.codePointAt(i), d = Character.digit(cp, 10);
+            b.append(d >= 0 ? String.valueOf(d) : new String(Character.toChars(cp)));
+            i += Character.charCount(cp);
+        }
+        Matcher whole = Pattern.compile("(?<!\\d)(\\d{6})(?!\\d)").matcher(b);
+        if (whole.find()) return whole.group(1);
+        Matcher parts = Pattern.compile("(?<!\\d)(\\d{3})[ \\-\\u00a0](\\d{3})(?!\\d)").matcher(b);
+        return parts.find() ? parts.group(1) + parts.group(2) : null;
     }
 
     /**

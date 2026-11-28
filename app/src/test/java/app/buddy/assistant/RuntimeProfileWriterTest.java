@@ -8,6 +8,8 @@ import static org.junit.Assert.*;
 
 public class RuntimeProfileWriterTest {
     private static final String TUNNEL = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    private static final String BRIDGE_TUNNEL = "tunnel_6ae28b8f01788191b42901f090964502";
+    private static final String DROID_TUNNEL = "tunnel_6af1637e86788191aa429d5518d41938";
     private static final String REA_COMMAND = "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 /usr/bin/node /root/rea/scripts/rea.mjs mcp";
 
     @Test public void profilePreservesBothBearerHeaderMaps() {
@@ -59,6 +61,31 @@ public class RuntimeProfileWriterTest {
                     java.util.Collections.singletonList("node\nmalicious"));
             fail("newline in REA command accepted");
         } catch (IllegalArgumentException expected) { }
+    }
+
+    @Test public void generatedBridgeProfileMatchesPinnedFixture() throws Exception {
+        assertProfileFixture("bridge-mcp-tunnel-profile.yaml", BRIDGE_TUNNEL, "bridge",
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin BUDDY_BRIDGE_REA_ROOT=/root/rea-source BUDDY_ANDROID_PACKAGE=app.buddy.myai.gt.test225 /usr/bin/node /root/bridge/server/index.mjs");
+    }
+
+    @Test public void generatedDroidMcpProfileMatchesPinnedFixture() throws Exception {
+        assertProfileFixture("droidmcp-tunnel-profile.yaml", DROID_TUNNEL, "droidmcp",
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /storage/emulated/0 /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DROIDMCP_ROOT=/storage/emulated/0 /usr/bin/node /root/droidmcp/server/index.mjs");
+    }
+
+    private void assertProfileFixture(String name, String tunnelId, String channel, String command) throws Exception {
+        java.io.InputStream input = getClass().getClassLoader().getResourceAsStream(name);
+        assertNotNull(name + " fixture missing", input);
+        byte[] bytes;
+        try (java.io.InputStream in = input; java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            bytes = out.toByteArray();
+        }
+        assertEquals(new String(bytes, StandardCharsets.UTF_8),
+                RuntimeProfileWriter.renderStdioProfile(tunnelId, channel, new File("/tmp/buddy-helper"),
+                        java.util.Collections.singletonList(command)));
     }
 
     @Test public void rejectsMalformedTunnelId() {

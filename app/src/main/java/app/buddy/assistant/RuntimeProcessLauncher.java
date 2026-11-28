@@ -3,6 +3,8 @@ package app.buddy.assistant;
 import android.content.Context;
 import android.system.Os;
 import android.system.OsConstants;
+import android.os.Build;
+import android.os.Environment;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -16,9 +18,10 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Starts the hardened Tunnel Client as a native Android child process, outside the agent PRoot. */
 final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
-    // Dedicated Test224 tunnel ID supplied for this installation; never reuse Test220.
-    static final String DEFAULT_TUNNEL_ID = "tunnel_15bad0275a40c4f8eb80e7baec6e3ce2";
-    static final String RESERVED_TEST220_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    // Preserve the existing main tunnel identity. Test225 takes it over only after legacy health port 39073 is free.
+    static final String DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    static final String BRIDGE_TUNNEL_ID = "tunnel_6ae28b8f01788191b42901f090964502";
+    static final String DROIDMCP_TUNNEL_ID = "tunnel_6af1637e86788191aa429d5518d41938";
     static final String API_KEY_FILE = "control-plane-api-key";
     static final String AUTH_HEADER_FILE = "buddy-auth-header";
     static final String DISCOVERY_AUTH_HEADER_FILE = "buddy-discovery-auth-header";
@@ -64,6 +67,70 @@ final class RuntimeProcessLauncher {
             }
             RuntimeProfileWriter.writeBuddyProfile(config, tunnelId, runtimeDir, reaCommand);
             chmod(config, 0600, "Buddy runtime profile permissions could not be secured");
+            ensureSecureFile(new File(runtimeDir, "launcher.log"));
+            ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
+            process = createProcessBuilder(binary, config, runtimeDir).start();
+            handoffSecrets(process, apiKeyFifo, apiKey, authHeaderFifo,
+                    "Bearer " + buddyToken, discoveryHeaderFifo, "Bearer " + buddyToken);
+            cleanupSecretFiles(runtimeDir);
+            return process;
+        } catch (Exception e) {
+            if (process != null) process.destroyForcibly();
+            cleanupSecretFiles(runtimeDir);
+            throw e;
+        }
+    }
+
+    static Process startBridgeConfigured(Context context) throws Exception {
+        Context app = context.getApplicationContext();
+        Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+        guestEnvironment.put("BUDDY_BRIDGE_REA_ROOT", "/root/rea-source");
+        guestEnvironment.put("BUDDY_ANDROID_PACKAGE", BuildConfig.APPLICATION_ID);
+        java.util.List<String> command = Linux.commandAtWithSystem(app, "/root/rea-source", guestEnvironment,
+                "/usr/bin/node", "/root/bridge/server/index.mjs");
+        return startStdioConfigured(app, "bridge-tunnel", BRIDGE_TUNNEL_ID, "bridge", command);
+    }
+
+    static Process startDroidMcpConfigured(Context context) throws Exception {
+        Context app = context.getApplicationContext();
+        Map<String, String> guestEnvironment = new java.util.LinkedHashMap<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            throw new IllegalStateException("Grant all-files access to enable the read-only DroidMCP filesystem tunnel");
+        }
+        guestEnvironment.put("DROIDMCP_ROOT", "/storage/emulated/0");
+        java.util.List<String> command = Linux.commandAtWithStorage(app, "/storage/emulated/0", guestEnvironment,
+                "/usr/bin/node", "/root/droidmcp/server/index.mjs");
+        return startStdioConfigured(app, "droidmcp-tunnel", DROIDMCP_TUNNEL_ID, "droidmcp", command);
+    }
+
+    private static Process startStdioConfigured(Context app, String runtimeName, String tunnelId,
+                                                String channel, java.util.List<String> command) throws Exception {
+        String apiKey = Secrets.get(app, API_KEY_SECRET);
+        String buddyToken = Prefs.token(app);
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalStateException("Buddy Tunnel Client API key is not configured");
+        }
+        if (buddyToken == null || buddyToken.trim().isEmpty()) {
+            throw new IllegalStateException("Buddy MCP authentication token is unavailable");
+        }
+        File runtimeDir = new File(app.getFilesDir(), "runtime/" + runtimeName);
+        if (!runtimeDir.isDirectory() && !runtimeDir.mkdirs()) {
+            throw new IOException("stdio MCP runtime directory could not be created");
+        }
+        chmod(runtimeDir, 0700, "stdio MCP runtime directory permissions could not be secured");
+        File apiKeyFifo = new File(runtimeDir, API_KEY_FILE);
+        File authHeaderFifo = new File(runtimeDir, AUTH_HEADER_FILE);
+        File discoveryHeaderFifo = new File(runtimeDir, DISCOVERY_AUTH_HEADER_FILE);
+        Process process = null;
+        try {
+            createSecretFifo(apiKeyFifo);
+            createSecretFifo(authHeaderFifo);
+            createSecretFifo(discoveryHeaderFifo);
+            File binary = RuntimeBinaryLocator.locate(app);
+            RuntimeBinaryLocator.locateProot(app);
+            File config = new File(runtimeDir, "stdio-mcp.yaml");
+            RuntimeProfileWriter.writeStdioProfile(config, tunnelId, channel, runtimeDir, command);
+            chmod(config, 0600, "stdio MCP runtime profile permissions could not be secured");
             ensureSecureFile(new File(runtimeDir, "launcher.log"));
             ensureSecureFile(new File(runtimeDir, "tunnel-client.log"));
             process = createProcessBuilder(binary, config, runtimeDir).start();

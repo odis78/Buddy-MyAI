@@ -56,7 +56,7 @@ final class RuntimeSupervisor {
 
         machine.transition(RuntimeStateMachine.State.STARTING);
         if (requireBuddyMcp && !RuntimeHealthProbe.isBuddyMcpAvailable()) {
-            lastError = "Buddy MCP listener on 127.0.0.1:8766 is not active";
+            lastError = "Buddy MCP listener on 127.0.0.1:" + McpServer.PORT + " is not active";
             machine.transition(RuntimeStateMachine.State.UNHEALTHY);
             stopInternal();
             return false;
@@ -92,6 +92,11 @@ final class RuntimeSupervisor {
     synchronized boolean isMcpDiscovered(int expectedTools) {
         return tunnelProcess != null && tunnelProcess.isAlive()
                 && RuntimeHealthProbe.isMcpDiscovered(new File(runtimeDir, "health.url"), expectedTools);
+    }
+
+    synchronized boolean isControlPlanePolling(int expectedTools) {
+        return tunnelProcess != null && tunnelProcess.isAlive()
+                && RuntimeHealthProbe.isControlPlanePolling(new File(runtimeDir, "health.url"), expectedTools);
     }
 
     synchronized boolean isRemoteConnected(int expectedTools) {
