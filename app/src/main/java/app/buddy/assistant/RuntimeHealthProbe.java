@@ -103,6 +103,65 @@ final class RuntimeHealthProbe {
         }
     }
 
+    /** Compact diagnostics for the settings screen; reads only the local loopback health endpoint. */
+    static String diagnostics(File urlFile) {
+        int port = healthPort(urlFile);
+        String transport = "unknown";
+        int toolCount = -1;
+        String lastOk = "not yet";
+        String lastAccepted = "not yet";
+        String lastError = "none";
+        try {
+            JSONObject root = getHealthJson(urlFile, "/health?details=true");
+            JSONObject components = root.optJSONObject("components");
+            JSONObject mcp = components == null ? null : components.optJSONObject("mcp");
+            JSONObject mcpDetails = mcp == null ? null : mcp.optJSONObject("details");
+            JSONObject tools = mcpDetails == null ? null : mcpDetails.optJSONObject("tools_list");
+            if (mcpDetails != null) transport = mcpDetails.optString("transport", "unknown");
+            if (tools != null) toolCount = tools.optInt("retained_count", -1);
+
+            JSONObject control = components == null ? null : components.optJSONObject("control-plane");
+            JSONObject controlDetails = control == null ? null : control.optJSONObject("details");
+            if (controlDetails != null) {
+                lastOk = controlDetails.optString("last_success", "not yet");
+                lastError = controlDetails.optString("last_error", "");
+            }
+            JSONObject delivery = components == null ? null : components.optJSONObject("response-delivery");
+            JSONObject deliveryDetails = delivery == null ? null : delivery.optJSONObject("details");
+            if (deliveryDetails != null) {
+                lastAccepted = deliveryDetails.optString("last_accepted", "not yet");
+                if (lastError.isEmpty()) lastError = deliveryDetails.optString("last_error", "");
+            }
+            if (lastError == null || lastError.trim().isEmpty()) lastError = "none";
+        } catch (Exception e) {
+            lastError = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+        }
+        if (lastError.length() > 140) lastError = lastError.substring(0, 140);
+        return "healthPort=" + (port > 0 ? port : "unknown")
+                + " · transport=" + transport
+                + " · tools=" + (toolCount >= 0 ? toolCount : "unknown")
+                + " · lastOK=" + lastOk
+                + " · lastAccepted=" + lastAccepted
+                + " · lastError=" + lastError;
+    }
+
+    private static int healthPort(File urlFile) {
+        if (urlFile == null || !urlFile.isFile()) return -1;
+        try (BufferedReader reader = new BufferedReader(new FileReader(urlFile))) {
+            String raw = reader.readLine();
+            if (raw == null || raw.trim().isEmpty()) return -1;
+            URI uri = URI.create(raw.trim());
+            if (!"http".equalsIgnoreCase(uri.getScheme())
+                    || !"127.0.0.1".equals(uri.getHost())
+                    || uri.getPort() < 1
+                    || (uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath()))
+                    || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) return -1;
+            return uri.getPort();
+        } catch (Exception ignored) {
+            return -1;
+        }
+    }
+
     static boolean isControlPlanePolling(File urlFile, int expectedTools) {
         if (expectedTools < 0) return false;
         try {
