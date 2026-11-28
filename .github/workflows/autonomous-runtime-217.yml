@@ -1,5 +1,9 @@
 name: Buddy Autonomous Runtime 217
 
+concurrency:
+  group: buddy-runtime-217-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
