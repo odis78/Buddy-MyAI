@@ -105,6 +105,12 @@ public final class BuddyRuntimeService extends Service {
     private void attemptStart() {
         if (stopping || supervisor == null) return;
         try {
+            android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
+            boolean reaEnabled = prefs.getBoolean("rea_enabled", true);
+            // Prepare Buddy's private Linux/REA runtime before cutover. This installs and verifies
+            // local components but does not open any tunnel while a legacy process still owns its ID.
+            if (reaEnabled && !ReaRuntimeInstaller.isReady(this)) scheduleReaAttempt(0);
+
             // The old Termux main tunnel owns health port 39073; Test220/Test223/Test224 and release
             // Buddy own separate MCP ports. Never duplicate the existing main tunnel identity.
             if (RuntimeHealthProbe.isLoopbackPortOpen(39073)
@@ -118,8 +124,6 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
-            boolean reaEnabled = prefs.getBoolean("rea_enabled", true);
             boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
             if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) supervisor.stop();
             boolean ready = supervisor.start();
@@ -185,8 +189,14 @@ public final class BuddyRuntimeService extends Service {
             });
             if (stopping || Thread.currentThread().isInterrupted()) return;
             if (!reaChannelConfigured) {
+                if (supervisor == null || !supervisor.isReady()) {
+                    setReaPersistentState("INSTALL_READY",
+                            "Buddy Linux, REA, Bridge and DroidMCP are installed and verified; waiting for legacy tunnel ports to be released.");
+                    updateNotification(getString(R.string.runtime_notification_external_conflict));
+                    return;
+                }
                 if (executor != null) executor.execute(() -> {
-                    if (stopping || supervisor == null) return;
+                    if (stopping || supervisor == null || !supervisor.isReady()) return;
                     supervisor.stop();
                     scheduleAttempt(0);
                 });
