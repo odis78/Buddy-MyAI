@@ -94,6 +94,11 @@ final class RuntimeSupervisor {
                 && RuntimeHealthProbe.isMcpDiscovered(new File(runtimeDir, "health.url"), expectedTools);
     }
 
+    synchronized boolean isControlPlanePolling(int expectedTools) {
+        return process != null && process.isAlive()
+                && RuntimeHealthProbe.isControlPlanePolling(new File(runtimeDir, "health.url"), expectedTools);
+    }
+
     synchronized boolean isRemoteConnected(int expectedTools) {
         return tunnelProcess != null && tunnelProcess.isAlive()
                 && RuntimeHealthProbe.isRemoteConnected(new File(runtimeDir, "health.url"), expectedTools);
