@@ -64,6 +64,13 @@ public class AlpineRootValidatorTest {
         assertFalse(AlpineRootValidator.isValid(root.toFile()));
     }
 
+    @Test public void rejectsSymlinkAsRootDirectory() throws Exception {
+        Path actualRoot = validRoot();
+        Path link = temporaryFolder.getRoot().toPath().resolve("root-link");
+        Files.createSymbolicLink(link, actualRoot);
+        assertFalse(AlpineRootValidator.isValid(link.toFile()));
+    }
+
     @Test public void rejectsMissingRequiredDirectories() throws Exception {
         Path root = validRoot();
         Files.delete(root.resolve("tmp"));
