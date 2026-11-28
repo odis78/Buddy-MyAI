@@ -95,7 +95,8 @@ add("no_termux_runtime_dependency", "com.termux.permission.RUN_COMMAND" not in m
     "No Termux RUN_COMMAND permission, runtime controller, manager script or manual Tunnel ID field")
 add("credential_fifo_isolation", all(x in launcher for x in ["Secrets.get", "createSecretFifo", "writeSecretFifo", "cleanupSecretFiles", "O_NONBLOCK"]) and "CONTROL_PLANE_API_KEY" not in launcher and "BUDDY_AUTH_HEADER" not in launcher,
     "Tunnel credentials are handed to child processes through short-lived private FIFOs, not argv/env")
-add("profiles_match_pinned_runtime", all(x in main_fixture and x in rea_fixture for x in ["extra_headers:", "discovery_extra_headers:", "file:"]) and all(x in bridge_fixture and x in droid_fixture for x in ["tunnel_id:", "commands:", "channel:"]),
+add("profiles_match_pinned_runtime", all(x in main_fixture and x in rea_fixture for x in ["extra_headers:", "discovery_extra_headers:", "file:"]) and "tunnel_id:" in bridge_fixture and "commands:" in bridge_fixture and "channel: bridge" in bridge_fixture and "tunnel_id:" in droid_fixture and "commands:" in droid_fixture and "channel: droidmcp" in droid_fixture,
+    "Main, REA, Bridge and DroidMCP fixtures preserve the pinned runtime schema, IDs and original channel names")
     "Main, REA, Bridge and DroidMCP profiles are covered by fixtures for upstream validation")
 add("upstream_runtime_ci", "go test ./pkg/runtimeconfig" in workflow and "testGithubDebugUnitTest" in workflow and "cloudflared:" not in profile,
     "CI validates the four profiles against the pinned standard Tunnel Client and runs Android unit tests")
