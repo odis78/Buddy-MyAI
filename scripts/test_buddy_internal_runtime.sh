@@ -30,5 +30,9 @@ node --check app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 ! grep -Eq 'name:[[:space:]]*"(write_file|delete_file|move_file|copy_file)"' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'shell: false' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
+grep -Fq 'buddy-bridge' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
+grep -Fq 'BUDDY_BRIDGE_REA_ROOT' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+grep -Fq 'BUDDY_ANDROID_PACKAGE' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+! grep -Fq 'TERMUX_BRIDGE_REA_ROOT' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 
 echo "Buddy Test225 internal runtime safety checks passed."

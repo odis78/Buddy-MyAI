@@ -69,11 +69,11 @@ add("pinned_tunnel_client_binary", all(x in binary for x in ["EXPECTED_SHA256", 
     "Pinned ARM64 Tunnel Client is located in nativeLibraryDir and SHA-256 verified")
 add("rea_internal_channel", all(x in profile for x in ['channel: main', 'channel: rea']) and "REA_TUNNEL_ID" not in launcher and "startReaConfigured" not in launcher,
     "REA runs as a second channel under the main Buddy tunnel, not as a separate tunnel")
-add("internal_bridge_droidmcp_launchers", all(x in launcher for x in ["BRIDGE_TUNNEL_ID", "DROIDMCP_TUNNEL_ID", "startBridgeConfigured", "startDroidMcpConfigured", "writeStdioProfile", 'DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20"']),
+add("internal_bridge_droidmcp_launchers", all(x in launcher for x in ["BRIDGE_TUNNEL_ID", "DROIDMCP_TUNNEL_ID", "startBridgeConfigured", "startDroidMcpConfigured", "writeStdioProfile", "BUDDY_BRIDGE_REA_ROOT", "BUDDY_ANDROID_PACKAGE", 'DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20"']),
     "Main, Bridge and DroidMCP keep their existing tunnel IDs; helpers are internal stdio MCP servers")
 add("internal_helper_installer", all(x in installer for x in ["BRIDGE_ASSET", "DROIDMCP_ASSET", "HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0", "REA_MCP_READY=207/207;6/6"]),
     "One app-private installer provisions REA, Bridge and read-only DroidMCP inside Alpine")
-add("bridge_fixed_command_allowlist", "const COMMANDS" in bridge and "shell: false" in bridge and "spawn(" in bridge,
+add("bridge_fixed_command_allowlist", "const COMMANDS" in bridge and "shell: false" in bridge and "spawn(" in bridge and "buddy-bridge" in bridge and "BUDDY_ANDROID_PACKAGE" in bridge and "TERMUX_BRIDGE_REA_ROOT" not in bridge,
     "Bridge exposes fixed commands only and never invokes a shell")
 add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory", "directory_tree", "read-only safety policy", "Path escapes the configured read-only root"]) and not any(x in droid for x in ['tool("write_file"', 'tool("delete_file"', 'tool("move_file"', 'tool("copy_file"']),
     "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
