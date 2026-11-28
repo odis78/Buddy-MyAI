@@ -26,6 +26,7 @@ grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(44611)' app/src/main/java/app/bu
 
 node --check app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 node --check app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
+node --check scripts/mcp_stdio_smoke.mjs
 
 ! grep -Eq 'name:[[:space:]]*"(write_file|delete_file|move_file|copy_file)"' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs

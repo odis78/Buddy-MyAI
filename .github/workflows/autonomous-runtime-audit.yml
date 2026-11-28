@@ -263,6 +263,10 @@ jobs:
               node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
               git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source
               test "$(git -C /root/rea-source rev-parse HEAD)" = "3b79af28e80785afce9f5998d8f03289402a1847"
+              mkdir -p /tmp/buddy-droidmcp-fixture
+              printf 'buddy-smoke-ok\\n' > /tmp/buddy-droidmcp-fixture/smoke.txt
+              node /work/scripts/mcp_stdio_smoke.mjs bridge /work/app/src/main/assets/runtime/termux-bridge-0.1.3.mjs /root/rea-source
+              node /work/scripts/mcp_stdio_smoke.mjs droidmcp /work/app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs /tmp/buddy-droidmcp-fixture
               node --version
               npm --version
               java -version
