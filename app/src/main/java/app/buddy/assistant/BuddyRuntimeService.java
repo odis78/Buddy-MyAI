@@ -111,8 +111,8 @@ public final class BuddyRuntimeService extends Service {
             // local components but does not open any tunnel while a legacy process still owns its ID.
             if (reaEnabled && !ReaRuntimeInstaller.isReady(this)) scheduleReaAttempt(0);
 
-            // The old Termux main tunnel owns health port 39073; Test220/Test223/Test224 and release
-            // Buddy own separate MCP ports. Never duplicate the existing main tunnel identity.
+            // The old Termux main tunnel owns health port 39073; Test220/Test223/Test224 have separate MCP ports.
+            // Never duplicate the existing main tunnel identity or mistake this build's own listener for a conflict.
             if (hasLegacyMainConflict()) {
                 setPersistentState("EXTERNAL_CONFLICT",
                         "Another Buddy MCP endpoint is already listening; no duplicate main tunnel was started.");
@@ -309,7 +309,7 @@ public final class BuddyRuntimeService extends Service {
 
     /** Older Buddy builds may still own their MCP port. Do not mistake this build's own listener for a conflict. */
     private boolean hasLegacyMainConflict() {
-        int[] legacyPorts = {39073, 8766, 18766, 18767, 18768};
+        int[] legacyPorts = {39073, 18766, 18767, 18768};
         for (int port : legacyPorts) {
             if (port != McpServer.PORT && RuntimeHealthProbe.isLoopbackPortOpen(port)) return true;
         }
