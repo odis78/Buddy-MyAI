@@ -865,7 +865,9 @@ final class Background {
 
     /** Forget the pairing and stop the helper (its displays go with it). */
     static void remove(final Context c) {
+        final int port = Prefs.backgroundAdbPort(c);
         Prefs.setBackgroundPaired(c, false);
+        Prefs.setBackgroundAdbPort(c, 0);
         displays.clear();
         set(Step.IDLE, "");
         new Thread(() -> {
@@ -874,7 +876,15 @@ final class Background {
             } catch (IOException ignored) {
             }
             try {
-                Linux.exec(c, "rm -f /root/.android/adbkey /root/.android/adbkey.pub", 30);
+                String unpair = port > 0
+                        ? "timeout 10 adb connect 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        + "timeout 10 adb -s 127.0.0.1:" + port + " shell rm -f " + LOG + " >/dev/null 2>&1 || true; "
+                        + "timeout 10 adb unpair 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        + "adb disconnect 127.0.0.1:" + port + " >/dev/null 2>&1 || true; "
+                        : "";
+                Linux.exec(c, ADB + "adb start-server >/dev/null 2>&1; " + unpair
+                        + "adb kill-server >/dev/null 2>&1 || true; "
+                        + "rm -f /root/.android/adbkey /root/.android/adbkey.pub /root/.android/adb_known_hosts.pb", 60);
             } catch (Exception ignored) {
             }
         }).start();

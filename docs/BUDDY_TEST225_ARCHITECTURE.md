@@ -29,7 +29,7 @@ ChatGPT remains the external control plane. Buddy owns the on-device Linux runti
 - DroidMCP is read-only. No write, delete, move or copy tool is exposed.
 - Existing Termux processes are not stopped or modified by Test225. Startup is fail-closed: it checks the legacy main Tunnel Client health port 39073, Buddy MCP ports 8766, 18766, 18767 and 18768, plus the known external Bridge/DroidMCP health ports 18080 and 44611. If occupied, Test225 does not create a duplicate tunnel; it retries and, if a conflict appears later, stops only its own duplicate child. Before the final cutover, any old external Bridge/DroidMCP processes using the same tunnel IDs must be stopped gracefully.
 - Android may still require the user to grant Accessibility, Wireless debugging/ADB pairing, battery-exemption or all-files access. Buddy cannot bypass Android's system confirmations.
-- Uninstall removes Buddy's app-private Linux rootfs and processes. The one shell-UID virtual-display helper watches the installed APK path, exits when that path disappears, and removes its private log. Android wireless-debugging pairing/developer settings may remain.
+- Uninstall removes Buddy's app-private Linux rootfs and processes. The one shell-UID virtual-display helper watches the installed APK path, exits when that path disappears, and removes its private log. The in-app Forget pairing action also stops the helper, attempts `adb unpair`, clears the local ADB keys and removes the helper log. Android wireless-debugging pairing/developer settings may remain.
 
 ## Test224 signing limitation
 
