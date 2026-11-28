@@ -19,6 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "app.buddy.myai"
+        buildConfigField("int", "MCP_PORT", "8766")
         minSdk = 30
         targetSdk = 36
         versionCode = appVersionCode
@@ -73,6 +74,6 @@ android {
     }
 
     buildFeatures {
-        buildConfig = false
+        buildConfig = true
     }
 }
