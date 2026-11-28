@@ -1,0 +1,22 @@
+config_version: 1
+control_plane:
+  base_url: "https://api.openai.com"
+  tunnel_id: "tunnel_6b02e7e420948191a1829df4a5373d20"
+  api_key: "file:/tmp/buddy-runtime/control-plane-api-key"
+health:
+  listen_addr: "127.0.0.1:0"
+  url_file: "/tmp/buddy-runtime/health.url"
+process:
+  pid_file: "/tmp/buddy-runtime/tunnel-client.pid"
+log:
+  level: info
+  format: json
+  file: "/tmp/buddy-runtime/tunnel-client.log"
+mcp:
+  server_urls:
+    - channel: main
+      url: "http://127.0.0.1:18766/mcp"
+  extra_headers:
+    Authorization: "file:/tmp/buddy-runtime/buddy-auth-header"
+  discovery_extra_headers:
+    Authorization: "file:/tmp/buddy-runtime/buddy-discovery-auth-header"
