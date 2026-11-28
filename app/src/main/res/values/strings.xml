@@ -2379,7 +2379,7 @@
     <string name="runtime_helper_switch_info">Buddy installs and supervises REA, Bridge and read-only DroidMCP inside its app-private Alpine/PRoot Linux. Termux permissions and external Termux processes are not used.</string>
     <string name="runtime_notification_waiting_termux">Waiting for Buddy\\'s internal Bridge and DroidMCP servers to become ready.</string>
     <string name="runtime_notification_bridge_legacy">An existing Bridge endpoint is live. Buddy will not duplicate or stop it; stop the old process before migration.</string>
-    <string name="runtime_notification_termux_conflict">An external tunnel health endpoint is already live. Buddy will not adopt or stop it.</string>
+    <string name="runtime_notification_external_conflict">A Buddy or external tunnel endpoint is already listening on a protected port. Buddy will not create a duplicate tunnel or stop the existing process. Close the old runtime and Buddy will retry automatically.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
     <string name="runtime_api_key_hint">Paste API key (encrypted with Android Keystore). Use the button below to copy the saved key.</string>
     <string name="runtime_api_key_saved">A key is saved. Leave blank to keep it.</string>

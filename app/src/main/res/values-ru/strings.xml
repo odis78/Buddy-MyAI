@@ -2228,7 +2228,7 @@
     <string name="runtime_helper_switch_info">Buddy устанавливает и контролирует REA, Bridge и read-only DroidMCP внутри собственного Alpine/PRoot. Разрешение Termux RUN_COMMAND и внешние процессы Termux не используются.</string>
     <string name="runtime_notification_waiting_termux">Ожидаю готовности внутренних Bridge и DroidMCP Buddy.</string>
     <string name="runtime_notification_bridge_legacy">Обнаружен уже работающий Bridge. Buddy не будет создавать дубликат или останавливать его. Перед переносом старый процесс нужно штатно остановить.</string>
-    <string name="runtime_notification_termux_conflict">Обнаружен активный внешний туннель. Buddy не будет присваивать его себе или останавливать.</string>
+    <string name="runtime_notification_external_conflict">На защищённом порту уже работает Buddy или внешний туннель. Buddy не создаёт дубликат и не останавливает существующий процесс. Закройте старый runtime, после чего Buddy повторит запуск автоматически.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
     <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится в Android Keystore. Кнопка ниже копирует сохранённый ключ.</string>
     <string name="runtime_api_key_saved">Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.</string>

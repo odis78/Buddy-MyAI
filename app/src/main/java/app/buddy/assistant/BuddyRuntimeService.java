@@ -111,7 +111,7 @@ public final class BuddyRuntimeService extends Service {
                     || RuntimeHealthProbe.isLoopbackPortOpen(18768)) {
                 setPersistentState("EXTERNAL_CONFLICT",
                         "Another Buddy MCP endpoint (8766 or 18768) is already listening; no duplicate main tunnel was started.");
-                updateNotification(getString(R.string.runtime_notification_termux_conflict));
+                updateNotification(getString(R.string.runtime_notification_external_conflict));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
