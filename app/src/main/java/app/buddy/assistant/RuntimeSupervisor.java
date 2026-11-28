@@ -56,7 +56,7 @@ final class RuntimeSupervisor {
 
         machine.transition(RuntimeStateMachine.State.STARTING);
         if (requireBuddyMcp && !RuntimeHealthProbe.isBuddyMcpAvailable()) {
-            lastError = "Buddy MCP listener on 127.0.0.1:8766 is not active";
+            lastError = "Buddy MCP listener on 127.0.0.1:" + McpServer.PORT + " is not active";
             machine.transition(RuntimeStateMachine.State.UNHEALTHY);
             stopInternal();
             return false;
