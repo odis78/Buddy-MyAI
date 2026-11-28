@@ -41,6 +41,9 @@ grep -Fq 'android.permission.MANAGE_EXTERNAL_STORAGE' app/src/main/AndroidManife
 grep -Fq 'ANDROID_ADB_SERVER_PORT=5140' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'PORT = 8772' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'buddy-shell-owner-watch' app/src/main/java/app/buddy/assistant/Shell.java
+grep -Fq 'askForCode(svc, mine)' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'static String codeIn' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'background_type_code' app/src/main/res/values-ru/strings.xml
 grep -Fq 'new File(classPath).isFile()' app/src/main/java/app/buddy/assistant/Shell.java
 grep -Fq 'System.exit(0)' app/src/main/java/app/buddy/assistant/Shell.java
 grep -Fq 'PORT = 8768' app/src/main/java/app/buddy/assistant/MicServer.java
