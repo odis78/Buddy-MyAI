@@ -41,6 +41,9 @@ public final class BuddyRuntimeService extends Service {
     private boolean retryScheduled;
     private boolean reaRetryScheduled;
     private volatile boolean reaChannelConfigured;
+    private volatile boolean mainRemoteVerified;
+    private volatile boolean bridgeRemoteVerified;
+    private volatile boolean droidRemoteVerified;
 
     static void start(Context context) {
         Intent intent = new Intent(context, BuddyRuntimeService.class).setAction(ACTION_START);
@@ -122,6 +125,7 @@ public final class BuddyRuntimeService extends Service {
             }
             boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
             if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) supervisor.stop();
+            if (!supervisor.isReady()) mainRemoteVerified = false;
             boolean ready = supervisor.start();
             if (ready && !supervisor.isMcpDiscovered(0)) {
                 setPersistentState("DEGRADED", supervisor.diagnosticsSummary() + " · MCP initialize/tools/list not yet complete");
@@ -137,6 +141,7 @@ public final class BuddyRuntimeService extends Service {
                 return;
             }
             if (ready) {
+                mainRemoteVerified = true;
                 recovery.reset();
                 reaChannelConfigured = desiredReaChannel;
                 setPersistentState("READY", supervisor.diagnosticsSummary() + " · reconnects=" + recovery.failures());
@@ -213,10 +218,12 @@ public final class BuddyRuntimeService extends Service {
             }
             boolean bridgeReady;
             if (RuntimeHealthProbe.isLoopbackPortOpen(18080)) {
+                bridgeRemoteVerified = false;
                 setBridgePersistentState("EXTERNAL_CONFLICT",
                         "Legacy Bridge health port 18080 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
                 bridgeReady = false;
             } else {
+                if (!bridgeSupervisor.isReady()) bridgeRemoteVerified = false;
                 bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                         () -> bridgeSupervisor.start(),
                         (state, detail) -> setBridgePersistentState(state, "READY".equals(state) ? detail + " · " + bridgeSupervisor.diagnosticsSummary() : detail),
@@ -225,15 +232,19 @@ public final class BuddyRuntimeService extends Service {
                 if (bridgeReady && (!bridgeSupervisor.isMcpDiscovered(6) || !bridgeSupervisor.isRemoteConnected(6))) {
                     setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · 6-tool catalog/accepted response not both confirmed");
                     bridgeReady = false;
+                } else if (bridgeReady) {
+                    bridgeRemoteVerified = true;
                 }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
             boolean droidReady;
             if (RuntimeHealthProbe.isLoopbackPortOpen(44611)) {
+                droidRemoteVerified = false;
                 setDroidPersistentState("EXTERNAL_CONFLICT",
                         "Legacy DroidMCP health port 44611 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
                 droidReady = false;
             } else {
+                if (!droidMcpSupervisor.isReady()) droidRemoteVerified = false;
                 droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                         () -> droidMcpSupervisor.start(),
                         (state, detail) -> setDroidPersistentState(state, "READY".equals(state) ? detail + " · " + droidMcpSupervisor.diagnosticsSummary() : detail),
@@ -242,6 +253,8 @@ public final class BuddyRuntimeService extends Service {
                 if (droidReady && (!droidMcpSupervisor.isMcpDiscovered(5) || !droidMcpSupervisor.isRemoteConnected(5))) {
                     setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · 5-tool catalog/accepted response not both confirmed");
                     droidReady = false;
+                } else if (droidReady) {
+                    droidRemoteVerified = true;
                 }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
@@ -276,11 +289,11 @@ public final class BuddyRuntimeService extends Service {
         if (helperExecutor == null) return;
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
-            boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isRemoteConnected(0);
+            boolean mainReady = supervisor != null && supervisor.isReady() && supervisor.isMcpDiscovered(0) && mainRemoteVerified && supervisor.isControlPlanePolling(0);
             boolean bridgeConflict = RuntimeHealthProbe.isLoopbackPortOpen(18080);
             boolean droidConflict = RuntimeHealthProbe.isLoopbackPortOpen(44611);
-            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6) && bridgeSupervisor.isControlPlanePolling(6);
-            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady() && droidMcpSupervisor.isMcpDiscovered(5) && droidMcpSupervisor.isControlPlanePolling(5);
+            boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6) && bridgeRemoteVerified && bridgeSupervisor.isControlPlanePolling(6);
+            boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady() && droidMcpSupervisor.isMcpDiscovered(5) && droidRemoteVerified && droidMcpSupervisor.isControlPlanePolling(5);
             if (bridgeConflict && bridgeReady && bridgeSupervisor != null) {
                 bridgeSupervisor.stop();
                 bridgeReady = false;
@@ -329,7 +342,7 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            if (supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isRemoteConnected(0)) return;
+            if (supervisor.isReady() && supervisor.isMcpDiscovered(0) && mainRemoteVerified && supervisor.isControlPlanePolling(0)) return;
             String message = supervisor.lastError();
             setPersistentState("DEGRADED", supervisor.diagnosticsSummary() + " · reconnectAttempt=" + recovery.failures() + " · lastError=" + message);
             long delay = recovery.nextDelayMillis();
@@ -341,6 +354,9 @@ public final class BuddyRuntimeService extends Service {
 
     private void requestStop() {
         stopping = true;
+        mainRemoteVerified = false;
+        bridgeRemoteVerified = false;
+        droidRemoteVerified = false;
         helperLifecycle.markStopping();
         if (monitorTask != null) monitorTask.cancel(true);
         if (retryTask != null) retryTask.cancel(true);
