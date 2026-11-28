@@ -38,9 +38,9 @@ final class Background {
     /** In front of a chat's id: the bubble's live picture is that chat's background screen, not a browser tab. */
     static final String KEY = "bg:";
     /** Where the helper listens (this phone only). */
-    static final int PORT = 8771;
+    static final int PORT = 8772;
     /** Where the helper's own output goes (the shell user's folder): read back when it doesn't start. */
-    private static final String LOG = "/data/local/tmp/buddy-helper.log";
+    private static final String LOG = "/data/local/tmp/buddy-helper-test225.log";
     /** Buddy's adb keeps a server of its own: another app's (Termux's) on the usual port has other keys. */
     private static final String ADB = "export HOME=/root ANDROID_ADB_SERVER_PORT=5140; ";
     private static final String SECURE = "android.permission.WRITE_SECURE_SETTINGS";
@@ -600,7 +600,7 @@ final class Background {
         for (int p : ports) list.append(' ').append(p);
         // an old helper goes first. The pattern is anchored: unanchored it also matches the shell that runs this very
         // line (which names the helper further on), and killed it before the new helper started
-        String helper = "pkill -f '^app_process.*assistant.Shell'; CLASSPATH=" + c.getPackageCodePath()
+        String helper = "pkill -f '^app_process.*assistant.Shell " + PORT + " '; CLASSPATH=" + c.getPackageCodePath()
                 + " setsid app_process / " + Shell.class.getName() + " " + PORT + " " + Prefs.backgroundToken(c)
                 + " >" + LOG + " 2>&1 </dev/null &";
         // the port Wireless debugging announces on the Wi-Fi first (adb's own discovery): it moves now and then, and a

@@ -38,6 +38,9 @@ node --check scripts/mcp_stdio_smoke.mjs
 grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'android.permission.MANAGE_EXTERNAL_STORAGE' app/src/main/AndroidManifest.xml
 grep -Fq 'ANDROID_ADB_SERVER_PORT=5140' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'PORT = 8772' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'buddy-helper-test225.log' app/src/main/java/app/buddy/assistant/Background.java
+! grep -Fq "pkill -f '^app_process.*assistant.Shell';" app/src/main/java/app/buddy/assistant/Background.java
 ! grep -Fq 'ANDROID_ADB_SERVER_PORT=5138' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'shell: false' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 grep -Fq 'buddy-bridge' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
