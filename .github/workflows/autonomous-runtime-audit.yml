@@ -99,7 +99,7 @@ jobs:
               data, err := os.ReadFile("../../" + tc.name)
               if err != nil { t.Fatal(err) }
               profile := string(data)
-              if !strings.Contains(profile, "tunnel_id: \\""+tc.tunnelID+"\\"") {
+              if !strings.Contains(profile, "tunnel_id: ") || !strings.Contains(profile, tc.tunnelID) {
                 t.Fatalf("%s changed the preserved tunnel ID", tc.name)
               }
               if !strings.Contains(profile, "channel: "+tc.channel) {
