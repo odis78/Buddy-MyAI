@@ -39,6 +39,9 @@ grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtim
 grep -Fq 'android.permission.MANAGE_EXTERNAL_STORAGE' app/src/main/AndroidManifest.xml
 grep -Fq 'ANDROID_ADB_SERVER_PORT=5140' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'PORT = 8772' app/src/main/java/app/buddy/assistant/Background.java
+grep -Fq 'PORT = 8768' app/src/main/java/app/buddy/assistant/MicServer.java
+grep -Fq 'PORT = 8769' app/src/main/java/app/buddy/assistant/SshServer.java
+grep -Fq 'nc 127.0.0.1 8768' linux/arecord
 grep -Fq 'assistant.Shell " + PORT + " ' app/src/main/java/app/buddy/assistant/Background.java
 grep -Fq 'buddy-helper-test225.log' app/src/main/java/app/buddy/assistant/Background.java
 ! grep -Fq "pkill -f '^app_process.*assistant.Shell';" app/src/main/java/app/buddy/assistant/Background.java

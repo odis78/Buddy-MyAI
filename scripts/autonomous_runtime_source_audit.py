@@ -57,6 +57,8 @@ add("stable_test225_signing", (ROOT / "signing/test225-debug.keystore").is_file(
     "Test225 debug APKs use a stable, explicitly test-only signing identity for repeatable in-place updates")
 add("side_by_side_package", app_id is not None and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix is not None and debug_suffix.group(1) == ".test225",
     "Test225 uses app.buddy.myai.gt.test225 so Test224 remains installed and untouched")
+add("isolated_phone_service_ports", "PORT = 8768" in read("app/src/main/java/app/buddy/assistant/MicServer.java") and "PORT = 8769" in read("app/src/main/java/app/buddy/assistant/SshServer.java") and "nc 127.0.0.1 8768" in read("linux/arecord"),
+    "Test225 isolates microphone and SSH ports from Test220/Test224 and keeps the Linux recorder in sync")
 add("isolated_background_helper", "PORT = 8772" in read("app/src/main/java/app/buddy/assistant/Background.java") and "buddy-helper-test225.log" in read("app/src/main/java/app/buddy/assistant/Background.java") and 'assistant.Shell " + PORT + " ' in read("app/src/main/java/app/buddy/assistant/Background.java"),
     "Test225 uses helper port 8772 and a private log path; its cleanup pattern cannot kill Test224's 8771 helper")
 add("isolated_background_adb_port", "ANDROID_ADB_SERVER_PORT=5140" in read("app/src/main/java/app/buddy/assistant/Background.java") and "ANDROID_ADB_SERVER_PORT=5138" not in read("app/src/main/java/app/buddy/assistant/Background.java"),
