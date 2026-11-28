@@ -249,9 +249,23 @@ public final class BuddyRuntimeService extends Service {
         reaMonitorTask = helperExecutor.scheduleWithFixedDelay(() -> {
             if (stopping) return;
             boolean mainReady = supervisor != null && supervisor.isReady();
+            boolean bridgeConflict = RuntimeHealthProbe.isLoopbackPortOpen(18080);
+            boolean droidConflict = RuntimeHealthProbe.isLoopbackPortOpen(44611);
             boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady();
             boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady();
+            if (bridgeConflict && bridgeReady && bridgeSupervisor != null) {
+                bridgeSupervisor.stop();
+                bridgeReady = false;
+            }
+            if (droidConflict && droidReady && droidMcpSupervisor != null) {
+                droidMcpSupervisor.stop();
+                droidReady = false;
+            }
             if (mainReady && bridgeReady && droidReady) return;
+            if (bridgeConflict) setBridgePersistentState("EXTERNAL_CONFLICT",
+                    "Legacy Bridge health port 18080 became occupied; Buddy stopped only its own duplicate helper.");
+            if (droidConflict) setDroidPersistentState("EXTERNAL_CONFLICT",
+                    "Legacy DroidMCP health port 44611 became occupied; Buddy stopped only its own duplicate helper.");
             if (!mainReady) {
                 setPersistentState("DEGRADED", supervisor == null ? "Main supervisor unavailable" : supervisor.lastError());
                 if (recovery != null) scheduleAttempt(recovery.nextDelayMillis());
@@ -269,6 +283,18 @@ public final class BuddyRuntimeService extends Service {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
             if (stopping || supervisor == null) return;
+            boolean legacyMainConflict = RuntimeHealthProbe.isLoopbackPortOpen(8766)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18766)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18767)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18768);
+            if (legacyMainConflict) {
+                if (supervisor.isReady()) supervisor.stop();
+                setPersistentState("EXTERNAL_CONFLICT",
+                        "An older Buddy MCP endpoint became active; Buddy stopped only its own duplicate main tunnel.");
+                updateNotification(getString(R.string.runtime_notification_external_conflict));
+                scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
+                return;
+            }
             if (supervisor.isReady()) return;
             String message = supervisor.lastError();
             setPersistentState("DEGRADED", message);
