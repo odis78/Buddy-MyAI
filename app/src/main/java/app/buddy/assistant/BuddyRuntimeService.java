@@ -284,7 +284,8 @@ public final class BuddyRuntimeService extends Service {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
             if (stopping || supervisor == null) return;
-            boolean legacyMainConflict = RuntimeHealthProbe.isLoopbackPortOpen(8766)
+            boolean legacyMainConflict = RuntimeHealthProbe.isLoopbackPortOpen(39073)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(8766)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18766)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18767)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18768);
