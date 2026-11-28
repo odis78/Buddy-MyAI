@@ -295,16 +295,24 @@ public final class BuddyRuntimeService extends Service {
             boolean bridgeReady = bridgeSupervisor != null && bridgeSupervisor.isReady() && bridgeSupervisor.isMcpDiscovered(6) && bridgeRemoteVerified && bridgeSupervisor.isControlPlanePolling(6);
             boolean droidReady = droidMcpSupervisor != null && droidMcpSupervisor.isReady() && droidMcpSupervisor.isMcpDiscovered(5) && droidRemoteVerified && droidMcpSupervisor.isControlPlanePolling(5);
             if (mainReady && bridgeReady && droidReady) return;
-            if (bridgeConflict) setBridgePersistentState("EXTERNAL_CONFLICT",
-                    "Legacy Bridge health port 18080 became occupied; Buddy stopped only its own duplicate helper.");
-            if (droidConflict) setDroidPersistentState("EXTERNAL_CONFLICT",
-                    "Legacy DroidMCP health port 44611 became occupied; Buddy stopped only its own duplicate helper.");
+            if (bridgeConflict) {
+                bridgeRemoteVerified = false;
+                setBridgePersistentState("EXTERNAL_CONFLICT",
+                        "Legacy Bridge health port 18080 is occupied; Buddy will not create a duplicate helper.");
+            } else if (!bridgeReady) {
+                setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "Bridge supervisor unavailable" : bridgeSupervisor.diagnosticsSummary() + " · lastError=" + bridgeSupervisor.lastError());
+            }
+            if (droidConflict) {
+                droidRemoteVerified = false;
+                setDroidPersistentState("EXTERNAL_CONFLICT",
+                        "Legacy DroidMCP health port 44611 is occupied; Buddy will not create a duplicate helper.");
+            } else if (!droidReady) {
+                setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "DroidMCP supervisor unavailable" : droidMcpSupervisor.diagnosticsSummary() + " · lastError=" + droidMcpSupervisor.lastError());
+            }
             if (!mainReady) {
                 setPersistentState("DEGRADED", supervisor == null ? "Main supervisor unavailable" : supervisor.lastError());
                 if (recovery != null) scheduleAttempt(recovery.nextDelayMillis());
             }
-            if (!bridgeReady) setBridgePersistentState("DEGRADED", bridgeSupervisor == null ? "Bridge supervisor unavailable" : bridgeSupervisor.lastError());
-            if (!droidReady) setDroidPersistentState("DEGRADED", droidMcpSupervisor == null ? "DroidMCP supervisor unavailable" : droidMcpSupervisor.lastError());
             long delay = reaRecovery.nextDelayMillis();
             updateNotification(getString(R.string.runtime_notification_rea_retry,
                     Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
