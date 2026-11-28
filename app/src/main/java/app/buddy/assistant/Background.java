@@ -601,7 +601,7 @@ final class Background {
         // an old helper goes first. The pattern is anchored: unanchored it also matches the shell that runs this very
         // line (which names the helper further on), and killed it before the new helper started
         String helper = "pkill -f '^app_process.*assistant.Shell " + PORT + " '; CLASSPATH=" + c.getPackageCodePath()
-                + " setsid app_process / " + Shell.class.getName() + " " + PORT + " " + Prefs.backgroundToken(c)
+                + " setsid app_process / " + Shell.class.getName() + " " + PORT + " " + Prefs.backgroundToken(c) + " " + LOG
                 + " >" + LOG + " 2>&1 </dev/null &";
         // the port Wireless debugging announces on the Wi-Fi first (adb's own discovery): it moves now and then, and a
         // scan can miss it while finding other apps' ports, which adb only calls "offline"
