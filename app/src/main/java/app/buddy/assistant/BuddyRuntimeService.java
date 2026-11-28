@@ -124,14 +124,14 @@ public final class BuddyRuntimeService extends Service {
             if (supervisor.isReady() && desiredReaChannel != reaChannelConfigured) supervisor.stop();
             boolean ready = supervisor.start();
             if (ready && !supervisor.isMcpDiscovered(0)) {
-                setPersistentState("DEGRADED", "Main Tunnel Client is healthy, but Buddy MCP tools have not been fully discovered yet.");
+                setPersistentState("DEGRADED", supervisor.diagnosticsSummary() + " · MCP initialize/tools/list not yet complete");
                 updateNotification(getString(R.string.runtime_notification_retry, 30));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
             if (ready && !supervisor.isRemoteConnected(0)) {
                 setPersistentState("CONTROL_PLANE_WAITING",
-                        "MCP initialize and tools/list passed, but no recent accepted remote response is confirmed. Check network egress and the exact tunnel-client log error.");
+                        supervisor.diagnosticsSummary() + " · waiting for a real accepted remote response");
                 updateNotification(getString(R.string.runtime_notification_retry, 30));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
@@ -139,10 +139,10 @@ public final class BuddyRuntimeService extends Service {
             if (ready) {
                 recovery.reset();
                 reaChannelConfigured = desiredReaChannel;
-                setPersistentState("READY", "");
+                setPersistentState("READY", supervisor.diagnosticsSummary() + " · reconnects=" + recovery.failures());
                 if (reaChannelConfigured) {
                     setReaPersistentState("CHANNEL_CONFIGURED",
-                            "REA 6.5.0 is a second MCP channel under Buddy's existing tunnel; local doctor passed 207/207 tools and 6/6 prompts.");
+                            "REA 6.5.0 is a second MCP channel under Buddy's existing tunnel; doctor 207/207 tools and 6/6 prompts · " + supervisor.diagnosticsSummary());
                     updateNotification(getString(R.string.runtime_notification_ready_with_rea));
                     scheduleReaAttempt(0);
                 } else if (!reaEnabled) {
@@ -156,7 +156,7 @@ public final class BuddyRuntimeService extends Service {
                 }
                 startMonitor();
             } else {
-                setPersistentState("WAITING", supervisor.lastError());
+                setPersistentState("WAITING", supervisor.diagnosticsSummary() + " · reconnectAttempt=" + recovery.failures() + " · lastError=" + supervisor.lastError());
                 long delay = recovery.nextDelayMillis();
                 updateNotification(getString(R.string.runtime_notification_retry,
                         Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
@@ -172,7 +172,7 @@ public final class BuddyRuntimeService extends Service {
         } catch (Exception e) {
             if (stopping) return;
             String message = safeMessage(e);
-            setPersistentState("ERROR", message);
+            setPersistentState("ERROR", supervisor.diagnosticsSummary() + " · reconnectAttempt=" + recovery.failures() + " · lastError=" + message);
             Log.w(TAG, "Tunnel Client start failed: " + message);
             long delay = recovery.nextDelayMillis();
             updateNotification(getString(R.string.runtime_notification_retry,
@@ -219,11 +219,11 @@ public final class BuddyRuntimeService extends Service {
             } else {
                 bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                         () -> bridgeSupervisor.start(),
-                        (state, detail) -> setBridgePersistentState(state, detail),
+                        (state, detail) -> setBridgePersistentState(state, "READY".equals(state) ? detail + " · " + bridgeSupervisor.diagnosticsSummary() : detail),
                         "6 tools; internal Bridge 0.1.3",
                         () -> bridgeSupervisor.lastError());
                 if (bridgeReady && (!bridgeSupervisor.isMcpDiscovered(6) || !bridgeSupervisor.isRemoteConnected(6))) {
-                    setBridgePersistentState("DEGRADED", "Bridge health is ready, but its 6-tool catalog and accepted remote response are not both confirmed yet.");
+                    setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · 6-tool catalog/accepted response not both confirmed");
                     bridgeReady = false;
                 }
             }
@@ -236,11 +236,11 @@ public final class BuddyRuntimeService extends Service {
             } else {
                 droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
                         () -> droidMcpSupervisor.start(),
-                        (state, detail) -> setDroidPersistentState(state, detail),
+                        (state, detail) -> setDroidPersistentState(state, "READY".equals(state) ? detail + " · " + droidMcpSupervisor.diagnosticsSummary() : detail),
                         "read-only filesystem tools; internal DroidMCP 0.4.0",
                         () -> droidMcpSupervisor.lastError());
                 if (droidReady && (!droidMcpSupervisor.isMcpDiscovered(5) || !droidMcpSupervisor.isRemoteConnected(5))) {
-                    setDroidPersistentState("DEGRADED", "DroidMCP health is ready, but its 5-tool catalog and accepted remote response are not both confirmed yet.");
+                    setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · 5-tool catalog/accepted response not both confirmed");
                     droidReady = false;
                 }
             }
@@ -248,7 +248,7 @@ public final class BuddyRuntimeService extends Service {
             if (bridgeReady && droidReady) {
                 reaRecovery.reset();
                 setReaPersistentState("CHANNEL_CONFIGURED",
-                        "REA 6.5.0 is available as the main tunnel's rea channel; doctor 207/207 tools, 6/6 prompts.");
+                        "REA 6.5.0 is available as the main tunnel's rea channel; doctor 207/207 tools, 6/6 prompts · " + supervisor.diagnosticsSummary());
                 updateNotification(getString(R.string.runtime_notification_ready_with_rea));
                 startReaMonitor();
             } else {
@@ -329,9 +329,9 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            if (supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isControlPlanePolling(0)) return;
+            if (supervisor.isReady() && supervisor.isMcpDiscovered(0) && supervisor.isRemoteConnected(0)) return;
             String message = supervisor.lastError();
-            setPersistentState("DEGRADED", message);
+            setPersistentState("DEGRADED", supervisor.diagnosticsSummary() + " · reconnectAttempt=" + recovery.failures() + " · lastError=" + message);
             long delay = recovery.nextDelayMillis();
             updateNotification(getString(R.string.runtime_notification_retry,
                     Math.max(1, TimeUnit.MILLISECONDS.toSeconds(delay))));
