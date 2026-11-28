@@ -59,7 +59,7 @@ function launchMyAi() {
       'start',
       '-a', 'android.intent.action.MAIN',
       '-c', 'android.intent.category.LAUNCHER',
-      '-p', 'app.buddy.myai.gt'
+      '-p', appPackage
     ];
     let stdout = '', stderr = '', finished = false;
     let child;
