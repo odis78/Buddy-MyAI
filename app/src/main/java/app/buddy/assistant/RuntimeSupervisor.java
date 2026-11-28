@@ -95,7 +95,7 @@ final class RuntimeSupervisor {
     }
 
     synchronized boolean isControlPlanePolling(int expectedTools) {
-        return process != null && process.isAlive()
+        return tunnelProcess != null && tunnelProcess.isAlive()
                 && RuntimeHealthProbe.isControlPlanePolling(new File(runtimeDir, "health.url"), expectedTools);
     }
 
