@@ -143,7 +143,7 @@ public class RuntimeHealthProbeTest {
                 + "\"mcp\":{\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,\"details\":{"
                 + "\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
                 + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
-                + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}},"
+                + "\"mcp\":{\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,\"details\":{\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\",\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":2,\"tool_names\":[\"alpha\",\"beta\"]}}},
                 + "\"control-plane\":{\"status\":\"ok\",\"state\":\"idle\",\"details\":{\"consecutive_failures\":0,\"configured_wait_seconds\":30,\"deadline_seconds\":60,\"last_success\":\"" + now + "\"}},"
                 + "\"response-delivery\":{\"status\":\"ok\",\"state\":\"accepted\",\"details\":{\"accepted\":1,\"last_accepted\":\"" + now + "\"}}}}";
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
