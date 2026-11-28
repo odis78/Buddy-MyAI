@@ -105,9 +105,10 @@ public final class BuddyRuntimeService extends Service {
     private void attemptStart() {
         if (stopping || supervisor == null) return;
         try {
-            // Test220/Test223/Test224 and the production package own separate fixed MCP ports.
-            // Never start the same main tunnel identity while an older Buddy runtime is still live.
-            if (RuntimeHealthProbe.isLoopbackPortOpen(8766)
+            // The old Termux main tunnel owns health port 39073; Test220/Test223/Test224 and release
+            // Buddy own separate MCP ports. Never duplicate the existing main tunnel identity.
+            if (RuntimeHealthProbe.isLoopbackPortOpen(39073)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(8766)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18766)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18767)
                     || RuntimeHealthProbe.isLoopbackPortOpen(18768)) {

@@ -18,9 +18,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Starts the hardened Tunnel Client as a native Android child process, outside the agent PRoot. */
 final class RuntimeProcessLauncher {
     static final String API_KEY_SECRET = "tunnel_control_plane_api_key";
-    // Dedicated Test224 tunnel ID supplied for this installation; never reuse Test220.
-    static final String DEFAULT_TUNNEL_ID = "tunnel_15bad0275a40c4f8eb80e7baec6e3ce2";
-    static final String RESERVED_TEST220_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
+    // Preserve the existing main tunnel identity. Test225 takes it over only after legacy health port 39073 is free.
+    static final String DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20";
     static final String BRIDGE_TUNNEL_ID = "tunnel_6ae28b8f01788191b42901f090964502";
     static final String DROIDMCP_TUNNEL_ID = "tunnel_6af1637e86788191aa429d5518d41938";
     static final String API_KEY_FILE = "control-plane-api-key";
