@@ -61,6 +61,65 @@ public class RuntimeProfileWriterTest {
         } catch (IllegalArgumentException expected) { }
     }
 
+    @Test public void generatedBridgeProfileMatchesPinnedFixture() throws Exception {
+        assertProfileFixture("bridge-mcp-tunnel-profile.yaml", BRIDGE_TUNNEL,
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -b /system -b /apex -b /vendor -b /product -b /system_ext -w /root/rea-source /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERMUX_BRIDGE_REA_ROOT=/root/rea-source /usr/bin/node /root/bridge/server/index.mjs");
+    }
+
+    @Test public void generatedDroidMcpProfileMatchesPinnedFixture() throws Exception {
+        assertProfileFixture("droidmcp-tunnel-profile.yaml", DROID_TUNNEL,
+                "/tmp/libproot.so --kill-on-exit --link2symlink -0 -r /tmp/alpine -b /dev -b /proc -b /sys -w /storage/emulated/0 /usr/bin/env -i HOME=/root LANG=C.UTF-8 TERM=xterm-256color COLORTERM=truecolor PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DROIDMCP_ROOT=/storage/emulated/0 /usr/bin/node /root/droidmcp/server/index.mjs");
+    }
+
+    private void assertProfileFixture(String name, String tunnelId, String command) throws Exception {
+        java.io.InputStream input = getClass().getClassLoader().getResourceAsStream(name);
+        assertNotNull(name + " fixture missing", input);
+        byte[] bytes;
+        try (java.io.InputStream in = input; java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            bytes = out.toByteArray();
+        }
+        assertEquals(new String(bytes, StandardCharsets.UTF_8),
+                RuntimeProfileWriter.renderStdioProfile(tunnelId, new File("/tmp/buddy-helper"),
+                        java.util.Collections.singletonList(command)));
+    }
+
+    @Test public void writeReaProfileCreatesCompleteAtomicProfile() throws Exception {
+        File dir = Files.createTempDirectory("rea-profile").toFile();
+        File target = new File(dir, "rea-mcp.yaml");
+        RuntimeProfileWriter.writeReaProfile(target, REA_TUNNEL, dir,
+                java.util.Collections.singletonList(REA_COMMAND));
+        assertTrue(target.isFile());
+        assertEquals(RuntimeProfileWriter.renderReaProfile(REA_TUNNEL, dir,
+                        java.util.Collections.singletonList(REA_COMMAND)),
+                new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
+    }
+
+    @Test public void rejectsMalformedTunnelId() {
+        try {
+            RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
+            fail("invalid tunnel id accepted");
+        } catch (IllegalArgumentException expected) { }
+    }
+
+    @Test public void writesProfileAtomicallyAndReplacesPreviousVersion() throws Exception {
+        File dir = Files.createTempDirectory("buddy-profile-test").toFile();
+        File target = new File(dir, "buddy-myai.yaml");
+        try {
+            Files.write(target.toPath(), "old".getBytes(StandardCharsets.UTF_8));
+            RuntimeProfileWriter.writeBuddyProfile(target, TUNNEL, new File(dir, "runtime"));
+            String yaml = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
+            assertTrue(yaml.contains(TUNNEL));
+            assertTrue(yaml.contains("discovery_extra_headers"));
+            assertFalse(new File(dir, "buddy-myai.yaml.installing").exists());
+        } finally {
+            target.delete();
+            dir.delete();
+        }
+    }
+
     @Test public void rejectsMalformedTunnelId() {
         try {
             RuntimeProfileWriter.renderBuddyProfile("../not-a-tunnel", new File("/tmp/buddy-runtime"));
