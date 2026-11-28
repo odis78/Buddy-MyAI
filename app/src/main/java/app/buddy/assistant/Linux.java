@@ -63,7 +63,7 @@ final class Linux {
             throw new IOException("Existing Alpine root is incomplete; preserved at "
                     + root.getAbsolutePath() + " for recovery");
         }
-        if (parent == null && !root.getParentFile().mkdirs()) {
+        if (parent == null) {
             throw new IOException("Alpine parent directory is unavailable");
         }
         if (!parent.isDirectory() && !parent.mkdirs()) {
