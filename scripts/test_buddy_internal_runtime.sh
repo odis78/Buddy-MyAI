@@ -23,6 +23,10 @@ test "$(grep -o 'isLoopbackPortOpen(39073)' app/src/main/java/app/buddy/assistan
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18768)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18080)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(44611)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'supervisor.isMcpDiscovered(0)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'bridgeSupervisor.isMcpDiscovered(6)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'droidMcpSupervisor.isMcpDiscovered(5)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'requiresAtLeastOneToolWhenNoExactCountIsRequested' app/src/test/java/app/buddy/assistant/RuntimeHealthProbeTest.java
 
 node --check app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 node --check app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs

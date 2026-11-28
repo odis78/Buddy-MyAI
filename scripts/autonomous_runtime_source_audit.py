@@ -81,6 +81,8 @@ add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBoo
     "Buddy independently supervises its main tunnel and internal Bridge/DroidMCP helpers")
 add("legacy_tunnel_conflict_guard", all(x in service for x in ["isLoopbackPortOpen(39073)", "isLoopbackPortOpen(8766)", "isLoopbackPortOpen(18766)", "isLoopbackPortOpen(18767)", "isLoopbackPortOpen(18768)", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)"]) and service.count("isLoopbackPortOpen(39073)") >= 2 and "static boolean isLoopbackPortOpen" in health_probe,
     "Test225 fails closed on legacy Buddy, Bridge and DroidMCP ports and stops only its own helpers if a conflict appears later")
+add("mcp_tool_discovery_gate", all(x in service for x in ["supervisor.isMcpDiscovered(0)", "bridgeSupervisor.isMcpDiscovered(6)", "droidMcpSupervisor.isMcpDiscovered(5)"]) and "&& retained > 0" in health_probe,
+    "Main, Bridge and DroidMCP are not marked ready until complete MCP tool discovery is evidenced")
 add("helper_shutdown_gate", all(x in helper_bootstrap for x in ["startIfActive", "runIfActive"]) and all(x in lifecycle_gate for x in ["markStopping", "cleanup", "startIfActive"]),
     "Helper startup is serialized against graceful shutdown")
 add("exact_process_ownership", all(x in supervisor for x in ["tunnelProcess.isAlive()", "RuntimeHealthProbe.isReady", "destroyForcibly"]),
