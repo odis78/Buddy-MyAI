@@ -104,7 +104,7 @@ public class RuntimeHealthProbeTest {
         File dir = Files.createTempDirectory("buddy-mcp-health-test").toFile();
         String body = "{\"schema_version\":1,\"component\":\"mcp\",\"status\":\"ok\",\"state\":\"discovered\",\"limited\":false,"
                 + "\"details\":{\"transport\":\"stdio\",\"child_state\":\"running\",\"child_generation\":\"child-1\",\"evidence\":\"same_child\","
-                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},
+                + "\"initialize\":{\"ok\":true,\"identity_complete\":true,\"limited\":false},"
                 + "\"tools_list\":{\"ok\":true,\"complete\":true,\"partial\":false,\"limited\":false,\"retained_count\":0,\"tool_names\":[]}}}";
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             Thread responder = respondOnce(server, body);
