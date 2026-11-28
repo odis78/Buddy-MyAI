@@ -19,7 +19,7 @@ public class AlpineRootValidatorTest {
         Files.delete(root.resolve("bin/sh"));
         Files.delete(root.resolve("usr/bin/env"));
         Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("/bin/busybox"));
-        Files.createSymbolicLink(root.resolve("usr/bin/env"), Path.of("/bin/busybox"));
+        Files.createSymbolicLink(root.resolve("usr/bin/env"), Paths.get("/bin/busybox"));
 
         assertTrue(AlpineRootValidator.isValid(root.toFile()));
     }
