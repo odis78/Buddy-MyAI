@@ -2216,19 +2216,19 @@
 
     <!-- Автономный Tunnel Client внутри Buddy. -->
     <string name="runtime_settings_title">Автономная Buddy</string>
-    <string name="runtime_settings_subtitle">Управление MCP-соединениями Buddy и Termux</string>
-    <string name="runtime_settings_info">Tunnel Client запускается из пакета Buddy. Адрес MCP для ChatGPT: 127.0.0.1:%1$d/mcp. В test222 основной tunnel ID пустой, чтобы не конфликтовать с активным Test220. Перед запуском укажи отдельно созданный ID. Оригинальный REA работает внутри существующего Alpine Buddy как канал этого туннеля. Для Bridge и DroidMCP используются собственные учётные данные Termux.</string>
-    <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (внешний)</string>
-    <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
+    <string name="runtime_settings_subtitle">Управление внутренними MCP-серверами Buddy</string>
+    <string name="runtime_settings_info">Buddy запускает Tunnel Client 0.0.19, REA 6.5.0, Bridge 0.1.3 и read-only DroidMCP 0.4.0 внутри собственного Alpine/PRoot Linux. MCP Buddy: 127.0.0.1:%1$d/mcp. REA работает вторым каналом основного туннеля Buddy; Bridge и DroidMCP сохраняют свои действующие Tunnel ID. Termux для обычной работы не нужен. Test225 устанавливается рядом с Test224: Android требует исходный ключ подписи Test224 для обновления поверх него; зашифрованные API-ключи привязаны к приложению и копируются один раз вручную.</string>
+    <string name="runtime_bridge_status_label">Buddy Linux Bridge 0.1.3 (внутренний)</string>
+    <string name="runtime_droid_status_label">Buddy Linux DroidMCP read-only (внутренний)</string>
     <string name="runtime_rea_status_label">REA внутри Buddy</string>
-    <string name="runtime_termux_monitor_info">Buddy один раз получает разрешение RUN_COMMAND и использует allow-external-apps=true. Для Bridge/DroidMCP нужны Node.js и curl. termux-setup-storage нужен только для доступа к общим файлам, а не для запуска туннелей. Buddy обновляет только собственный менеджер с резервной копией; старые менеджеры и REA не меняются.</string>
-    <string name="runtime_monitor_bridge">Включить/выключить управление Termux Bridge 0.1.3</string>
-    <string name="runtime_monitor_droidmcp">Включить/выключить управление Termux DroidMCP-Filesystem</string>
+    <string name="runtime_termux_monitor_info">Termux, разрешение RUN_COMMAND, Node.js в Termux и внешние процессы не требуются. Buddy устанавливает и контролирует собственные MCP-серверы внутри Alpine/PRoot в приватной области приложения.</string>
+    <string name="runtime_monitor_bridge">Включить/выключить внутренний Bridge Buddy Linux</string>
+    <string name="runtime_monitor_droidmcp">Включить/выключить внутренний DroidMCP read-only</string>
     <string name="runtime_enable_local_rea">Подключить оригинальный REA как канал Buddy</string>
-    <string name="runtime_helper_switch_info">Buddy управляет Bridge и DroidMCP внутри Termux отдельным обратимым скриптом. Оригинальный REA 6.5.0 остаётся в существующем Alpine/PRoot Buddy и работает каналом основного туннеля. Отдельный REA-туннель в Termux не запускается.</string>
-    <string name="runtime_notification_waiting_termux">Ожидаю готовности Termux Bridge и DroidMCP.</string>
-    <string name="runtime_notification_bridge_legacy">Обнаружен старый профиль Termux Bridge на порту 8080. Останови старый туннель штатным менеджером Termux, прежде чем Buddy запустит Bridge 0.1.3 на порту 18080. Один tunnel ID нельзя запускать дважды.</string>
-    <string name="runtime_notification_termux_conflict">Оба порта Termux Bridge отвечают. Нужно устранить дублирующие процессы в Termux.</string>
+    <string name="runtime_helper_switch_info">Buddy устанавливает и контролирует REA, Bridge и read-only DroidMCP внутри собственного Alpine/PRoot. Разрешение Termux RUN_COMMAND и внешние процессы Termux не используются.</string>
+    <string name="runtime_notification_waiting_termux">Ожидаю готовности внутренних Bridge и DroidMCP Buddy.</string>
+    <string name="runtime_notification_bridge_legacy">Обнаружен уже работающий Bridge. Buddy не будет создавать дубликат или останавливать его. Перед переносом старый процесс нужно штатно остановить.</string>
+    <string name="runtime_notification_termux_conflict">Обнаружен активный внешний туннель. Buddy не будет присваивать его себе или останавливать.</string>
     <string name="runtime_api_key_label">API-ключ управляющего сервера туннеля</string>
     <string name="runtime_api_key_hint">Вставьте API-ключ. Он хранится в Android Keystore. Кнопка ниже копирует сохранённый ключ.</string>
     <string name="runtime_api_key_saved">Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.</string>
@@ -2250,13 +2250,13 @@
     <string name="runtime_notification_ready">Соединение с ChatGPT активно</string>
     <string name="runtime_notification_waiting_mcp">Туннель запущен; ожидаю MCP initialize и tools/list.</string>
     <string name="runtime_notification_waiting_remote">Инструменты MCP обнаружены; ожидаю успешный опрос и подтверждённую доставку ответа.</string>
-    <string name="runtime_notification_ready_with_rea">Buddy, Termux Bridge и DroidMCP подключены; канал REA настроен</string>
+    <string name="runtime_notification_ready_with_rea">Buddy, внутренние Bridge и read-only DroidMCP подключены; канал REA настроен</string>
     <string name="runtime_notification_rea_installing">Buddy подключён. %1$s</string>
     <string name="runtime_notification_rea_retry">Buddy активен. Повтор запуска помощников через %1$d с.</string>
     <string name="runtime_notification_retry">Соединение не готово. Повтор через %1$d с.</string>
-    <string name="runtime_notification_setup">Откройте настройки Buddy, чтобы указать API-ключ и отдельный tunnel ID.</string>
-    <string name="runtime_unique_tunnel_id_required">Для test222 нужен новый уникальный tunnel ID. Не используй ID активной сборки Test220.</string>
-    <string name="runtime_test220_tunnel_id_reserved">Этот tunnel ID закреплён за активной сборкой Test220. Для test222 используй новый ID.</string>
+    <string name="runtime_notification_setup">Откройте настройки Buddy и сохраните API-ключ. Tunnel ID и порты управляются автоматически.</string>
+    <string name="runtime_unique_tunnel_id_required">Tunnel ID управляются Buddy автоматически; вручную вводить их не нужно.</string>
+    <string name="runtime_test220_tunnel_id_reserved">Существующий Tunnel ID Test220 зарезервирован и не должен повторно использоваться этой сборкой.</string>
     <string name="runtime_notification_stop">Остановить</string>
     <string name="runtime_toast_saved">Настройки runtime сохранены.</string>
     <string name="runtime_toast_started">Запрос на запуск runtime отправлен.</string>
@@ -2274,10 +2274,10 @@
     <string name="runtime_copy_api_key">Скопировать сохранённый API-ключ</string>
     <string name="runtime_copy_tunnel_id">Скопировать ID туннеля</string>
     <string name="runtime_setup_all">Автонастройка и запуск</string>
-    <string name="runtime_setup_all_info">Сохраняет настройки, безопасно обновляет отдельный менеджер Buddy с резервной копией, запускает Bridge и read-only DroidMCP, затем основной туннель с каналом REA. Старые менеджеры Termux и исторический маршрут REA не затрагиваются.</string>
+    <string name="runtime_setup_all_info">Сохраняет настройки, устанавливает REA, Bridge и read-only DroidMCP во внутренний Alpine/PRoot Buddy, затем запускает основной туннель и помощники. Termux и его процессы не изменяются и не останавливаются.</string>
     <string name="runtime_setup_requested">Запрошены автонастройка и запуск.</string>
     <string name="runtime_api_key_not_saved">API-ключ ещё не сохранён.</string>
     <string name="runtime_api_key_copied">Сохранённый API-ключ скопирован. Не оставляйте его в буфере обмена.</string>
     <string name="runtime_tunnel_id_copied">ID туннеля скопирован.</string>
-    <string name="runtime_test223_active">Test223 ещё активен на порту 18767. Перед запуском Test224 принудительно останови приложение Test223 через Настройки Android → Приложения → Buddy Test223 → Остановить. Не нажимай «Остановить runtime» в Test223: эта кнопка также остановит Termux Bridge и DroidMCP.</string>
+    <string name="runtime_test223_active">Если Test224 работает на порту 18768, остановите его runtime перед запуском Test225, чтобы не создать дубликат основного туннеля. Процессы Termux не затрагиваются.</string>
 </resources>

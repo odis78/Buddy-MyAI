@@ -2370,16 +2370,16 @@
 
     <!-- Buddy-owned autonomous Tunnel Client runtime. -->
     <string name="runtime_settings_title">Buddy runtime</string>
-    <string name="runtime_settings_subtitle">Manage Buddy and Termux MCP connections</string>
-    <string name="runtime_settings_info">Runs the pinned Tunnel Client from the Buddy app package. The ChatGPT to Buddy MCP endpoint is 127.0.0.1:%1$d/mcp. test222 starts with an empty main tunnel ID to avoid collision with active Test220. Enter a separately provisioned ID before starting the main tunnel. The original REA runs inside Buddy\'s existing Alpine runtime as a channel of this tunnel. Termux keeps its own credentials for Bridge and DroidMCP.</string>
-    <string name="runtime_termux_monitor_info">Buddy uses Termux RUN_COMMAND once authorized and requires allow-external-apps=true. Node.js and curl are required for Bridge/DroidMCP. termux-setup-storage is only needed for shared-file access, not tunnel startup. Buddy updates only its own manager with a backup; existing managers and REA are untouched.</string>
-    <string name="runtime_monitor_bridge">Enable/disable Termux Bridge management</string>
-    <string name="runtime_monitor_droidmcp">Enable/disable Termux DroidMCP-Filesystem management</string>
+    <string name="runtime_settings_subtitle">Manage Buddy\\'s internal MCP runtime</string>
+    <string name="runtime_settings_info">Buddy runs the pinned Tunnel Client, REA 6.5.0, Bridge 0.1.3 and read-only DroidMCP 0.4.0 inside its private Alpine/PRoot Linux. Main MCP endpoint: 127.0.0.1:%1$d/mcp. REA is a second channel under Buddy\\'s existing tunnel; Bridge and DroidMCP retain their existing tunnel IDs. Termux is not required for normal operation. Test225 is installed side-by-side because Android requires Test224\\'s original signing key for an in-place update; encrypted API keys remain package-local and must be copied once.</string>
+    <string name="runtime_termux_monitor_info">No Termux installation, RUN_COMMAND permission, Node.js or Termux process is needed. Buddy installs and supervises its own MCP helpers inside app-private Alpine/PRoot Linux.</string>
+    <string name="runtime_monitor_bridge">Enable/disable internal Buddy Linux Bridge</string>
+    <string name="runtime_monitor_droidmcp">Enable/disable internal read-only DroidMCP</string>
     <string name="runtime_enable_local_rea">Expose original REA as a Buddy tunnel channel</string>
-    <string name="runtime_helper_switch_info">Buddy manages Bridge and DroidMCP inside Termux with its own reversible script. Original REA 6.5.0 stays inside Buddy\'s existing Alpine/PRoot and shares the Buddy tunnel; no separate REA tunnel is started in Termux.</string>
-    <string name="runtime_notification_waiting_termux">Waiting for Termux Bridge and DroidMCP to become ready.</string>
-    <string name="runtime_notification_bridge_legacy">Legacy Termux Bridge profile on port 8080 detected. Stop the old tunnel with its existing Termux manager before Buddy starts Bridge 0.1.3 on port 18080. The same tunnel ID must not run twice.</string>
-    <string name="runtime_notification_termux_conflict">Both Termux Bridge health ports are live. Resolve duplicate tunnel processes in Termux.</string>
+    <string name="runtime_helper_switch_info">Buddy installs and supervises REA, Bridge and read-only DroidMCP inside its app-private Alpine/PRoot Linux. Termux permissions and external Termux processes are not used.</string>
+    <string name="runtime_notification_waiting_termux">Waiting for Buddy\\'s internal Bridge and DroidMCP servers to become ready.</string>
+    <string name="runtime_notification_bridge_legacy">An existing Bridge endpoint is live. Buddy will not duplicate or stop it; stop the old process before migration.</string>
+    <string name="runtime_notification_termux_conflict">An external tunnel health endpoint is already live. Buddy will not adopt or stop it.</string>
     <string name="runtime_api_key_label">Tunnel control-plane API key</string>
     <string name="runtime_api_key_hint">Paste API key (encrypted with Android Keystore). Use the button below to copy the saved key.</string>
     <string name="runtime_api_key_saved">A key is saved. Leave blank to keep it.</string>
@@ -2394,9 +2394,9 @@
     <string name="runtime_status_not_configured">Not configured</string>
     <string name="runtime_status_saved">Credentials saved</string>
     <string name="runtime_status_detail">Status: %1$s</string>
-    <string name="runtime_bridge_status_label">Termux Bridge 0.1.3 (external)</string>
+    <string name="runtime_bridge_status_label">Buddy Linux Bridge 0.1.3 (internal)</string>
     <string name="runtime_bridge_status_detail">Bridge: %1$s</string>
-    <string name="runtime_droid_status_label">DroidMCP read-only (Termux)</string>
+    <string name="runtime_droid_status_label">Buddy Linux DroidMCP read-only (internal)</string>
     <string name="runtime_droid_status_detail">DroidMCP: %1$s</string>
     <string name="runtime_rea_status_label">Buddy-local REA MCP channel</string>
     <string name="runtime_rea_status_detail">REA: %1$s</string>
@@ -2407,13 +2407,13 @@
     <string name="runtime_notification_ready">ChatGPT connection active</string>
     <string name="runtime_notification_waiting_mcp">Tunnel process ready; waiting for MCP initialize and tools/list.</string>
     <string name="runtime_notification_waiting_remote">MCP tools discovered; waiting for a recent successful remote poll and accepted response.</string>
-    <string name="runtime_notification_ready_with_rea">Buddy, Termux Bridge and DroidMCP connected; REA channel configured</string>
+    <string name="runtime_notification_ready_with_rea">Buddy, internal Bridge and read-only DroidMCP connected; REA channel configured</string>
     <string name="runtime_notification_rea_installing">Buddy connected. %1$s</string>
     <string name="runtime_notification_rea_retry">Buddy is active. REA tools retry in %1$d s.</string>
     <string name="runtime_notification_retry">Connection not ready. Retrying in %1$d s.</string>
-    <string name="runtime_notification_setup">Open Buddy settings to configure the API key and a unique tunnel ID.</string>
-    <string name="runtime_unique_tunnel_id_required">A new unique tunnel ID is required for test222. Do not reuse the active Test220 tunnel ID.</string>
-    <string name="runtime_test220_tunnel_id_reserved">This tunnel ID belongs to the active Test220 build. Use a new tunnel ID for test222.</string>
+    <string name="runtime_notification_setup">Open Buddy settings to save the control-plane API key. Tunnel IDs and ports are managed internally.</string>
+    <string name="runtime_unique_tunnel_id_required">Tunnel IDs are managed by Buddy; no manual tunnel ID is required.</string>
+    <string name="runtime_test220_tunnel_id_reserved">The existing Test220 tunnel identity is reserved and must not be reused by this build.</string>
     <string name="runtime_notification_stop">Stop</string>
     <string name="runtime_toast_saved">Runtime settings saved.</string>
     <string name="runtime_toast_started">Runtime start requested.</string>
@@ -2431,10 +2431,10 @@
     <string name="runtime_copy_api_key">Copy saved API key</string>
     <string name="runtime_copy_tunnel_id">Copy tunnel ID</string>
     <string name="runtime_setup_all">One-tap setup and start</string>
-    <string name="runtime_setup_all_info">Saves settings, safely updates Buddy’s separate Termux manager with a backup, starts Bridge and read-only DroidMCP, and starts the main tunnel with REA. Existing Termux managers and the historical REA route are left untouched.</string>
+    <string name="runtime_setup_all_info">Saves settings, installs REA, Bridge and read-only DroidMCP inside Buddy\\'s app-private Alpine/PRoot Linux, then starts the main tunnel and internal helpers. Termux and its processes are not modified or stopped.</string>
     <string name="runtime_setup_requested">Automatic setup and startup requested.</string>
     <string name="runtime_api_key_not_saved">No API key is saved yet.</string>
     <string name="runtime_api_key_copied">Saved API key copied to clipboard. Treat the clipboard as sensitive.</string>
     <string name="runtime_tunnel_id_copied">Tunnel ID copied.</string>
-    <string name="runtime_test223_active">Test223 is still active on port 18767. Force-stop the Test223 app from Android Settings → Apps → Buddy Test223 before starting Test224. Do not use Test223 Stop runtime: it also stops Termux Bridge and DroidMCP.</string>
+    <string name="runtime_test223_active">If Test224 is running on port 18768, stop its Buddy runtime before starting Test225 to avoid a duplicate main tunnel. Termux processes remain untouched.</string>
 </resources>
