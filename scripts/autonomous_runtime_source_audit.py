@@ -69,8 +69,8 @@ add("pinned_tunnel_client_binary", all(x in binary for x in ["EXPECTED_SHA256", 
     "Pinned ARM64 Tunnel Client is located in nativeLibraryDir and SHA-256 verified")
 add("rea_internal_channel", all(x in profile for x in ['channel: main', 'channel: rea']) and "REA_TUNNEL_ID" not in launcher and "startReaConfigured" not in launcher,
     "REA runs as a second channel under the main Buddy tunnel, not as a separate tunnel")
-add("internal_bridge_droidmcp_launchers", all(x in launcher for x in ["BRIDGE_TUNNEL_ID", "DROIDMCP_TUNNEL_ID", "startBridgeConfigured", "startDroidMcpConfigured", "writeStdioProfile"]),
-    "Bridge and DroidMCP are launched as internal stdio MCP servers with their preserved tunnel IDs")
+add("internal_bridge_droidmcp_launchers", all(x in launcher for x in ["BRIDGE_TUNNEL_ID", "DROIDMCP_TUNNEL_ID", "startBridgeConfigured", "startDroidMcpConfigured", "writeStdioProfile", 'DEFAULT_TUNNEL_ID = "tunnel_6b02e7e420948191a1829df4a5373d20"']),
+    "Main, Bridge and DroidMCP keep their existing tunnel IDs; helpers are internal stdio MCP servers")
 add("internal_helper_installer", all(x in installer for x in ["BRIDGE_ASSET", "DROIDMCP_ASSET", "HELPER_SERVERS_READY=bridge-0.1.3;droidmcp-0.4.0", "REA_MCP_READY=207/207;6/6"]),
     "One app-private installer provisions REA, Bridge and read-only DroidMCP inside Alpine")
 add("bridge_fixed_command_allowlist", "const COMMANDS" in bridge and "shell: false" in bridge and "spawn(" in bridge,
@@ -79,7 +79,7 @@ add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory"
     "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
 add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBootstrap", "bridgeSupervisor", "droidMcpSupervisor", "reaChannelConfigured", "startReaMonitor"]) and "TermuxRuntimeController" not in service and "reaSupervisor" not in service,
     "Buddy independently supervises its main tunnel and internal Bridge/DroidMCP helpers")
-add("legacy_tunnel_conflict_guard", all(x in service for x in ["isLoopbackPortOpen(8766)", "isLoopbackPortOpen(18766)", "isLoopbackPortOpen(18767)", "isLoopbackPortOpen(18768)", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)"]) and "static boolean isLoopbackPortOpen" in health_probe,
+add("legacy_tunnel_conflict_guard", all(x in service for x in ["isLoopbackPortOpen(39073)", "isLoopbackPortOpen(8766)", "isLoopbackPortOpen(18766)", "isLoopbackPortOpen(18767)", "isLoopbackPortOpen(18768)", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)"]) and "static boolean isLoopbackPortOpen" in health_probe,
     "Test225 fails closed on legacy Buddy, Bridge and DroidMCP ports and stops only its own helpers if a conflict appears later")
 add("helper_shutdown_gate", all(x in helper_bootstrap for x in ["startIfActive", "runIfActive"]) and all(x in lifecycle_gate for x in ["markStopping", "cleanup", "startIfActive"]),
     "Helper startup is serialized against graceful shutdown")

@@ -16,7 +16,7 @@ ChatGPT remains the external control plane. Buddy owns the on-device Linux runti
 
 ## Preserved identities and ports
 
-- Test225 retains the Test224 Buddy-local main tunnel identity `tunnel_15bad0275a40c4f8eb80e7baec6e3ce2`. The previous Termux main tunnel identity `tunnel_6b02e7e420948191a1829df4a5373d20` remains external and untouched until cutover.
+- Test225 preserves the existing main tunnel identity `tunnel_6b02e7e420948191a1829df4a5373d20` from the current Termux profile. Test224's separate test identity `tunnel_15bad0275a40c4f8eb80e7baec6e3ce2` remains untouched in that installed app.
 - Bridge keeps `tunnel_6ae28b8f01788191b42901f090964502`.
 - DroidMCP keeps `tunnel_6af1637e86788191aa429d5518d41938`.
 - Main MCP ports are build-specific. No helper is allowed to change the user's existing external Termux profile, ports, credentials or process state.
@@ -27,7 +27,7 @@ ChatGPT remains the external control plane. Buddy owns the on-device Linux runti
 - The Alpine installer stages a verified rootfs and never recursively deletes an existing incomplete root. An incomplete root is preserved for diagnosis.
 - REA installation stages its components and retains prior runtime backups on failure.
 - DroidMCP is read-only. No write, delete, move or copy tool is exposed.
-- Existing Termux processes are not stopped or modified by Test225. Startup is fail-closed: it checks legacy Buddy MCP ports 8766, 18766, 18767 and 18768, plus the known external Bridge/DroidMCP health ports 18080 and 44611. If occupied, Test225 does not create a duplicate tunnel; it retries and, if a conflict appears later, stops only its own duplicate child. Before the final cutover, any old external Bridge/DroidMCP processes using the same tunnel IDs must be stopped gracefully.
+- Existing Termux processes are not stopped or modified by Test225. Startup is fail-closed: it checks the legacy main Tunnel Client health port 39073, Buddy MCP ports 8766, 18766, 18767 and 18768, plus the known external Bridge/DroidMCP health ports 18080 and 44611. If occupied, Test225 does not create a duplicate tunnel; it retries and, if a conflict appears later, stops only its own duplicate child. Before the final cutover, any old external Bridge/DroidMCP processes using the same tunnel IDs must be stopped gracefully.
 - Android may still require the user to grant Accessibility, Wireless debugging/ADB pairing, battery-exemption or all-files access. Buddy cannot bypass Android's system confirmations.
 - Uninstall removes Buddy's app-private Linux rootfs and processes. Android system pairing/developer settings may remain.
 

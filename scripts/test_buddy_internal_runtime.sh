@@ -12,12 +12,14 @@ test ! -e app/src/main/java/app/buddy/assistant/RuntimeConnectionManager.java
 ! grep -q 'tunnelId' app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java
 ! grep -q 'deleteTree(root)' app/src/main/java/app/buddy/assistant/Linux.java
 
+grep -Fq 'tunnel_6b02e7e420948191a1829df4a5373d20' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'tunnel_6ae28b8f01788191b42901f090964502' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'tunnel_6af1637e86788191aa429d5518d41938' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'channel: rea' app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java
 grep -Fq 'startBridgeConfigured' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'startDroidMcpConfigured' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
 grep -Fq 'RuntimeHelperBootstrap' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
+grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(39073)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18768)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(18080)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
 grep -Fq 'RuntimeHealthProbe.isLoopbackPortOpen(44611)' app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java
