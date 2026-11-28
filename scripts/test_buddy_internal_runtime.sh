@@ -22,7 +22,7 @@ grep -Fq 'RuntimeHelperBootstrap' app/src/main/java/app/buddy/assistant/BuddyRun
 node --check app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 node --check app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 
-! grep -Eq 'tool\(["'\''"](write_file|delete_file|move_file|copy_file)["'\''"]' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
+! grep -Eq 'name:[[:space:]]*"(write_file|delete_file|move_file|copy_file)"' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'shell: false' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 
