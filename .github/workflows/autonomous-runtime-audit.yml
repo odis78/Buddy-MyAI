@@ -226,6 +226,8 @@ jobs:
         run: |
           mkdir -p app/src/main/assets/runtime
           cp rea-dist/rea-agents-6.5.0.tgz app/src/main/assets/runtime/
+          expected="$(sed -nE 's/.*PACKAGE_SHA256 = \"([0-9a-f]{64})\".*/\1/p' app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java)"
+          printf '%s  %s\n' "$expected" app/src/main/assets/runtime/rea-agents-6.5.0.tgz | sha256sum --check
       - name: Verify and execute native ARM64 runtime
         run: |
           file dist/tunnel-client-runtime
