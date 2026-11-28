@@ -119,7 +119,7 @@ const TOOLS = [
   tool('diagnose_environment', 'Check availability and versions of the internal Buddy Linux development tools.'),
   tool('read_project_file', 'Read a small non-sensitive UTF-8 regular file under the configured project root.', { path: { type: 'string', description: 'Relative path such as package.json or README.md; secret files and symlinks are blocked.' } }, ['path']),
   tool('run_allowlisted_command', 'Run one fixed diagnostic command only. Ask the user to approve the exact command in conversation before calling with confirmed=true.', { command_id: { type: 'string', enum: Object.keys(COMMANDS) }, confirmed: { type: 'boolean', description: 'Must be true only after the user explicitly approves the exact command in conversation.' } }, ['command_id', 'confirmed']),
-  tool('launch_android_app', 'Launch only the preconfigured Buddy GT Android app. No package name or command can be supplied by the caller.')
+  tool('launch_android_app', 'Launch only the preconfigured Buddy app after explicit user approval. Set confirmed=true only after the user approves this exact action.', { confirmed: { type: 'boolean', description: 'Must be true only after explicit user approval in conversation.' } }, ['confirmed'])
 ];
 
 async function callTool(name, args = {}) {
@@ -146,6 +146,7 @@ async function callTool(name, args = {}) {
       return textResult({ commandId: args.command_id, ...await runCommand(COMMANDS[args.command_id]) });
     }
     case 'launch_android_app':
+      if (args.confirmed !== true) return textResult({ ok: false, blocked: true, error: 'Explicit user confirmation is required before launching the Buddy Android app.' });
       return textResult(await launchMyAi());
     default: throw new Error(`Unknown tool: ${name}`);
   }
