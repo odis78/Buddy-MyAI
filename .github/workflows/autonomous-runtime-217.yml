@@ -1,0 +1,170 @@
+name: Buddy Autonomous Runtime 217
+
+on:
+  push:
+    branches:
+      - work/autonomous-buddy-from-217-20261128
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: Protected ChatGPT connection contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Verify protected 217 files are byte-for-byte unchanged
+        run: |
+          git diff --exit-code d621393e51aede80691718b5f0093d4a2af72993 HEAD -- \
+            app/src/main/java/app/buddy/assistant/McpServer.java \
+            app/src/main/java/app/buddy/assistant/Prefs.java \
+            app/src/main/java/app/buddy/assistant/SetupActivity.java
+      - name: Verify package, port, version and preserved tunnel identities
+        run: |
+          grep -F 'applicationId = "app.buddy.myai"' app/build.gradle.kts
+          grep -F 'buildConfigField("int", "MCP_PORT", "8766")' app/build.gradle.kts
+          grep -F 'static final int PORT = 8766;' app/src/main/java/app/buddy/assistant/McpServer.java
+          grep -F 'VERSION = "2.3.20-JITI"' app/src/main/java/app/buddy/assistant/BuildInfo.java
+          grep -F 'VERSION_CODE = 217' app/src/main/java/app/buddy/assistant/BuildInfo.java
+          grep -F 'tunnel_6b02e7e420948191a1829df4a5373d20' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+          grep -F 'tunnel_6ae28b8f01788191b42901f090964502' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+          grep -F 'tunnel_6af1637e86788191aa429d5518d41938' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
+          ! grep -R -n '18769\|app.buddy.myai.gt.test225\|test225-debug.keystore' app/src/main app/build.gradle.kts
+      - name: Verify pinned helper payload digests
+        run: |
+          echo 'b84b49879f1dade4b4d48a4c2b6ce35b19b5399d27693451ac31fb01a698fcf4  app/src/main/assets/runtime/termux-bridge-0.1.3.mjs' | sha256sum --check
+          echo '75156254216e1b524d9e5eaac03fe113b432529a9bd1009e8698558c8d03a265  app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs' | sha256sum --check
+
+  tunnel-client-runtime:
+    name: Build pinned Tunnel Client 0.0.19 ARM64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: openai/tunnel-client
+          ref: 01d67bb4da0d8359b808b4761f8db171ab682cd7
+          path: tunnel-client
+      - name: Apply runtime hardening patch
+        run: python3 scripts/patch_tunnel_client_runtime.py tunnel-client
+      - name: Build static Linux ARM64 runtime
+        run: |
+          mkdir -p dist
+          docker run --rm --cap-drop=SYS_PTRACE \
+            -v "$PWD/tunnel-client:/src" -v "$PWD/dist:/out" -w /src \
+            -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=arm64 \
+            golang:1.27.3-alpine sh -c '
+              set -eu
+              go build -mod=readonly -trimpath -buildvcs=false \
+                -ldflags "-X github.com/openai/tunnel-client/pkg/version.Flavor=runtime -X github.com/openai/tunnel-client/pkg/version.GitSHA=01d67bb4da0d8359b808b4761f8db171ab682cd7 -X github.com/openai/tunnel-client/pkg/version.BuildFlags=-trimpath,-buildvcs=false" \
+                -o /out/tunnel-client-runtime ./cmd/client-runtime
+            '
+          file dist/tunnel-client-runtime
+          readelf -h dist/tunnel-client-runtime | grep -E 'Class:.*ELF64|Machine:.*AArch64'
+          ! readelf -l dist/tunnel-client-runtime | grep -q INTERP
+          echo 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e  dist/tunnel-client-runtime' | sha256sum --check
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: tunnel-client-0.0.19-arm64
+          path: dist/tunnel-client-runtime
+
+  rea-alpine-smoke:
+    name: Verify REA 6.5.0 on Alpine ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Package and test REA in Alpine
+        run: |
+          mkdir -p dist
+          docker run --rm --platform linux/arm64 -v "$PWD:/work" -w /work alpine:3.24.2 sh -c '
+            set -eu
+            apk add --no-cache nodejs-current npm python3 make g++ linux-headers git openjdk21-jre-headless android-tools >/dev/null
+            mkdir -p /tmp/rea-package /root/rea
+            npm pack rea-agents@6.5.0 --pack-destination /tmp/rea-package >/dev/null
+            tar -xzf /tmp/rea-package/rea-agents-6.5.0.tgz -C /root/rea --strip-components=1
+            cd /root/rea
+            npm install --omit=dev --no-audit --no-fund
+            REA_ROOT=/root/rea REA_MCP_INPUT_SCHEMA_PROFILE=compact REA_MCP_OUTPUT_SCHEMA_PROFILE=off REA_MCP_MAX_RESPONSE_BYTES=10485760 node scripts/rea.mjs mcp doctor --format json > /work/dist/rea-mcp-doctor.json
+            node /work/scripts/verify_rea_mcp_doctor.mjs /work/dist/rea-mcp-doctor.json
+            cp /work/scripts/rea_tools_list_probe.mjs /root/rea/scripts/
+            node /root/rea/scripts/rea_tools_list_probe.mjs /root/rea/scripts/rea.mjs > /work/dist/rea-mcp-tools-probe.json
+            git clone --depth 1 --branch rea-agents-6.5.0 https://github.com/morluto/rea.git /root/rea-source
+            test "$(git -C /root/rea-source rev-parse HEAD)" = "3b79af28e80785afce9f5998d8f03289402a1847"
+            mkdir -p /tmp/buddy-droidmcp-fixture
+            printf "buddy-smoke-ok\\n" > /tmp/buddy-droidmcp-fixture/smoke.txt
+            printf "secret=must-not-leak\\n" > /tmp/buddy-droidmcp-fixture/.env
+            ln -s /etc/passwd /tmp/buddy-droidmcp-fixture/escape-to-etc
+            node /work/scripts/mcp_stdio_smoke.mjs bridge /work/app/src/main/assets/runtime/termux-bridge-0.1.3.mjs /root/rea-source
+            node /work/scripts/mcp_stdio_smoke.mjs droidmcp /work/app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs /tmp/buddy-droidmcp-fixture
+            cp /tmp/rea-package/rea-agents-6.5.0.tgz /work/dist/
+          '
+          echo '531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699  dist/rea-agents-6.5.0.tgz' | sha256sum --check
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rea-agents-6.5.0-alpine-arm64
+          path: dist/*
+
+  android-apk:
+    name: Build unsigned inspection APK for package 217
+    needs: [source-contract, tunnel-client-runtime, rea-alpine-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: tunnel-client-0.0.19-arm64
+          path: dist
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: rea-agents-6.5.0-alpine-arm64
+          path: rea-dist
+      - name: Stage and verify pinned runtime payload
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/runtime app/src/main/jniLibs/arm64-v8a
+          echo '531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699  rea-dist/rea-agents-6.5.0.tgz' | sha256sum --check
+          echo 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e  dist/tunnel-client-runtime' | sha256sum --check
+          cp rea-dist/rea-agents-6.5.0.tgz app/src/main/assets/runtime/
+          cp dist/tunnel-client-runtime app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libtunnel-client.so
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+      - name: Build PRoot and native helpers
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" native/build.sh
+      - name: Run runtime JVM regression tests and build unsigned release APK
+        run: ./gradlew --no-daemon testGithubDebugUnitTest assembleGithubRelease
+      - name: Verify APK identity and embedded payloads
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/github/release -type f -name '*.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$TOOLS/aapt" dump badging "$APK" | grep -F "package: name='app.buddy.myai'"
+          "$TOOLS/aapt" dump badging "$APK" | grep -F "versionCode='217'"
+          "$TOOLS/aapt" dump badging "$APK" | grep -F "versionName='2.3.20-JITI'"
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libtunnel-client.so'
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/rea-agents-6.5.0.tgz'
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/termux-bridge-0.1.3.mjs'
+          unzip -Z1 "$APK" | grep -Fx 'assets/runtime/droidmcp-filesystem-0.4.0.mjs'
+          unzip -p "$APK" lib/arm64-v8a/libtunnel-client.so | sha256sum | grep -F 'f7c651958ffebf6e495d72f1406ee7603b6ebab3b77c211f9071e4b54904fb0e'
+          unzip -p "$APK" assets/runtime/rea-agents-6.5.0.tgz | sha256sum | grep -F '531717a06e92ca651aab52691190f916fac044272c01f875e22c5e293218e699'
+          if unzip -Z1 "$APK" | grep -Eq 'lib/arm64-v8a/libcloudflared\\.so'; then exit 1; fi
+          mkdir -p dist
+          cp "$APK" dist/buddy-217-unsigned-inspection.apk
+          sha256sum dist/buddy-217-unsigned-inspection.apk | tee dist/apk-sha256.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962c3c89aef350131
+        with:
+          name: buddy-217-unsigned-inspection
+          path: dist/buddy-217-unsigned-inspection.apk
