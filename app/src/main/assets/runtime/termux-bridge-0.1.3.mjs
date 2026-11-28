@@ -54,7 +54,7 @@ function runCommand(spec) {
 function launchMyAi() {
   return new Promise((resolve) => {
     const bin = '/system/bin/am';
-    const appPackage = process.env.BUDDY_ANDROID_PACKAGE || 'app.buddy.myai.gt.test225';
+    const appPackage = process.env.BUDDY_ANDROID_PACKAGE || 'app.buddy.myai';
     const args = [
       'start',
       '-a', 'android.intent.action.MAIN',
