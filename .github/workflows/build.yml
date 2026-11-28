@@ -65,6 +65,10 @@ jobs:
 
       - name: Build installable side-by-side test APK
         if: startsWith(github.ref, 'refs/heads/test/') || github.event_name == 'pull_request'
+        env:
+          BUDDY_KEYSTORE_PASSWORD: ${{ secrets.BUDDY_KEYSTORE_PASSWORD }}
+          BUDDY_KEY_ALIAS: ${{ secrets.BUDDY_KEY_ALIAS }}
+          BUDDY_KEY_PASSWORD: ${{ secrets.BUDDY_KEY_PASSWORD }}
         run: ./gradlew --no-daemon testGithubDebugUnitTest assembleGithubDebug
 
       - name: Collect APK

@@ -62,6 +62,7 @@ android {
             versionNameSuffix = "-test225"
             // Preserve Test224 untouched; its encrypted API key and Android Keystore key stay with that package.
             buildConfigField("int", "MCP_PORT", "18769")
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
         }
         release {
             isMinifyEnabled = false
