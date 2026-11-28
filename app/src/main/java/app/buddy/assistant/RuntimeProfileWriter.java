@@ -75,8 +75,16 @@ final class RuntimeProfileWriter {
 
     static String renderStdioProfile(String tunnelId, File runtimeDir,
                                      java.util.List<String> mcpCommand) {
+        return renderStdioProfile(tunnelId, "main", runtimeDir, mcpCommand);
+    }
+
+    static String renderStdioProfile(String tunnelId, String channel, File runtimeDir,
+                                     java.util.List<String> mcpCommand) {
         if (tunnelId == null || !tunnelId.matches("tunnel_[a-fA-F0-9]{32}")) {
             throw new IllegalArgumentException("Invalid stdio tunnel id");
+        }
+        if (channel == null || !channel.matches("[a-z][a-z0-9_-]{0,31}")) {
+            throw new IllegalArgumentException("Invalid stdio MCP channel");
         }
         if (runtimeDir == null || !runtimeDir.isAbsolute()) {
             throw new IllegalArgumentException("Absolute runtime directory is required");
@@ -112,14 +120,19 @@ final class RuntimeProfileWriter {
                 + "  file: \"" + yamlQuote(dir + "/tunnel-client.log") + "\"\n"
                 + "mcp:\n"
                 + "  commands:\n"
-                + "    - channel: main\n"
+                + "    - channel: " + channel + "\n"
                 + "      command: \"" + yamlQuote(command.toString()) + "\"\n";
     }
 
     static void writeStdioProfile(File target, String tunnelId, File runtimeDir,
                                   java.util.List<String> mcpCommand) throws IOException {
+        writeStdioProfile(target, tunnelId, "main", runtimeDir, mcpCommand);
+    }
+
+    static void writeStdioProfile(File target, String tunnelId, String channel, File runtimeDir,
+                                  java.util.List<String> mcpCommand) throws IOException {
         if (target == null) throw new IllegalArgumentException("stdio profile target is required");
-        byte[] bytes = renderStdioProfile(tunnelId, runtimeDir, mcpCommand)
+        byte[] bytes = renderStdioProfile(tunnelId, channel, runtimeDir, mcpCommand)
                 .getBytes(StandardCharsets.UTF_8);
         File parent = target.getAbsoluteFile().getParentFile();
         if (parent == null || (!parent.isDirectory() && !parent.mkdirs())) {
