@@ -113,11 +113,7 @@ public final class BuddyRuntimeService extends Service {
 
             // The old Termux main tunnel owns health port 39073; Test220/Test223/Test224 and release
             // Buddy own separate MCP ports. Never duplicate the existing main tunnel identity.
-            if (RuntimeHealthProbe.isLoopbackPortOpen(39073)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(8766)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18766)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18767)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18768)) {
+            if (hasLegacyMainConflict()) {
                 setPersistentState("EXTERNAL_CONFLICT",
                         "Another Buddy MCP endpoint is already listening; no duplicate main tunnel was started.");
                 updateNotification(getString(R.string.runtime_notification_external_conflict));
@@ -311,15 +307,20 @@ public final class BuddyRuntimeService extends Service {
         }, 30, 30, TimeUnit.SECONDS);
     }
 
+    /** Older Buddy builds may still own their MCP port. Do not mistake this build's own listener for a conflict. */
+    private boolean hasLegacyMainConflict() {
+        int[] legacyPorts = {39073, 8766, 18766, 18767, 18768};
+        for (int port : legacyPorts) {
+            if (port != McpServer.PORT && RuntimeHealthProbe.isLoopbackPortOpen(port)) return true;
+        }
+        return false;
+    }
+
     private void startMonitor() {
         if (monitorTask != null && !monitorTask.isDone()) return;
         monitorTask = executor.scheduleWithFixedDelay(() -> {
             if (stopping || supervisor == null) return;
-            boolean legacyMainConflict = RuntimeHealthProbe.isLoopbackPortOpen(39073)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(8766)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18766)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18767)
-                    || RuntimeHealthProbe.isLoopbackPortOpen(18768);
+            boolean legacyMainConflict = hasLegacyMainConflict();
             if (legacyMainConflict) {
                 if (supervisor.isReady()) supervisor.stop();
                 setPersistentState("EXTERNAL_CONFLICT",

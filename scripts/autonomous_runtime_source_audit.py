@@ -93,7 +93,8 @@ add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory"
     "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
 add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBootstrap", "bridgeSupervisor", "droidMcpSupervisor", "reaChannelConfigured", "startReaMonitor"]) and "TermuxRuntimeController" not in service and "reaSupervisor" not in service,
     "Buddy independently supervises its main tunnel and internal Bridge/DroidMCP helpers")
-add("legacy_tunnel_conflict_guard", all(x in service for x in ["isLoopbackPortOpen(39073)", "isLoopbackPortOpen(8766)", "isLoopbackPortOpen(18766)", "isLoopbackPortOpen(18767)", "isLoopbackPortOpen(18768)", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)"]) and service.count("isLoopbackPortOpen(39073)") >= 2 and "static boolean isLoopbackPortOpen" in health_probe,
+add("legacy_tunnel_conflict_guard", all(x in service for x in ["EXTERNAL_CONFLICT", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)", "hasLegacyMainConflict()", "port != McpServer.PORT"]) and "static boolean isLoopbackPortOpen" in health_probe,
+    "Test225 fails closed on legacy Buddy, Bridge and DroidMCP ports without mistaking its own MCP listener for a conflict")
     "Test225 fails closed on legacy Buddy, Bridge and DroidMCP ports and stops only its own helpers if a conflict appears later")
 add("mcp_tool_discovery_gate", all(x in service for x in ["supervisor.isMcpDiscovered(0)", "bridgeSupervisor.isMcpDiscovered(6)", "droidMcpSupervisor.isMcpDiscovered(5)"]) and "&& retained > 0" in health_probe,
     "Main, Bridge and DroidMCP are not marked ready until complete MCP tool discovery is evidenced")
