@@ -75,6 +75,8 @@ add("internal_helper_installer", all(x in installer for x in ["BRIDGE_ASSET", "D
     "One app-private installer provisions REA, Bridge and read-only DroidMCP inside Alpine")
 add("bridge_fixed_command_allowlist", "const COMMANDS" in bridge and "shell: false" in bridge and "spawn(" in bridge and "buddy-bridge" in bridge and "BUDDY_ANDROID_PACKAGE" in bridge and "TERMUX_BRIDGE_REA_ROOT" not in bridge and "args.confirmed !== true" in bridge and "['confirmed']" in bridge,
     "Bridge exposes fixed commands only and never invokes a shell")
+add("droidmcp_all_files_permission", "android.permission.MANAGE_EXTERNAL_STORAGE" in manifest and "Environment.isExternalStorageManager()" in launcher,
+    "The manifest declares Android all-files special access required by the read-only shared-storage tunnel")
 add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory", "directory_tree", "read-only safety policy", "Path escapes the configured read-only root"]) and not any(x in droid for x in ['tool("write_file"', 'tool("delete_file"', 'tool("move_file"', 'tool("copy_file"']),
     "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
 add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBootstrap", "bridgeSupervisor", "droidMcpSupervisor", "reaChannelConfigured", "startReaMonitor"]) and "TermuxRuntimeController" not in service and "reaSupervisor" not in service,

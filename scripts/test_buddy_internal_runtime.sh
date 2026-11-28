@@ -34,6 +34,7 @@ node --check scripts/mcp_stdio_smoke.mjs
 
 ! grep -Eq 'name:[[:space:]]*"(write_file|delete_file|move_file|copy_file)"' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
 grep -Fq 'Path escapes the configured read-only root' app/src/main/assets/runtime/droidmcp-filesystem-0.4.0.mjs
+grep -Fq 'android.permission.MANAGE_EXTERNAL_STORAGE' app/src/main/AndroidManifest.xml
 grep -Fq 'shell: false' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 grep -Fq 'buddy-bridge' app/src/main/assets/runtime/termux-bridge-0.1.3.mjs
 grep -Fq 'BUDDY_BRIDGE_REA_ROOT' app/src/main/java/app/buddy/assistant/RuntimeProcessLauncher.java
