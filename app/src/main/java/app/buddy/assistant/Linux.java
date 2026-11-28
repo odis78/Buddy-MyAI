@@ -17,7 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
@@ -41,39 +43,75 @@ final class Linux {
     }
 
     static boolean installed(Context c) {
-        return new File(root(c), "etc/alpine-release").exists();
+        File root = root(c);
+        return AlpineRootValidator.isValid(root);
     }
 
-    /** Downloads, verifies and unpacks Alpine. Safe to call again; it starts over if a previous try didn't finish. */
+    /**
+     * Downloads, verifies and stages Alpine, then atomically publishes it.
+     * An existing incomplete root is preserved for diagnosis instead of being recursively deleted.
+     */
     static synchronized void install(Context c) throws IOException {
         if (installed(c)) return;
         File root = root(c);
-        deleteTree(root);
-        root.mkdirs();
-        File tgz = new File(c.getCacheDir(), "alpine.tar.gz");
-        download(Mirrors.alpine(c) + ALPINE_PATH, tgz);
-        String sum = sha256(tgz);
-        if (!ALPINE_SHA256.equals(sum)) {
-            tgz.delete();
-            throw new IOException(c.getString(R.string.linux_download_corrupt, sum));
+        File parent = root.getParentFile();
+        if (root.exists()) {
+            String[] existing = root.isDirectory() ? root.list() : null;
+            if (existing != null && existing.length == 0) {
+                // A previous installer may have created only the empty target directory before interruption.
+                if (!root.delete()) throw new IOException("Empty incomplete Alpine directory could not be removed");
+            } else {
+                throw new IOException("Existing Alpine root is incomplete; preserved at "
+                        + root.getAbsolutePath() + " for recovery");
+            }
         }
-        File staging = new File(root.getParentFile(), "alpine.partial");
+        if (parent == null) {
+            throw new IOException("Alpine parent directory is unavailable");
+        }
+        if (!parent.isDirectory() && !parent.mkdirs()) {
+            throw new IOException("Alpine parent directory is unavailable");
+        }
+
+        File tgz = new File(c.getCacheDir(), "alpine.tar.gz");
+        File staging = new File(parent, "alpine.partial");
         deleteTree(staging);
         staging.mkdirs();
-        try (InputStream in = new GZIPInputStream(new BufferedInputStream(new FileInputStream(tgz)))) {
-            untar(in, staging);
+        try {
+            download(Mirrors.alpine(c) + ALPINE_PATH, tgz);
+            String sum = sha256(tgz);
+            if (!ALPINE_SHA256.equals(sum)) {
+                throw new IOException(c.getString(R.string.linux_download_corrupt, sum));
+            }
+            try (InputStream in = new GZIPInputStream(new BufferedInputStream(new FileInputStream(tgz)))) {
+                untar(in, staging);
+            }
+            write(new File(staging, "etc/resolv.conf"), DNS);
+            write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
+            new File(staging, "root").mkdirs();
+            new File(staging, "tmp").mkdirs();
+            if (!AlpineRootValidator.isValid(staging)) {
+                throw new IOException("Staged Alpine root failed structural validation");
+            }
+            if (!staging.renameTo(root)) {
+                throw new IOException(c.getString(R.string.linux_move_failed));
+            }
+        } finally {
+            tgz.delete();
+            if (staging.exists()) deleteTree(staging);
         }
-        write(new File(staging, "etc/resolv.conf"), DNS);
-        write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
-        new File(staging, "root").mkdirs();
-        new File(staging, "tmp").mkdirs();
-        tgz.delete();
-        deleteTree(root);
-        if (!staging.renameTo(root)) throw new IOException(c.getString(R.string.linux_move_failed));
     }
 
     /** The proot command line for running {@code cmd} inside Alpine. */
     static List<String> command(Context c, String... cmd) {
+        return commandAt(c, "/root", Collections.emptyMap(), cmd);
+    }
+
+    /** Builds the same isolated PRoot command with an explicit guest working directory and environment. */
+    static List<String> commandAt(Context c, String workingDirectory, Map<String, String> extraEnvironment,
+                                  String... cmd) {
+        if (workingDirectory == null || !workingDirectory.startsWith("/")) {
+            throw new IllegalArgumentException("Absolute Alpine working directory is required");
+        }
         String lib = c.getApplicationInfo().nativeLibraryDir;
         List<String> a = new ArrayList<>(Arrays.asList(lib + "/libproot.so",
                 "--kill-on-exit", "--link2symlink", "-0",
@@ -82,14 +120,52 @@ final class Linux {
                 // one sound card, "Buddy microphone" (Android hides its own): programs then try to record, and
                 // recording goes through Buddy's stand-in arecord/rec (MicServer)
                 "-b", root(c).getAbsolutePath() + "/etc/buddy/asound-cards:/proc/asound/cards",
-                "-w", "/root"));
+                "-w", workingDirectory));
         // the phone's own fonts, for every script and emoji: the background browser shows pages in any language
         // without a big font download (Alpine's Chromium only brings a Latin one)
         if (new File("/system/fonts").isDirectory()) a.addAll(Arrays.asList("-b", "/system/fonts:/usr/share/fonts/android"));
         a.addAll(Arrays.asList("/usr/bin/env", "-i", "HOME=/root", "LANG=C.UTF-8", "TERM=xterm-256color", "COLORTERM=truecolor",
                 "PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"));
+        if (extraEnvironment != null) {
+            for (Map.Entry<String, String> entry : extraEnvironment.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    a.add(entry.getKey() + "=" + entry.getValue());
+                }
+            }
+        }
         a.addAll(Arrays.asList(cmd));
         return a;
+    }
+
+    /** Same isolated command with the Android system partition exposed for the fixed am launch bridge. */
+    static List<String> commandAtWithSystem(Context c, String workingDirectory,
+                                            Map<String, String> extraEnvironment, String... cmd) {
+        List<String> args = commandAt(c, workingDirectory, extraEnvironment, cmd);
+        int workingDirectoryFlag = args.indexOf("-w");
+        if (workingDirectoryFlag < 0) throw new IllegalStateException("PRoot working directory flag is missing");
+        String[] androidSystemBinds = {"/system", "/apex", "/vendor", "/product", "/system_ext"};
+        for (String bind : androidSystemBinds) {
+            if (new File(bind).isDirectory()) {
+                args.add(workingDirectoryFlag, bind);
+                args.add(workingDirectoryFlag, "-b");
+                workingDirectoryFlag += 2;
+            }
+        }
+        return args;
+    }
+
+    /** Exposes shared storage to the read-only DroidMCP process. */
+    static List<String> commandAtWithStorage(Context c, String workingDirectory,
+                                             Map<String, String> extraEnvironment, String... cmd) {
+        List<String> args = commandAt(c, workingDirectory, extraEnvironment, cmd);
+        int workingDirectoryFlag = args.indexOf("-w");
+        if (workingDirectoryFlag < 0) throw new IllegalStateException("PRoot working directory flag is missing");
+        File storage = new File("/storage/emulated/0");
+        if (storage.isDirectory()) {
+            args.add(workingDirectoryFlag, storage.getAbsolutePath() + ":" + storage.getAbsolutePath());
+            args.add(workingDirectoryFlag, "-b");
+        }
+        return args;
     }
 
     static ProcessBuilder builder(Context c, String... cmd) {
@@ -122,9 +198,27 @@ final class Linux {
             }
         });
         reader.start();
-        boolean done = p.waitFor(timeoutSec, TimeUnit.SECONDS);
+        boolean done;
+        try {
+            done = p.waitFor(timeoutSec, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            p.destroy();
+            try {
+                if (!p.waitFor(2, TimeUnit.SECONDS)) p.destroyForcibly();
+            } catch (InterruptedException ignored) {
+                p.destroyForcibly();
+            }
+            Thread.currentThread().interrupt();
+            throw e;
+        }
         if (!done) p.destroyForcibly();
-        reader.join(2000);
+        try {
+            reader.join(2000);
+        } catch (InterruptedException e) {
+            p.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
         String text;
         synchronized (out) {
             text = new String(out.toByteArray(), StandardCharsets.UTF_8);
