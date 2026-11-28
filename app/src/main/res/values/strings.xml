@@ -2105,6 +2105,8 @@
     <string name="background_needs_dev">Turn on Developer options first: Settings → About device → tap Build number 7 times.</string>
     <string name="background_needs_service">Turn on Buddy\'s accessibility service first.</string>
     <string name="background_no_dialog">Buddy didn\'t see the pairing dialog in time. Try again.</string>
+    <string name="background_type_code">Buddy can\'t read the pairing code. Keep the "Pair device with pairing code" dialog open and type its six digits here.</string>
+    <string name="background_no_code">The pairing dialog isn\'t open yet</string>
     <!-- Button, and the title of its confirmation: undoes the set-up. -->
     <string name="background_remove">Remove</string>
     <string name="background_remove_text">Buddy forgets the pairing and stops its helper. Chats work on the real screen again.</string>
