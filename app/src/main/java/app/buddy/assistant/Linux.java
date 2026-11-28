@@ -44,11 +44,7 @@ final class Linux {
 
     static boolean installed(Context c) {
         File root = root(c);
-        return new File(root, "etc/alpine-release").isFile()
-                && new File(root, "bin/sh").isFile()
-                && new File(root, "usr/bin/env").isFile()
-                && new File(root, "root").isDirectory()
-                && new File(root, "tmp").isDirectory();
+        return AlpineRootValidator.isValid(root);
     }
 
     /**
@@ -93,9 +89,7 @@ final class Linux {
             write(new File(staging, "etc/hosts"), "127.0.0.1 localhost\n::1 localhost\n");
             new File(staging, "root").mkdirs();
             new File(staging, "tmp").mkdirs();
-            if (!new File(staging, "etc/alpine-release").isFile()
-                    || !new File(staging, "bin/sh").isFile()
-                    || !new File(staging, "usr/bin/env").isFile()) {
+            if (!AlpineRootValidator.isValid(staging)) {
                 throw new IOException("Staged Alpine root failed structural validation");
             }
             if (!staging.renameTo(root)) {
