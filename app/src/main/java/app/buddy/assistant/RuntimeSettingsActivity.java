@@ -2,6 +2,8 @@ package app.buddy.assistant;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -56,6 +58,9 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(apiKey, full());
         savedKey = text(this, "", 12, MUTED);
         body.addView(savedKey, topGap(4));
+        Button copyKey = button(this, getString(R.string.runtime_copy_api_key), false);
+        body.addView(copyKey, topGap(6));
+        copyKey.setOnClickListener(v -> copySavedApiKey());
 
         autoStart = new Switch(this);
         autoStart.setText(getString(R.string.runtime_auto_start));
@@ -156,6 +161,19 @@ public final class RuntimeSettingsActivity extends Screen {
             } catch (Exception e) {
                 Toast.makeText(this, R.string.runtime_file_access_settings_unavailable, Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    private void copySavedApiKey() {
+        String value = Secrets.get(this, RuntimeProcessLauncher.API_KEY_SECRET);
+        if (value == null || value.trim().isEmpty()) {
+            Toast.makeText(this, R.string.runtime_api_key_not_saved, Toast.LENGTH_LONG).show();
+            return;
+        }
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("Buddy tunnel API key", value));
+            Toast.makeText(this, R.string.runtime_api_key_copied, Toast.LENGTH_SHORT).show();
         }
     }
 
