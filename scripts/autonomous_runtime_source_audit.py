@@ -25,6 +25,7 @@ profile = read("app/src/main/java/app/buddy/assistant/RuntimeProfileWriter.java"
 installer = read("app/src/main/java/app/buddy/assistant/ReaRuntimeInstaller.java")
 service = read("app/src/main/java/app/buddy/assistant/BuddyRuntimeService.java")
 supervisor = read("app/src/main/java/app/buddy/assistant/RuntimeSupervisor.java")
+health_probe = read("app/src/main/java/app/buddy/assistant/RuntimeHealthProbe.java")
 settings = read("app/src/main/java/app/buddy/assistant/RuntimeSettingsActivity.java")
 manifest = read("app/src/main/AndroidManifest.xml")
 bridge = read("app/src/main/assets/runtime/termux-bridge-0.1.3.mjs")
@@ -50,11 +51,11 @@ debug_suffix = re.search(r'applicationIdSuffix\s*=\s*"([^"]+)"', gradle)
 debug_port = 'buildConfigField("int", "MCP_PORT", "18769")' in gradle
 default_port = 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
 
-add("version_metadata", bool(version_name and version_name.group(1) == "2.3.25-GT.2" and version_code and version_code.group(1) == "225",
+add("version_metadata", version_name is not None and version_name.group(1) == "2.3.25-GT.2" and version_code is not None and version_code.group(1) == "225",
     "Test225 versionName=2.3.25-GT.2; versionCode=225")
-add("side_by_side_package", bool(app_id and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix and debug_suffix.group(1) == ".test225",
+add("side_by_side_package", app_id is not None and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix is not None and debug_suffix.group(1) == ".test225",
     "Test225 uses app.buddy.myai.gt.test225 so Test224 remains installed and untouched")
-add("isolated_loopback_ports", bool(default_port and debug_port and "PORT = BuildConfig.MCP_PORT" in mcp and "127.0.0.1" in mcp and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile,
+add("isolated_loopback_ports", default_port and debug_port and "PORT = BuildConfig.MCP_PORT" in mcp and "127.0.0.1" in mcp and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile,
     "Production MCP port 8766; Test225 debug port 18769; profile endpoint follows BuildConfig")
 add("builtin_alpine_proot", "ALPINE_SHA256" in linux and "libproot.so" in linux and "alpine.partial" in linux,
     "App-private Alpine 3.24.2 rootfs and bundled PRoot are verified before use")
@@ -78,6 +79,8 @@ add("droidmcp_read_only", all(x in droid for x in ["read_file", "list_directory"
     "DroidMCP exposes read-only filesystem tools and blocks path traversal/sensitive files")
 add("independent_helper_lifecycle", all(x in service for x in ["RuntimeHelperBootstrap", "bridgeSupervisor", "droidMcpSupervisor", "reaChannelConfigured", "startReaMonitor"]) and "TermuxRuntimeController" not in service and "reaSupervisor" not in service,
     "Buddy independently supervises its main tunnel and internal Bridge/DroidMCP helpers")
+add("legacy_tunnel_conflict_guard", all(x in service for x in ["isLoopbackPortOpen(8766)", "isLoopbackPortOpen(18766)", "isLoopbackPortOpen(18767)", "isLoopbackPortOpen(18768)", "isLoopbackPortOpen(18080)", "isLoopbackPortOpen(44611)"]) and "static boolean isLoopbackPortOpen" in health_probe,
+    "Test225 fails closed on legacy Buddy, Bridge and DroidMCP ports and stops only its own helpers if a conflict appears later")
 add("helper_shutdown_gate", all(x in helper_bootstrap for x in ["startIfActive", "runIfActive"]) and all(x in lifecycle_gate for x in ["markStopping", "cleanup", "startIfActive"]),
     "Helper startup is serialized against graceful shutdown")
 add("exact_process_ownership", all(x in supervisor for x in ["tunnelProcess.isAlive()", "RuntimeHealthProbe.isReady", "destroyForcibly"]),
