@@ -30,6 +30,13 @@ android {
     // Without them, assembleRelease produces an unsigned APK.
     val keystorePath = System.getenv("BUDDY_KEYSTORE")
     signingConfigs {
+        // Public, test-only signing identity. Never reuse this key for production releases.
+        create("test225Debug") {
+            storeFile = rootProject.file("signing/test225-debug.keystore")
+            storePassword = "buddy-test225-debug"
+            keyAlias = "buddy-test225"
+            keyPassword = "buddy-test225-debug"
+        }
         if (keystorePath != null) {
             create("release") {
                 storeFile = file(keystorePath)
@@ -62,7 +69,7 @@ android {
             versionNameSuffix = "-test225"
             // Preserve Test224 untouched; its encrypted API key and Android Keystore key stay with that package.
             buildConfigField("int", "MCP_PORT", "18769")
-            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("test225Debug")
         }
         release {
             isMinifyEnabled = false

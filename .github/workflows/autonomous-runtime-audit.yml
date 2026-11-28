@@ -351,6 +351,7 @@ jobs:
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -n "$BUILD_TOOLS" && test -x "$BUILD_TOOLS/apksigner" && test -x "$BUILD_TOOLS/aapt"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee dist/apk-signature-verification.txt
+          grep -F 'BE:2A:3B:92:51:45:18:E6:71:88:70:4B:8D:16:1F:96:E5:F5:A5:36:46:AC:2C:AB:78:4D:4F:89:F2:A0:B7:BF' dist/apk-signature-verification.txt
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -F "package: name='app.buddy.myai.gt.test225'"
           printf '%s\n' "$BADGING" | grep -F "versionCode='225'"

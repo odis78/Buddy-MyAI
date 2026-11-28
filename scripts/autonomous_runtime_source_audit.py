@@ -53,6 +53,8 @@ default_port = 'buildConfigField("int", "MCP_PORT", "8766")' in gradle
 
 add("version_metadata", version_name is not None and version_name.group(1) == "2.3.25-GT.2" and version_code is not None and version_code.group(1) == "225",
     "Test225 versionName=2.3.25-GT.2; versionCode=225")
+add("stable_test225_signing", (ROOT / "signing/test225-debug.keystore").is_file() and "test225Debug" in gradle and "buddy-test225" in gradle,
+    "Test225 debug APKs use a stable, explicitly test-only signing identity for repeatable in-place updates")
 add("side_by_side_package", app_id is not None and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix is not None and debug_suffix.group(1) == ".test225",
     "Test225 uses app.buddy.myai.gt.test225 so Test224 remains installed and untouched")
 add("isolated_loopback_ports", default_port and debug_port and "PORT = BuildConfig.MCP_PORT" in mcp and "127.0.0.1" in mcp and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile,
