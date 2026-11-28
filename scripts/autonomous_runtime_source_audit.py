@@ -57,6 +57,8 @@ add("stable_test225_signing", (ROOT / "signing/test225-debug.keystore").is_file(
     "Test225 debug APKs use a stable, explicitly test-only signing identity for repeatable in-place updates")
 add("side_by_side_package", app_id is not None and app_id.group(1) == "app.buddy.myai.gt" and debug_suffix is not None and debug_suffix.group(1) == ".test225",
     "Test225 uses app.buddy.myai.gt.test225 so Test224 remains installed and untouched")
+add("isolated_background_adb_port", "ANDROID_ADB_SERVER_PORT=5140" in read("app/src/main/java/app/buddy/assistant/Background.java") and "ANDROID_ADB_SERVER_PORT=5138" not in read("app/src/main/java/app/buddy/assistant/Background.java"),
+    "Test225 uses its own ADB server port 5140, isolated from Test224's 5138 and Termux's default")
 add("isolated_loopback_ports", default_port and debug_port and "PORT = BuildConfig.MCP_PORT" in mcp and "127.0.0.1" in mcp and 'MCP_URL = "http://127.0.0.1:" + McpServer.PORT + "/mcp"' in profile,
     "Production MCP port 8766; Test225 debug port 18769; profile endpoint follows BuildConfig")
 add("builtin_alpine_proot", "ALPINE_SHA256" in linux and "libproot.so" in linux and "alpine.partial" in linux,

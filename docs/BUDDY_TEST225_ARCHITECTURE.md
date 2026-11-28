@@ -19,7 +19,7 @@ ChatGPT remains the external control plane. Buddy owns the on-device Linux runti
 - Test225 preserves the existing main tunnel identity `tunnel_6b02e7e420948191a1829df4a5373d20` from the current Termux profile. Test224's separate test identity `tunnel_15bad0275a40c4f8eb80e7baec6e3ce2` remains untouched in that installed app.
 - Bridge keeps tunnel ID `tunnel_6ae28b8f01788191b42901f090964502` and channel name `bridge`.
 - DroidMCP keeps tunnel ID `tunnel_6af1637e86788191aa429d5518d41938` and channel name `droidmcp`.
-- Main MCP ports are build-specific. No helper is allowed to change the user's existing external Termux profile, ports, credentials or process state.
+- Main MCP ports are build-specific. Test225's background ADB server uses port 5140, separate from Test224's 5138 and Termux's default 5037. No helper is allowed to change the user's existing external Termux profile, ports, credentials or process state.
 
 ## Safety and lifecycle
 
