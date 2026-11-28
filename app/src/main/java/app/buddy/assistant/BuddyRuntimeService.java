@@ -133,15 +133,22 @@ public final class BuddyRuntimeService extends Service {
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
-            if (ready && !supervisor.isRemoteConnected(0)) {
+            if (ready && !mainRemoteVerified && !supervisor.isRemoteConnected(0)) {
                 setPersistentState("CONTROL_PLANE_WAITING",
-                        supervisor.diagnosticsSummary() + " · waiting for a real accepted remote response");
+                        supervisor.diagnosticsSummary() + " · waiting for the first accepted remote response");
+                updateNotification(getString(R.string.runtime_notification_retry, 30));
+                scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
+                return;
+            }
+            if (ready && !mainRemoteVerified) mainRemoteVerified = true;
+            if (ready && !supervisor.isControlPlanePolling(0)) {
+                setPersistentState("CONTROL_PLANE_WAITING",
+                        supervisor.diagnosticsSummary() + " · prior remote response verified; control-plane polling is not fresh");
                 updateNotification(getString(R.string.runtime_notification_retry, 30));
                 scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
                 return;
             }
             if (ready) {
-                mainRemoteVerified = true;
                 recovery.reset();
                 reaChannelConfigured = desiredReaChannel;
                 setPersistentState("READY", supervisor.diagnosticsSummary() + " · reconnects=" + recovery.failures());
@@ -229,11 +236,19 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setBridgePersistentState(state, "READY".equals(state) ? detail + " · " + bridgeSupervisor.diagnosticsSummary() : detail),
                         "6 tools; internal Bridge 0.1.3",
                         () -> bridgeSupervisor.lastError());
-                if (bridgeReady && (!bridgeSupervisor.isMcpDiscovered(6) || !bridgeSupervisor.isRemoteConnected(6))) {
-                    setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · 6-tool catalog/accepted response not both confirmed");
+                if (bridgeReady && !bridgeSupervisor.isMcpDiscovered(6)) {
+                    setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · 6-tool catalog not yet complete");
                     bridgeReady = false;
-                } else if (bridgeReady) {
-                    bridgeRemoteVerified = true;
+                } else if (bridgeReady && !bridgeRemoteVerified) {
+                    if (bridgeSupervisor.isRemoteConnected(6)) bridgeRemoteVerified = true;
+                    else {
+                        setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · waiting for the first accepted remote response");
+                        bridgeReady = false;
+                    }
+                }
+                if (bridgeReady && bridgeRemoteVerified && !bridgeSupervisor.isControlPlanePolling(6)) {
+                    setBridgePersistentState("DEGRADED", bridgeSupervisor.diagnosticsSummary() + " · control-plane polling is not fresh");
+                    bridgeReady = false;
                 }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
@@ -250,11 +265,19 @@ public final class BuddyRuntimeService extends Service {
                         (state, detail) -> setDroidPersistentState(state, "READY".equals(state) ? detail + " · " + droidMcpSupervisor.diagnosticsSummary() : detail),
                         "read-only filesystem tools; internal DroidMCP 0.4.0",
                         () -> droidMcpSupervisor.lastError());
-                if (droidReady && (!droidMcpSupervisor.isMcpDiscovered(5) || !droidMcpSupervisor.isRemoteConnected(5))) {
-                    setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · 5-tool catalog/accepted response not both confirmed");
+                if (droidReady && !droidMcpSupervisor.isMcpDiscovered(5)) {
+                    setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · 5-tool catalog not yet complete");
                     droidReady = false;
-                } else if (droidReady) {
-                    droidRemoteVerified = true;
+                } else if (droidReady && !droidRemoteVerified) {
+                    if (droidMcpSupervisor.isRemoteConnected(5)) droidRemoteVerified = true;
+                    else {
+                        setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · waiting for the first accepted remote response");
+                        droidReady = false;
+                    }
+                }
+                if (droidReady && droidRemoteVerified && !droidMcpSupervisor.isControlPlanePolling(5)) {
+                    setDroidPersistentState("DEGRADED", droidMcpSupervisor.diagnosticsSummary() + " · control-plane polling is not fresh");
+                    droidReady = false;
                 }
             }
             if (stopping || Thread.currentThread().isInterrupted()) return;
