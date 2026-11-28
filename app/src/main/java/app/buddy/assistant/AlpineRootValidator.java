@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -26,7 +25,7 @@ final class AlpineRootValidator {
         if (rootDirectory == null) return false;
         Path root = rootDirectory.toPath().toAbsolutePath().normalize();
         try {
-            if (!Files.isDirectory(root)) return false;
+            if (!Files.readAttributes(root, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).isDirectory()) return false;
             return isRegularFile(root, "/etc/alpine-release")
                     && isRegularFile(root, "/bin/sh")
                     && isRegularFile(root, "/usr/bin/env")
