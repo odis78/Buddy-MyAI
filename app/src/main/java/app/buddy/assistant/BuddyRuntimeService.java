@@ -105,6 +105,16 @@ public final class BuddyRuntimeService extends Service {
     private void attemptStart() {
         if (stopping || supervisor == null) return;
         try {
+            // Test224 and the production package use different fixed MCP ports. Never start a second
+            // main tunnel identity while either existing Buddy runtime still owns its local endpoint.
+            if (RuntimeHealthProbe.isLoopbackPortOpen(8766)
+                    || RuntimeHealthProbe.isLoopbackPortOpen(18768)) {
+                setPersistentState("EXTERNAL_CONFLICT",
+                        "Another Buddy MCP endpoint (8766 or 18768) is already listening; no duplicate main tunnel was started.");
+                updateNotification(getString(R.string.runtime_notification_termux_conflict));
+                scheduleAttempt(TimeUnit.SECONDS.toMillis(30));
+                return;
+            }
             android.content.SharedPreferences prefs = getSharedPreferences("runtime", MODE_PRIVATE);
             boolean reaEnabled = prefs.getBoolean("rea_enabled", true);
             boolean desiredReaChannel = reaEnabled && ReaRuntimeInstaller.isReady(this);
@@ -179,17 +189,31 @@ public final class BuddyRuntimeService extends Service {
                 });
                 return;
             }
-            boolean bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
-                    () -> bridgeSupervisor.start(),
-                    (state, detail) -> setBridgePersistentState(state, detail),
-                    "6 tools; internal Bridge 0.1.3",
-                    () -> bridgeSupervisor.lastError());
+            boolean bridgeReady;
+            if (RuntimeHealthProbe.isLoopbackPortOpen(18080)) {
+                setBridgePersistentState("EXTERNAL_CONFLICT",
+                        "Legacy Bridge health port 18080 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
+                bridgeReady = false;
+            } else {
+                bridgeReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
+                        () -> bridgeSupervisor.start(),
+                        (state, detail) -> setBridgePersistentState(state, detail),
+                        "6 tools; internal Bridge 0.1.3",
+                        () -> bridgeSupervisor.lastError());
+            }
             if (stopping || Thread.currentThread().isInterrupted()) return;
-            boolean droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
-                    () -> droidMcpSupervisor.start(),
-                    (state, detail) -> setDroidPersistentState(state, detail),
-                    "read-only filesystem tools; internal DroidMCP 0.4.0",
-                    () -> droidMcpSupervisor.lastError());
+            boolean droidReady;
+            if (RuntimeHealthProbe.isLoopbackPortOpen(44611)) {
+                setDroidPersistentState("EXTERNAL_CONFLICT",
+                        "Legacy DroidMCP health port 44611 is occupied; Buddy will not create a duplicate tunnel or stop the existing process.");
+                droidReady = false;
+            } else {
+                droidReady = RuntimeHelperBootstrap.startOne(helperLifecycle,
+                        () -> droidMcpSupervisor.start(),
+                        (state, detail) -> setDroidPersistentState(state, detail),
+                        "read-only filesystem tools; internal DroidMCP 0.4.0",
+                        () -> droidMcpSupervisor.lastError());
+            }
             if (stopping || Thread.currentThread().isInterrupted()) return;
             if (bridgeReady && droidReady) {
                 reaRecovery.reset();

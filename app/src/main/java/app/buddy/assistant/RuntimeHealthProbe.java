@@ -9,6 +9,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
 import java.net.InetSocketAddress;
@@ -18,6 +20,16 @@ import java.time.Instant;
 
 /** Local-only Tunnel Client probes. Process, MCP discovery and remote delivery are separate signals. */
 final class RuntimeHealthProbe {
+    /** True when a loopback TCP port is already owned by another local process. */
+    static boolean isLoopbackPortOpen(int port) {
+        if (port < 1 || port > 65535) return false;
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 250);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
     private static final int CONNECT_TIMEOUT_MS = 1200;
     private static final int READ_TIMEOUT_MS = 1200;
     private static final int MAX_HEALTH_BYTES = 1024 * 1024;
