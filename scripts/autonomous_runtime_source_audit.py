@@ -38,6 +38,7 @@ bridge_fixture = read("app/src/test/resources/bridge-mcp-tunnel-profile.yaml")
 droid_fixture = read("app/src/test/resources/droidmcp-tunnel-profile.yaml")
 workflow = read(".github/workflows/autonomous-runtime-audit.yml")
 migration_doc = read("docs/BUDDY_TEST225_ARCHITECTURE.md")
+pairing_test = read("app/src/test/java/app/buddy/assistant/BackgroundPairingCodeTest.java")
 
 checks: list[dict[str, str]] = []
 
@@ -63,6 +64,8 @@ add("isolated_phone_service_ports", "PORT = 8768" in read("app/src/main/java/app
     "Test225 isolates microphone and SSH ports from Test220/Test224 and keeps the Linux recorder in sync")
 add("forget_background_pairing_cleanup", all(x in read("app/src/main/java/app/buddy/assistant/Background.java") for x in ["adb unpair 127.0.0.1:", "adb_known_hosts.pb", "buddy-helper-test225.log", "setBackgroundAdbPort(c, 0)"]),
     "Forget pairing stops the helper, attempts ADB unpair, removes the helper log and clears private ADB keys")
+add("pairing_code_parser_unit_tests", all(x in pairing_test for x in ["parsesSixAsciiDigits", "parsesGroupedDigits", "normalizesUnicodeDigits", "rejectsShortOrAmbiguousCodes"]),
+    "JUnit covers ASCII, grouped and Unicode digits and rejects invalid pairing codes")
 add("manual_wireless_pairing_fallback", all(x in read("app/src/main/java/app/buddy/assistant/Background.java") for x in ["askForCode(svc, mine)", "static String codeIn", "Character.digit", "background_type_code", "background_no_code"]) and "background_type_code" in read("app/src/main/res/values-ru/strings.xml"),
     "If Accessibility cannot read the Android pairing dialog, Buddy asks for the six-digit code in its own bubble")
 add("uninstall_cleans_shell_helper", "buddy-shell-owner-watch" in read("app/src/main/java/app/buddy/assistant/Shell.java") and "System.exit(0)" in read("app/src/main/java/app/buddy/assistant/Shell.java") and "new File(classPath).isFile()" in read("app/src/main/java/app/buddy/assistant/Shell.java") and " + LOG" in read("app/src/main/java/app/buddy/assistant/Background.java"),
