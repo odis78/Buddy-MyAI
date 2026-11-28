@@ -70,10 +70,6 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(autoStart, topGap(18));
         body.addView(text(this, getString(R.string.runtime_auto_start_info), 12, MUTED), topGap(4));
 
-        Button save = button(this, getString(R.string.runtime_save), true);
-        body.addView(save, topGap(18));
-        save.setOnClickListener(v -> saveSettings());
-
         LinearLayout stateCard = column(this);
         stateCard.setPadding(dp(this, 14), dp(this, 12), dp(this, 14), dp(this, 12));
         stateCard.setBackground(outlined(this, CARD, 14, OUTLINE, 1));
@@ -95,7 +91,7 @@ public final class RuntimeSettingsActivity extends Screen {
         body.addView(grantStorageAccess, topGap(12));
         grantStorageAccess.setOnClickListener(v -> openAllFilesAccessSettings());
 
-        Button start = button(this, getString(R.string.runtime_start), true);
+        Button start = button(this, getString(R.string.runtime_setup_and_start), true);
         body.addView(start, topGap(14));
         start.setOnClickListener(v -> {
             if (!saveSettings()) return;

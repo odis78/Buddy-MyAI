@@ -2388,6 +2388,7 @@
     <string name="runtime_auto_start">Start after reboot</string>
     <string name="runtime_auto_start_info">Best effort. Android may delay startup if Buddy is battery-restricted.</string>
     <string name="runtime_save">Save settings</string>
+    <string name="runtime_setup_and_start">Save and start</string>
     <string name="runtime_start">Start runtime</string>
     <string name="runtime_stop">Stop runtime</string>
     <string name="runtime_status">Runtime status</string>

@@ -2237,6 +2237,7 @@
     <string name="runtime_auto_start">Запускать после перезагрузки</string>
     <string name="runtime_auto_start_info">Запуск выполняется по возможности. Android может задержать его, если ограничена фоновая работа Buddy.</string>
     <string name="runtime_save">Сохранить настройки</string>
+    <string name="runtime_setup_and_start">Сохранить и запустить</string>
     <string name="runtime_start">Запустить runtime</string>
     <string name="runtime_stop">Остановить runtime</string>
     <string name="runtime_status">Состояние runtime</string>
