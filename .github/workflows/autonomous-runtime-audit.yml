@@ -372,6 +372,8 @@ jobs:
           fi
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/termux-bridge-0.1.3.mjs'
           unzip -Z1 "$APK" | grep -Fx 'assets/runtime/droidmcp-filesystem-0.4.0.mjs'
+          unzip -Z1 "$APK" | grep -Fx 'assets/linux/arecord'
+          unzip -p "$APK" assets/linux/arecord | grep -F 'nc 127.0.0.1 8768'
           ! unzip -Z1 "$APK" | grep -F 'buddy-termux-tunnels.sh'
           mkdir -p dist
           cp "$APK" dist/buddy-test225-debug.apk
