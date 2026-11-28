@@ -2282,4 +2282,7 @@
     <string name="runtime_test223_active">Если Test224 работает на порту 18768, остановите его runtime перед запуском Test225, чтобы не создать дубликат основного туннеля. Процессы Termux не затрагиваются.</string>
     <string name="runtime_grant_file_access">Разрешить доступ ко всем файлам</string>
     <string name="runtime_file_access_settings_unavailable">Не удалось открыть настройки доступа ко всем файлам Android.</string>
+    <string name="runtime_bridge_status_detail">Bridge: %1$s</string>
+    <string name="runtime_droid_status_detail">DroidMCP: %1$s</string>
+    <string name="runtime_rea_status_detail">REA: %1$s</string>
 </resources>
