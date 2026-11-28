@@ -2408,4 +2408,5 @@
     <string name="runtime_api_key_copied">Saved API key copied to clipboard. Treat the clipboard as sensitive.</string>
     <string name="runtime_grant_file_access">Grant all-files access</string>
     <string name="runtime_file_access_settings_unavailable">Android could not open the all-files access settings.</string>
+    <string name="runtime_settings_subtitle">Manage the internal Buddy MCP runtime</string>
 </resources>
