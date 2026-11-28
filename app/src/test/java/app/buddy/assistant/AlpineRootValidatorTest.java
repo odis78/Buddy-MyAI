@@ -4,9 +4,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -16,7 +16,9 @@ public class AlpineRootValidatorTest {
 
     @Test public void acceptsAlpineRootWithGuestAbsoluteSymlinks() throws Exception {
         Path root = validRoot();
-        Files.createSymbolicLink(root.resolve("bin/sh"), Path.of("/bin/busybox"));
+        Files.delete(root.resolve("bin/sh"));
+        Files.delete(root.resolve("usr/bin/env"));
+        Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("/bin/busybox"));
         Files.createSymbolicLink(root.resolve("usr/bin/env"), Path.of("/bin/busybox"));
 
         assertTrue(AlpineRootValidator.isValid(root.toFile()));
@@ -24,28 +26,32 @@ public class AlpineRootValidatorTest {
 
     @Test public void acceptsRelativeSymlinkTargets() throws Exception {
         Path root = validRoot();
-        Files.createSymbolicLink(root.resolve("bin/sh"), Path.of("busybox"));
+        Files.delete(root.resolve("bin/sh"));
+        Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("busybox"));
 
         assertTrue(AlpineRootValidator.isValid(root.toFile()));
     }
 
     @Test public void rejectsMissingSymlinkTarget() throws Exception {
         Path root = validRoot();
-        Files.createSymbolicLink(root.resolve("bin/sh"), Path.of("/bin/not-installed"));
+        Files.delete(root.resolve("bin/sh"));
+        Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("/bin/not-installed"));
 
         assertFalse(AlpineRootValidator.isValid(root.toFile()));
     }
 
     @Test public void rejectsSymlinkTraversalOutsideRoot() throws Exception {
         Path root = validRoot();
-        Files.createSymbolicLink(root.resolve("bin/sh"), Path.of("../../../../outside"));
+        Files.delete(root.resolve("bin/sh"));
+        Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("../../../../outside"));
 
         assertFalse(AlpineRootValidator.isValid(root.toFile()));
     }
 
     @Test public void rejectsSymlinkLoops() throws Exception {
         Path root = validRoot();
-        Files.createSymbolicLink(root.resolve("bin/sh"), Path.of("sh"));
+        Files.delete(root.resolve("bin/sh"));
+        Files.createSymbolicLink(root.resolve("bin/sh"), Paths.get("sh"));
 
         assertFalse(AlpineRootValidator.isValid(root.toFile()));
     }
